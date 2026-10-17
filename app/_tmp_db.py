@@ -1,5 +1,5 @@
 # TEMPORAL: reemplazar por app/db.py de Franco (y now() por app/clock.py).
-# Solo las tablas de Guada (entries, notifications, push_subscriptions), con las columnas de CLAUDE.md §12.
+# Solo las tablas que usa Guada (entries, events, notifications, push_subscriptions), con las columnas de CLAUDE.md §12.
 # SQLite con WAL, busy_timeout=5000 y una conexión por operación. Funciones sync: llamarlas con asyncio.to_thread.
 import datetime as dt
 import os
@@ -27,6 +27,25 @@ CREATE TABLE IF NOT EXISTS entries (
     corrected INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     source TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id INTEGER NOT NULL,
+    patient_id INTEGER NOT NULL,
+    domain TEXT NOT NULL,
+    symptom TEXT NOT NULL,
+    severity INTEGER,
+    negated INTEGER NOT NULL,
+    occurred_at TEXT,
+    time_vague INTEGER NOT NULL,
+    speaker_role TEXT NOT NULL,
+    foreign_attribution TEXT,
+    quote TEXT NOT NULL,
+    plain TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    minutes_since_dose INTEGER,
+    is_new INTEGER NOT NULL,
+    reserved INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,6 +135,54 @@ def get_entry(entry_id: int) -> dict | None:
     try:
         row = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
         return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def mentioned_symptoms(patient_id: int) -> set[str]:
+    """Síntomas ya contados (no negados) en la historia del paciente, para calcular is_new."""
+    conn = connect()
+    try:
+        rows = conn.execute("SELECT DISTINCT symptom FROM events WHERE patient_id = ? AND negated = 0",
+                            (patient_id,)).fetchall()
+        return {r["symptom"] for r in rows}
+    finally:
+        conn.close()
+
+
+def canal_reservado_active(patient_id: int) -> bool:
+    """TEMPORAL: sin tabla consents se asume activo (lo que protege: lo reservado no le llega al paciente)."""
+    conn = connect()
+    try:
+        row = conn.execute("SELECT MAX(enabled) AS on_ FROM consents WHERE patient_id = ? AND kind = 'canal_reservado'",
+                           (patient_id,)).fetchone()
+    except sqlite3.OperationalError:
+        return True
+    finally:
+        conn.close()
+    return bool(row["on_"]) if row and row["on_"] is not None else True
+
+
+_EVENT_COLUMNS = ("domain", "symptom", "severity", "negated", "occurred_at", "time_vague", "speaker_role",
+                  "foreign_attribution", "quote", "plain", "confidence", "minutes_since_dose", "is_new", "reserved")
+
+
+def insert_events(entry_id: int, patient_id: int, events: list[dict]) -> list[int]:
+    """Guarda los eventos de una entrada (dicts con las columnas de events). Todo o nada."""
+    conn = connect()
+    try:
+        ids = []
+        with conn:
+            for ev in events:
+                values = [ev.get(c) for c in _EVENT_COLUMNS]
+                values = [v.isoformat() if hasattr(v, "isoformat") else int(v) if isinstance(v, bool) else v
+                          for v in values]
+                cur = conn.execute(
+                    f"INSERT INTO events (entry_id, patient_id, {', '.join(_EVENT_COLUMNS)})"
+                    f" VALUES (?, ?, {', '.join('?' * len(_EVENT_COLUMNS))})",
+                    (entry_id, patient_id, *values))
+                ids.append(cur.lastrowid)
+        return ids
     finally:
         conn.close()
 

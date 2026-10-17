@@ -123,3 +123,51 @@ def test_si_falla_la_ia_queda_el_texto_crudo_y_el_mensaje(tmp_data_dir, monkeypa
     body = r.json()
     assert body["understood"] == [] and body["error"].startswith("No pude entenderlo esta vez")
     assert _rows("entries")[0]["raw_text"] == "anoche hablaba con alguien que no estaba"
+
+
+def _marta_event(**over):
+    base = {"domain": "neuropsiquiatrico", "symptom": "alucinaciones", "negated": False,
+            "foreign_attribution": "el cansancio", "severity": None,
+            "time_said": {"day": "ayer", "weekday": None, "part": "noche", "clock": None},
+            "quote": "anoche hablaba con alguien que no estaba", "confidence": 0.9,
+            "plain": "Anoche Juan habló con alguien que no estaba. Vos pensás que fue el cansancio."}
+    return {**base, **over}
+
+
+def test_los_eventos_se_guardan_con_is_new_y_reserved(tmp_data_dir, monkeypatch):
+    from app.pipeline import extract
+    from tests.conftest import FakeModel, tool_response
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([_marta_event()])))
+    texto = "anoche hablaba con alguien que no estaba, debe ser el cansancio"
+
+    first = client.post("/api/entries", data={"person_id": 2, "text": texto}).json()
+    second = client.post("/api/entries", data={"person_id": 2, "text": texto}).json()
+
+    rows = _rows("events")
+    assert [r["entry_id"] for r in rows] == [first["entry_id"], second["entry_id"]]
+    assert [r["is_new"] for r in rows] == [1, 0]        # la segunda vez ya no es primera mención
+    assert all(r["reserved"] == 1 for r in rows)        # Marta + neuropsiquiátrico → reservado
+    r = rows[0]
+    assert (r["speaker_role"], r["foreign_attribution"], r["patient_id"]) == ("cuidador", "el cansancio", 1)
+    assert r["occurred_at"].startswith("2026-") and r["quote"] == "anoche hablaba con alguien que no estaba"
+
+
+def test_lo_de_juan_no_es_reservado_aunque_lo_pida(tmp_data_dir, monkeypatch):
+    from app.pipeline import extract
+    from tests.conftest import FakeModel, tool_response
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([_marta_event(
+        quote="veía gente", plain="Viste gente que no estaba.", foreign_attribution=None)])))
+    client.post("/api/entries", data={"person_id": 1, "text": "veía gente", "reserved_requested": "true"})
+    assert _rows("events")[0]["reserved"] == 0
+
+
+def test_si_falla_la_ia_no_hay_eventos(tmp_data_dir, monkeypatch):
+    import anthropic
+    from app.pipeline import extract
+    from tests.conftest import FakeModel
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.setattr(extract, "_call_model", FakeModel(anthropic.APIConnectionError(request=None)))
+    client.post("/api/entries", data={"person_id": 2, "text": "algo"})
+    assert _rows("events") == [] and len(_rows("entries")) == 1

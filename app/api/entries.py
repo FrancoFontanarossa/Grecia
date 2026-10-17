@@ -6,8 +6,9 @@ from typing import Literal, get_args
 from fastapi import APIRouter, Form, HTTPException
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
+from app import _tmp_rules as rules  # TEMPORAL: app.rules de Franco
 from app import notify
-from app.models import Entry, OccurredHint
+from app.models import Entry, Event, OccurredHint
 from app.pipeline import extract as extraction
 
 router = APIRouter()
@@ -57,10 +58,26 @@ async def create_entry(
     try:
         events = await extraction.extract(entry, patient_name=person["patient_name"] or "el paciente",
                                           speaker_name=person["name"])
-        response["understood"] = extraction.understood(events, db.now())
-        # TODO: guardar los eventos (tabla events de Franco) y pasar a rules.lanes / consent.
     except extraction.ExtractionError:
         response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
+    else:
+        await _save_events(entry, events)
+        response["understood"] = extraction.understood(events, db.now())
+        # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
 
     await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
     return response
+
+
+async def _save_events(entry: Entry, events: list[Event]) -> list[int]:
+    """Guarda los eventos con is_new y reserved calculados por código (CLAUDE.md §6.4)."""
+    if not events:
+        return []
+    mentioned = await asyncio.to_thread(db.mentioned_symptoms, entry.patient_id)
+    consent = await asyncio.to_thread(db.canal_reservado_active, entry.patient_id)
+    rows = [{**e.model_dump(), "minutes_since_dose": None,   # TODO: con med_schedule y doses de Franco
+             "is_new": new,
+             "reserved": rules.is_reserved(e, reserved_requested=entry.reserved_requested,
+                                           canal_reservado_active=consent)}
+            for e, new in zip(events, rules.mark_new(events, mentioned))]
+    return await asyncio.to_thread(db.insert_events, entry.id, entry.patient_id, rows)
