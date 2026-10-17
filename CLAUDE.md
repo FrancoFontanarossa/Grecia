@@ -435,14 +435,14 @@ class PatternCandidate(BaseModel):   # P1, pero el contrato se congela ahora
 ```
 
 Funciones (firmas):
-- `rules.red.check(text, patient) -> RedResult | None` · `pipeline.red_backup(text) -> bool` (solo sube)
+- `rules.red.check(text, patient) -> RedResult | None` (`patient` = patient_id; lee los fármacos de `med_schedule`) · `rules.red.evaluate(text, meds) -> RedResult | None` (lo mismo, puro) · `rules.red.from_backup(suspected_rule) -> RedResult` (rojo del respaldo, texto fijo) · `pipeline.red_backup(text) -> bool` (solo sube)
 - `pipeline.transcribe(audio_path) -> str` · `pipeline.extract(entry) -> list[Event]`
 - `rules.episodes.deviation(patient_id, dose_time) -> Deviation | None`
 - `rules.triggers.evaluate(patient_id, now) -> list[Trigger]`
 - `pipeline.explain(trigger, context) -> Explanation` · `pipeline.ask(trigger, context) -> QuestionText`
 - `rules.budget.allow(person_id, kind, now) -> bool`
-- `rules.lanes.evaluate(patient_id, new_events) -> list[Alert]` · `rules.consent.recipients(alert) -> list[Person]`
-- `rules.games.score(taps: list[TapEvent]) -> GameResult`
+- `rules.lanes.evaluate(patient_id, new_events, *, red=None, speaker_id=None) -> list[Alert]` (`new_events` = ids en `events`; `red` = el `RedResult` del mismo relato; guarda los avisos en `alerts` con sus destinatarios) · `rules.consent.recipients(alert, speaker_id=None) -> list[Person]` (`speaker_id` = quien lo contó: R4 y lo reservado)
+- `rules.games.score(taps: list[TapEvent], *, patient_id, taken_at=None) -> GameResult` (`taken_at` = `clock.now()` si no se pasa)
 - `rules.goals.status(patient_id, day) -> GoalDay`
 - `notify.send(person_id, kind, title, body, url) -> Notification` (guarda en `notifications` y manda la push; las reglas ya decidieron a quién)
 - `pipeline.report(patient_id, period) -> Report` · `rules.verifier.verify(report, facts, sources) -> Report`
@@ -462,6 +462,7 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /api/tests` | `{person_id, type: "golpeteo", taps: [{t_ms, side}]}` | `GameResult` + últimas 6 sesiones |
 | `GET/POST /api/consents/{patient_id}` | interruptores | estado |
 | `POST /api/notifications/{id}/read` | — | `{ok}` |
+| `POST /api/alerts/{id}/ack` | — | `{ok, acked_at, goal_paused}`: botón "Estoy bien" de la emergencia; `acked_at = clock.now()` y la meta sale de pausa si no queda ningún rojo sin atender |
 | `GET /api/patients/{id}/report` | — | `Report` + metadatos |
 | `GET /api/patients/{id}/technical` | — | series de pasos por franja, tomas, desvíos, juego |
 | `GET /admin/clock/state` | — | `{now, offset_seconds}` (`/admin/clock` es el panel HTML) |
@@ -469,6 +470,8 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /admin/inject_drop` | `{patient_id, dose_time, pct}` | `{ok}`: multiplica por `1 − pct` los pasos de las 2 h después de la toma y los rotula `source=inyectado`; 409 si ningún `biometric_syncs` cubre la ventana |
 | `POST /admin/snapshot` | — | `{ok}` |
 | `POST /admin/restore` | — | `{ok}` |
+| `POST /admin/seed` | — | `{ok, people, …conteos, warnings}`: corre `data/seed.py` (idempotente) |
+| `POST /admin/import_steps` | CSV `start,steps` por hora (cuerpo crudo), el de `import_health --export-csv` | `{ok, hours, window_start, window_end}`: `source=importacion` y la ventana en `biometric_syncs`; reemplaza lo importado e inyectado de esa ventana |
 
 ---
 
@@ -625,3 +628,4 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 18:45 | Hito 0 pasa a las 19:30, con push "Recibido" sin IA | Guada y Franco |
 | 18:45 | Orden del domingo: seed → precorrer → snapshot (justo antes de la caída en vivo) → ensayo, con restore entre ensayos | Guada y Franco |
 | 19:00 | `Deviation` suma `baseline` ("estrato" o "combinada") y `baseline_n`, para que el código arme el "why" según la base usada | Guada y Franco |
+| 20:15 | Reglas en `app/rules/`: firmas de `recipients(alert, speaker_id=None)`, `lanes.evaluate(…, red=, speaker_id=)` con ids de `events`, `games.score(taps, *, patient_id, taken_at=None)`, `red.evaluate` y `red.from_backup`; rutas `POST /api/alerts/{id}/ack`, `POST /admin/seed` y `POST /admin/import_steps` | Franco |
