@@ -1,4 +1,4 @@
-<!-- extract v1 · system prompt de pipeline.extract (claude-haiku-5-5, temperatura 0, con caché).
+<!-- extract v2 (minimizaciones en foreign_attribution) · system prompt de pipeline.extract (claude-haiku-5-5, sin temperature, con caché; va después de knowledge/parkinson.md).
      {{SINTOMAS}} lo reemplaza el código con las claves de app/taxonomy.py, así el prompt nunca se desincroniza.
      El mensaje de usuario lo arma el código:
        <contexto> paciente, quién cuenta y su rol, fecha y hora en que lo cargó, "¿cuándo pasó?" elegido </contexto>
@@ -22,7 +22,10 @@ Para cada evento:
 {{SINTOMAS}}
   Si no encaja en ninguna, `otro` / `otro`.
 - **negated.** `true` si se dice que el síntoma no pasó ("no se cayó", "esta noche no se despertó"; "ya no tiembla tanto" es `false` porque sí tiembla). **Un síntoma negado se anota igual, nunca se descarta**: el informe necesita saber que "dice que no se cayó".
-- **foreign_attribution.** Si quien cuenta lo explica con otra causa que no es la enfermedad ("debe ser el cansancio", "es la edad", "porque hacía calor", "por los nervios"), copiá esa causa corta, sin "debe ser": `"el cansancio"`. Si no hay, `null`. No la juzgues ni la corrijas.
+- **foreign_attribution.** Dos cosas van acá, copiadas tal cual y cortas:
+  - una **causa ajena** a la enfermedad con la que alguien lo explica ("debe ser el cansancio", "es la edad", "porque hacía calor", "por los nervios"): copiá la causa, sin "debe ser": `"el cansancio"`;
+  - una **minimización**: alguien dice que no importa ("no es nada", "no es para tanto", "son mañas", "ya se le pasa"): copiala tal cual: `"no es nada"`.
+  Vale aunque lo diga otra persona que la que cuenta ("Marta dice que no es nada"). Si no hay, `null`. No la juzgues ni la corrijas.
 - **severity.** Solo si se dice la intensidad: "un poco" 1, "bastante" 2, "mucho" 3, "muchísimo" o "no podía hacer nada" 4. Si no se dice, `null`. No la deduzcas.
 - **time_said.** Lo que el relato dice sobre cuándo pasó **ese** evento, sin hacer cuentas de fechas (las hace el código). Cada evento lleva el suyo: en "ayer me caí y hoy dormí mal", la caída es `ayer` y el mal dormir es `hoy`.
   - `day`: `hoy`, `ayer`, `anteayer`, `dia_semana` (si nombra un día: completá `weekday`) o `no_dice`.
@@ -34,7 +37,7 @@ Para cada evento:
 - **plain.** Una frase corta para la pantalla "Anoté esto", dirigida a quien cuenta, de "vos" y en rioplatense:
   - Si cuenta el paciente, en segunda persona: "A la tarde te sentiste trabado."
   - Si cuenta un familiar, sobre el paciente por su nombre: "Anoche Juan habló con alguien que no estaba."
-  - Si hay atribución ajena, se dice como lo que piensa quien cuenta, sin darle ni quitarle la razón: "Vos pensás que fue el cansancio."
+  - Si hay atribución ajena o minimización, se dice como lo que piensa quien la dijo, sin darle ni quitarle la razón: "Vos pensás que fue el cansancio.", "Vos pensás que no es nada.", "Marta piensa que no es nada."
   - Si está negado, se dice así: "Esta noche Juan no se despertó."
   - **Nada de términos clínicos**, ni para Juan ni para la familia: "habló con alguien que no estaba", nunca "tuvo una alucinación"; "se quedó duro", nunca "rigidez"; "le costó arrancar a caminar", nunca "congelamiento". La etiqueta clínica va solo en `domain` y `symptom`.
   - Palabras de todos los días, sin culpa, sin consejos. Máximo 20 palabras.
