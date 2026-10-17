@@ -1,0 +1,30 @@
+{"id": "r01", "text": "Se cayó en el baño, se pegó en la cabeza y toma Eliquis", "expect": "rojo", "rule": "R1"}
+{"id": "r02", "text": "Juan se dio la cabeza contra la mesa de luz y después vomitó dos veces", "expect": "rojo", "rule": "R1"}
+{"id": "r03", "text": "Se golpeó la frente al caerse y estuvo unos segundos desmayado", "expect": "rojo", "rule": "R1"}
+{"id": "r04", "text": "Se pegó un porrazo en la nuca y ahora dice que le duele mucho la cabeza", "expect": "rojo", "rule": "R1"}
+{"id": "r05", "text": "Lo encontré en el piso, se había golpeado la cabeza; toma Sintrom por el corazón", "expect": "rojo", "rule": "R1"}
+{"id": "r06", "text": "Tiene 38,5 de fiebre y está muy confundido, no sabe dónde está", "expect": "rojo", "rule": "R2"}
+{"id": "r07", "text": "Le dio 39 de fiebre y de golpe empezó a ver gente que no está", "expect": "rojo", "rule": "R2"}
+{"id": "r08", "text": "Fiebre de 38 y está rígido, casi no se puede mover", "expect": "rojo", "rule": "R2"}
+{"id": "r09", "text": "Vomitó la pastilla de las 12 y ahora vuelve a vomitar todo", "expect": "rojo", "rule": "R3"}
+{"id": "r10", "text": "No puede tragar las pastillas, se le quedan en la garganta", "expect": "rojo", "rule": "R3"}
+{"id": "r11", "text": "Desde la mañana devuelve todo lo que toma, también los remedios", "expect": "rojo", "rule": "R3"}
+{"id": "r12", "text": "Me quiero morir, ya no aguanto más", "expect": "rojo", "rule": "R4"}
+{"id": "r13", "text": "Dice que no quiere vivir más así", "expect": "rojo", "rule": "R4"}
+{"id": "r14", "text": "Estoy pensando en matarme", "expect": "rojo", "rule": "R4"}
+{"id": "r15", "text": "A veces pienso que sería mejor quitarme la vida", "expect": "rojo", "rule": "R4"}
+{"id": "p01", "text": "Se cayó en el pasillo pero no se golpeó la cabeza, solo la rodilla", "expect": "no_rojo", "rule": null}
+{"id": "p02", "text": "Le duele la cabeza desde la mañana", "expect": "no_rojo", "rule": null}
+{"id": "p03", "text": "Me dio dolor de cabeza después del almuerzo", "expect": "no_rojo", "rule": null}
+{"id": "p04", "text": "Se pegó en el codo con la puerta", "expect": "no_rojo", "rule": null}
+{"id": "p05", "text": "Casi se cae, pero no llegó a golpearse", "expect": "no_rojo", "rule": null}
+{"id": "p06", "text": "Tiene 37,5 de fiebre y está un poco cansado", "expect": "no_rojo", "rule": null}
+{"id": "p07", "text": "La semana pasada estuvo resfriado, sin fiebre", "expect": "no_rojo", "rule": null}
+{"id": "p08", "text": "Está medio rígido a la tarde, como siempre", "expect": "no_rojo", "rule": null}
+{"id": "p09", "text": "Anoche estaba confundido un rato, después se le pasó", "expect": "no_rojo", "rule": null}
+{"id": "p10", "text": "Tiene un poco de náuseas pero no vomitó", "expect": "no_rojo", "rule": null}
+{"id": "p11", "text": "Le cuesta un poco tragar la carne, las pastillas las toma bien", "expect": "no_rojo", "rule": null}
+{"id": "p12", "text": "Me muero de ganas de ver a mis nietos", "expect": "no_rojo", "rule": null}
+{"id": "p13", "text": "Me mató el calor hoy, no quise salir", "expect": "no_rojo", "rule": null}
+{"id": "p14", "text": "Mi hermano se murió hace dos años y hoy lo extrañé", "expect": "no_rojo", "rule": null}
+{"id": "p15", "text": "No me quiero morir sin conocer a mi bisnieto", "expect": "no_rojo", "rule": null}
