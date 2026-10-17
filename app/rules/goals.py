@@ -13,6 +13,14 @@ def _day_bounds(day: date) -> tuple[str, str]:
     return db.to_db(start), db.to_db(start + timedelta(days=1))
 
 
+def paused(patient_id: int) -> bool:
+    """¿La meta está en pausa por un rojo?"""
+    with db.connect() as conn:
+        row = conn.execute("SELECT 1 FROM goals WHERE patient_id = ? AND metric = 'steps' AND active = 1 "
+                           "AND paused_reason = 'rojo' LIMIT 1", (patient_id,)).fetchone()
+    return row is not None
+
+
 def status(patient_id: int, day: date) -> GoalDay | None:
     """Estado de la meta de pasos de ese día (lo guarda en goal_days). None si el paciente no tiene meta."""
     start, end = _day_bounds(day)
