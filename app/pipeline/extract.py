@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app import taxonomy
 from app.config import MODEL_EXTRACT, TZ
 from app.models import Domain, Entry, Event
-from app.pipeline import when
+from app.pipeline import knowledge, when
 from app.pipeline.when import TimeSaid
 
 log = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ def _symptom_list() -> str:
 
 def system_prompt() -> str:
     text = PROMPT_PATH.read_text(encoding="utf-8")
-    text = text.split("-->", 1)[1].lstrip() if text.startswith("<!--") else text   # el comentario es para humanos
+    text = knowledge.strip_comment(text)
     return text.replace("{{SINTOMAS}}", _symptom_list())
 
 
@@ -113,8 +113,8 @@ def _system_blocks() -> list[dict]:
     global _SYSTEM
     if _SYSTEM is None:
         _SYSTEM = system_prompt()
-    # Siempre igual byte a byte → se cachea. Lo variable (contexto y relato) va en el mensaje de usuario.
-    return [{"type": "text", "text": _SYSTEM, "cache_control": {"type": "ephemeral"}}]
+    # knowledge + prompt, siempre iguales → se cachean. Lo variable (contexto y relato) va en el mensaje de usuario.
+    return knowledge.system_blocks(_SYSTEM)
 
 
 def user_message(entry: Entry, *, patient_name: str, speaker_name: str | None) -> str:
@@ -169,6 +169,14 @@ def _parse(response, raw_text: str) -> ExtractionOutput:
     return output
 
 
+def _unquote(value: str | None) -> str | None:
+    """El modelo a veces copia las comillas del ejemplo: '"no es nada"' → 'no es nada'."""
+    if value is None:
+        return None
+    value = value.strip().strip('"\'“”«»`').strip()
+    return value or None
+
+
 def to_event(ev: ExtractedEvent, entry: Entry) -> Event:
     symptom = taxonomy.normalize(ev.symptom)
     domain = ev.domain if symptom == "otro" else taxonomy.SYMPTOMS[symptom]   # manda la taxonomía
@@ -177,7 +185,7 @@ def to_event(ev: ExtractedEvent, entry: Entry) -> Event:
         domain=domain, symptom=symptom, severity=ev.severity, negated=ev.negated,
         occurred_at=occurred_at, time_vague=time_vague,
         speaker_role=entry.speaker_role,                     # lo pone el código: quién cargó
-        foreign_attribution=ev.foreign_attribution, quote=ev.quote, plain=ev.plain.strip(),
+        foreign_attribution=_unquote(ev.foreign_attribution), quote=ev.quote, plain=ev.plain.strip(),
         confidence=ev.confidence,
     )
 

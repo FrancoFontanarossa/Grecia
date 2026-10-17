@@ -12,7 +12,7 @@ from app import _tmp_rules as rules  # TEMPORAL: app.rules de Franco
 from app import notify
 from app.models import Entry, Event, OccurredHint
 from app.pipeline import extract as extraction
-from app.pipeline import red_backup
+from app.pipeline import red_backup, report
 from app.pipeline import transcribe as transcription
 
 router = APIRouter()
@@ -72,6 +72,8 @@ async def create_entry(
     )
 
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
+    if question_id is not None:   # respuesta a una pregunta proactiva: queda respondida y entra al episodio
+        await asyncio.to_thread(db.answer_question, question_id, person_id, entry_id)
     if audio_path is not None:
         t = time.perf_counter()
         try:
@@ -112,6 +114,8 @@ async def create_entry(
             # TODO: alerta roja con rules.lanes + rules.consent de Franco → notify.send(..., "rojo", ...)
         if events is not None:
             await _save_events(entry, events)
+            if events:
+                report.request_regeneration(entry.patient_id)   # en segundo plano, como mucho cada 30 s
             response["understood"] = extraction.understood(events, await asyncio.to_thread(db.now))
             # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
 

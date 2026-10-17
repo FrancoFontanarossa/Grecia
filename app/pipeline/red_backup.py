@@ -11,6 +11,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.config import MODEL_EXTRACT   # Haiku (CLAUDE.md §7.4: extracción y respaldo de rojos)
 from app.models import RedResult
+from app.pipeline import knowledge
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ _client: anthropic.AsyncAnthropic | None = None
 
 def system_prompt() -> str:
     text = PROMPT_PATH.read_text(encoding="utf-8")
-    return text.split("-->", 1)[1].lstrip() if text.startswith("<!--") else text
+    return knowledge.strip_comment(text)
 
 
 def user_message(text: str, meds: list[str]) -> str:
@@ -91,7 +92,7 @@ async def red_backup(text: str, rules_result: RedResult | None, *, meds: list[st
         return BackupVerdict(escalate=False, suspected_rule=None, reason="sin texto")
     if _SYSTEM is None:
         _SYSTEM = system_prompt()
-    system = [{"type": "text", "text": _SYSTEM, "cache_control": {"type": "ephemeral"}}]
+    system = knowledge.system_blocks(_SYSTEM)
     try:
         response = await _call_model(system, user_message(text, meds or []))
         if response.stop_reason == "refusal":

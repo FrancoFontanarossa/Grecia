@@ -68,3 +68,35 @@ def red_check(text: str, meds: list[str]) -> RedResult | None:
 def red_from_backup(suspected_rule: str | None) -> RedResult:
     """Rojo que subió el respaldo con IA: texto fijo de la regla sospechada (o el genérico)."""
     return RedResult(rule_id=f"{suspected_rule or 'R'}-IA", missing_criterion=None, text=RED_TEXTS[suspected_rule])
+
+
+# ── Presupuesto anti-fatiga y disparadores ─────────────────────────────────────────────────────────────
+# TEMPORAL: reemplazar por rules.budget.allow y rules.triggers.evaluate de Franco (CLAUDE.md §6.2 y §6.5).
+import datetime as _dt  # noqa: E402
+
+QUIET_START, QUIET_END = 22, 8      # silencio de 22 a 8 para todo lo que no sea rojo
+PROACTIVE_PER_DAY = 1               # una pregunta proactiva por día por persona
+
+
+def budget_allow(kind: str, now: _dt.datetime, sent_today: int) -> bool:
+    """`sent_today`: preguntas proactivas ya enviadas hoy a esa persona (lo cuenta quien llama)."""
+    if kind == "rojo":
+        return True
+    if now.hour >= QUIET_START or now.hour < QUIET_END:
+        return False
+    if kind == "pregunta":
+        return sent_today < PROACTIVE_PER_DAY
+    return True
+
+
+def triggers_evaluate(patient_id: int, now: _dt.datetime) -> list:
+    """STUB: sin rules.triggers de Franco no hay disparadores. El scheduler ya llama a esto en cada tick."""
+    return []
+
+
+# ── Verificador del informe ────────────────────────────────────────────────────────────────────────────
+# TEMPORAL: reemplazar por rules.verifier.verify de Franco (borra cifras y citas que no coinciden y las cuenta).
+
+def verify_stub(report, facts: dict, sources: list) -> "object":
+    """No borra nada: devuelve el informe tal cual con removed_count=0."""
+    return report.model_copy(update={"removed_count": 0})

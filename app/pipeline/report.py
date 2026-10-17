@@ -1,0 +1,167 @@
+# pipeline.report(patient_id, period) -> Report (CLAUDE.md §5.5 y §11). El código calcula los facts
+# (report_facts.build), Sonnet redacta el resumen y los tres temas, el código fuerza `reserved` y descarta ids que no
+# existen, y el verificador (rules.verifier de Franco) borra cifras y citas que no coinciden. Se guarda en `reports`.
+# Regeneración en segundo plano: como mucho una vez cada 30 s por paciente, y gana la última.
+import asyncio
+import json
+import logging
+import time
+from pathlib import Path
+
+from pydantic import BaseModel
+
+from app import _tmp_rules, clock, db
+from app.models import Report, ReportTopic
+from app.pipeline import knowledge, llm, report_facts
+
+try:                                   # el verificador es de Franco; mientras no esté, el stub TEMPORAL
+    from app.rules import verifier as _verifier  # type: ignore
+    verify = _verifier.verify
+except ImportError:
+    verify = _tmp_rules.verify_stub
+
+log = logging.getLogger("entrecasa.report")
+
+PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "report.md"
+SUMMARY_WORDS = (30, 160)
+NARRATIVE_WORDS = 120
+REGEN_SECONDS = 30
+VOICES = ("paciente", "cuidador", "familiar")
+
+_nullable_str = {"anyOf": [{"type": "string"}, {"type": "null"}]}
+TOOL = {
+    "name": "redactar_informe",
+    "description": "Redacta el resumen del período y los tres temas del informe para la neuróloga.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "topics": {"type": "array", "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "narrative": {"type": "string"},
+                    "observed": {"type": "array", "items": {"type": "string"}},
+                    "voices": {"type": "object", "properties": {v: _nullable_str for v in VOICES},
+                               "required": list(VOICES), "additionalProperties": False},
+                    "question": {"type": "string"},
+                    "evidence_ids": {"type": "array", "items": {"type": "integer"}},
+                    "reserved": {"type": "boolean"},
+                },
+                "required": ["title", "narrative", "observed", "voices", "question", "evidence_ids", "reserved"],
+                "additionalProperties": False,
+            }},
+        },
+        "required": ["summary", "topics"],
+        "additionalProperties": False,
+    },
+}
+
+
+class _Topic(BaseModel):
+    title: str
+    narrative: str
+    observed: list[str]
+    voices: dict[str, str | None]
+    question: str
+    evidence_ids: list[int]
+    reserved: bool
+
+
+class _Output(BaseModel):
+    summary: str
+    topics: list[_Topic]
+
+
+def prompt() -> str:
+    return knowledge.strip_comment(PROMPT_PATH.read_text(encoding="utf-8"))
+
+
+def user_message(facts: dict) -> str:
+    text = json.dumps(facts, ensure_ascii=False, indent=1, default=str).replace("</facts>", "</ facts>")
+    return f"<facts>\n{text}\n</facts>"
+
+
+def check(out: _Output, facts: dict) -> None:
+    """Forma que exige el código. ValueError → reintento."""
+    words = len(out.summary.split())
+    if not SUMMARY_WORDS[0] <= words <= SUMMARY_WORDS[1]:
+        raise ValueError(f"el resumen tiene {words} palabras")
+    if len(out.topics) != 3:
+        raise ValueError(f"tienen que ser tres temas, vinieron {len(out.topics)}")
+    known = {e["id"] for e in facts.get("events", [])}
+    for t in out.topics:
+        if len(t.narrative.split()) > NARRATIVE_WORDS:
+            raise ValueError(f"el párrafo de «{t.title}» es demasiado largo")
+        unknown = set(t.evidence_ids) - known
+        if unknown:
+            raise ValueError(f"«{t.title}» cita ids que no existen: {sorted(unknown)}")
+
+
+def to_report(out: _Output, facts: dict) -> Report:
+    """Salida del modelo → Report. `reserved` lo decide el código: si un evento del tema es reservado, el tema lo es."""
+    reserved_ids = {e["id"] for e in facts.get("events", []) if e.get("reserved")}
+    topics = [ReportTopic(
+        title=t.title.strip(), narrative=t.narrative.strip(), observed=[o.strip() for o in t.observed if o.strip()],
+        voices={k: v.strip() for k, v in t.voices.items() if k in VOICES and v and v.strip()},
+        question=t.question.strip(), evidence_ids=list(dict.fromkeys(t.evidence_ids)),
+        reserved=t.reserved or bool(set(t.evidence_ids) & reserved_ids),
+    ) for t in out.topics]
+    return Report(summary=out.summary.strip(), topics=topics, removed_count=0)
+
+
+async def generate(facts: dict) -> Report:
+    """Facts → Report verificado. Lanza llm.LLMError si la IA no pudo redactarlo."""
+    out = await llm.call_tool(prompt(), TOOL, user_message(facts), _Output, check=lambda o: check(o, facts),
+                              max_tokens=8000, effort="medium")
+    draft = to_report(out, facts)
+    return verify(draft, facts, facts.get("events", []))
+
+
+def _store(patient_id: int, period: str, rep: Report) -> int:
+    with db.connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO reports (patient_id, period, content, removed_by_verifier, created_at) VALUES (?, ?, ?, ?, ?)",
+            (patient_id, period, rep.model_dump_json(), rep.removed_count, db.to_db(clock.now())))
+        return cur.lastrowid
+
+
+async def report(patient_id: int, period: str | None = None) -> Report:
+    """Calcula los facts del período (por defecto, las 4 semanas hasta hoy), redacta, verifica y guarda."""
+    now = await asyncio.to_thread(clock.now)
+    facts = await asyncio.to_thread(report_facts.build, patient_id, now, period)
+    rep = await generate(facts)
+    await asyncio.to_thread(_store, patient_id, facts["period"]["label"], rep)
+    return rep
+
+
+# ── Regeneración en segundo plano ──────────────────────────────────────────────────────────────────────
+
+_dirty: dict[int, bool] = {}
+_last_start: dict[int, float] = {}
+_runners: dict[int, asyncio.Task] = {}
+
+
+async def _runner(patient_id: int) -> None:
+    try:
+        while _dirty.get(patient_id):
+            wait = _last_start.get(patient_id, -REGEN_SECONDS) + REGEN_SECONDS - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            _dirty[patient_id] = False          # lo que llegue mientras redacta marca otra vuelta: gana la última
+            _last_start[patient_id] = time.monotonic()
+            try:
+                await report(patient_id)
+                log.info("informe del paciente %s regenerado", patient_id)
+            except Exception:
+                log.exception("no se pudo regenerar el informe del paciente %s", patient_id)
+    finally:
+        _runners.pop(patient_id, None)
+
+
+def request_regeneration(patient_id: int) -> None:
+    """Pide regenerar el informe (por ejemplo, cuando entra un evento). No bloquea."""
+    _dirty[patient_id] = True
+    if patient_id not in _runners:
+        _runners[patient_id] = asyncio.get_running_loop().create_task(_runner(patient_id))

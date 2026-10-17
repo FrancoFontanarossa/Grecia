@@ -97,7 +97,8 @@ def test_mensaje_con_contexto_y_relato_como_dato(fake_model):
     assert "Paciente: Juan" in content and "Cuenta: Marta (cuidador)" in content
     assert "¿Cuándo pasó?: anoche" in content and "sábado 17/10/2026 19:20" in content
     assert content.count("</relato>") == 1
-    assert system[0]["cache_control"] == {"type": "ephemeral"}
+    assert "Parkinson: lo que Entrecasa necesita saber" in system[0]["text"] and "cache_control" not in system[0]
+    assert system[-1]["cache_control"] == {"type": "ephemeral"} and "registrar_eventos" not in system[0]["text"]
 
 
 def test_system_prompt_estable_con_las_claves_de_taxonomia():
@@ -127,3 +128,10 @@ def test_sin_key_es_error_claro_y_no_typeerror(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     with pytest.raises(extract.ExtractionError, match="ANTHROPIC_API_KEY"):
         run(entry())
+
+
+@pytest.mark.parametrize("raw, clean", [('"no es nada"', "no es nada"), ("«la edad»", "la edad"),
+                                        ("  el cansancio ", "el cansancio"), ('""', None), (None, None)])
+def test_atribucion_sin_comillas(raw, clean, monkeypatch):
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([ev(foreign_attribution=raw)])))
+    assert run(entry())[0].foreign_attribution == clean

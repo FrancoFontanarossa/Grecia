@@ -71,3 +71,39 @@ def fake_red_backup(monkeypatch):
     fake = FakeRedBackup()
     monkeypatch.setattr(red_backup, "_call_model", fake)
     return fake
+
+
+class FakeSonnet:
+    """Reemplaza llm._create. `outputs`: dicts de entrada de la herramienta (o Exception), en orden."""
+    def __init__(self, *outputs, tool_name=None):
+        self.outputs = list(outputs)
+        self.tool_name = tool_name
+        self.calls: list[dict] = []
+
+    async def __call__(self, **kwargs):
+        self.calls.append(kwargs)
+        out = self.outputs.pop(0) if len(self.outputs) > 1 else self.outputs[0]
+        if isinstance(out, Exception):
+            raise out
+        if out is None:
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="hola")], stop_reason="end_turn")
+        name = self.tool_name or kwargs["tools"][0]["name"]
+        return SimpleNamespace(content=[SimpleNamespace(type="tool_use", name=name, input=out)], stop_reason="tool_use")
+
+
+@pytest.fixture(autouse=True)
+def fake_sonnet(monkeypatch):
+    """Ningún test llama a Sonnet. Por defecto: no explicado y una pregunta válida."""
+    from app.pipeline import llm
+    fake = FakeSonnet({"explained": False, "by": [], "reasoning": "x"})
+    monkeypatch.setattr(llm, "_create", fake)
+    return fake
+
+
+@pytest.fixture(autouse=True)
+def no_report_regeneration(monkeypatch):
+    """Los tests no regeneran el informe en segundo plano; guarda los pedidos."""
+    from app.pipeline import report
+    calls = []
+    monkeypatch.setattr(report, "request_regeneration", lambda pid: calls.append(pid))
+    return calls

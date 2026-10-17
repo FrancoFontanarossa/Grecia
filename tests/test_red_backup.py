@@ -37,7 +37,8 @@ def test_sube_a_rojo(monkeypatch):
     v = run("anoche dijo que estaba cansado de vivir así", meds=["levodopa/carbidopa"])
     assert v.escalate is True and v.suspected_rule == "R4"
     system, content = fake.calls[0]
-    assert "levodopa/carbidopa" in content and system[0]["cache_control"] == {"type": "ephemeral"}
+    assert "levodopa/carbidopa" in content and system[-1]["cache_control"] == {"type": "ephemeral"}
+    assert system[0]["text"].startswith("# Parkinson")
 
 
 def test_no_es_rojo(monkeypatch):
