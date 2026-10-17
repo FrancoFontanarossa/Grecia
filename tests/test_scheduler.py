@@ -165,3 +165,13 @@ def test_el_lifespan_arranca_y_frena_el_scheduler(tmp_data_dir):
         assert c.get("/health").status_code == 200
         assert scheduler._task is not None and not scheduler._task.done()
     assert scheduler._task is None
+
+
+def test_tick_now_es_idempotente(at_1805, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    monkeypatch.setattr(scheduler, "evaluate", lambda pid, now: [trigger()] if pid == 1 else [])
+
+    async def twice():
+        return await asyncio.gather(scheduler.tick_now(), scheduler.tick_now())
+    first, second = asyncio.run(twice())
+    assert sorted([len(first), len(second)]) == [0, 1] and len(rows("SELECT * FROM questions")) == 1

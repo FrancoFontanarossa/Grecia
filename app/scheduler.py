@@ -111,6 +111,12 @@ async def tick() -> list[int]:
     return sent
 
 
+async def tick_now() -> list[int]:
+    """Tick inmediato, para llamar desde admin después de advance, set o inject_drop. Idempotente: si ya corrió,
+    no repite preguntas; si hay un tick en curso, espera a que termine y corre otro."""
+    return await tick()
+
+
 async def _loop() -> None:
     assert _kick is not None
     while True:
