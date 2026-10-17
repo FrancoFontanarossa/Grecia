@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Juan · Juego de golpeteo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1E5B4F}a:hover{color:#123A32}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 56px 24px 28px; background: #F2F4F1; color: #17201B; font-family: 'Atkinson Hyperlegible', sans-serif; display: flex; flex-direction: column; gap: 20px">
+
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: #DCEBE6; color: #1E5B4F; font-size: 15px; font-weight: 700">Juego de 20 segundos</div>
+<a href="Juan-Inicio.dc.html" style="font-size: 17px; color: #4A5650; text-decoration: none; padding: 10px 4px">Salir</a>
+</div>
+
+<sc-if value="{{ready}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1">
+<h1 style="margin: 0; font-size: 30px; line-height: 1.2">Tocá los dos círculos, uno y otro, lo más rápido que puedas.</h1>
+<p style="margin: 0; font-size: 19px; color: #4A5650; line-height: 1.4">Usá un solo dedo, el índice de la mano que prefieras. Apoyá el teléfono en la mesa.</p>
+<div style="display: flex; justify-content: center; gap: 40px; padding: 24px 0">
+<div style="width: 120px; height: 120px; border-radius: 60px; background: #DCEBE6"></div>
+<div style="width: 120px; height: 120px; border-radius: 60px; background: #DCEBE6"></div>
+</div>
+<div style="flex-grow: 1"></div>
+<button type="button" onClick="{{start}}" style="min-height: 76px; border: none; border-radius: 22px; background: #1E5B4F; color: #FFFFFF; font-family: inherit; font-size: 22px; font-weight: 700">Empezar</button>
+</div>
+</sc-if>
+
+<sc-if value="{{playing}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<div style="display: flex; flex-direction: column"><div style="font-size: 16px; color: #4A5650">Quedan</div><div style="font-size: 48px; font-weight: 700">{{left}}</div></div>
+<div style="display: flex; flex-direction: column; align-items: flex-end"><div style="font-size: 16px; color: #4A5650">Toques</div><div style="font-size: 48px; font-weight: 700">{{taps}}</div></div>
+</div>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; justify-content: space-between; padding-bottom: 40px">
+<button type="button" onClick="{{tapL}}" aria-label="Círculo izquierdo" style="width: 150px; height: 150px; border-radius: 75px; border: none; background: {{leftBg}}"></button>
+<button type="button" onClick="{{tapR}}" aria-label="Círculo derecho" style="width: 150px; height: 150px; border-radius: 75px; border: none; background: {{rightBg}}"></button>
+</div>
+<div style="font-size: 18px; color: #4A5650; text-align: center">Tocá el círculo verde oscuro</div>
+</div>
+</sc-if>
+
+<sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
+<h1 style="margin: 0; font-size: 32px">¡Listo, Juan!</h1>
+<div style="background: #FFFFFF; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 17px; color: #4A5650">Hoy</div>
+<div style="font-size: 44px; font-weight: 700">{{rate}} <span style="font-size: 20px; font-weight: 400; color: #4A5650">toques por segundo</span></div>
+<div style="font-size: 17px; color: #4A5650">{{taps}} toques en 20 segundos</div>
+</div>
+<div style="background: #FFFFFF; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 17px; color: #4A5650">Tus últimas veces</div>
+<div style="display: flex; align-items: flex-end; gap: 10px; height: 90px">
+<sc-for list="{{history}}" as="h" hint-placeholder-count="7">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<div style="width: 100%; border-radius: 6px; background: {{h.bg}}; height: {{h.px}}"></div>
+<div style="font-size: 13px; color: #4A5650">{{h.d}}</div>
+</div>
+</sc-for>
+</div>
+<div style="font-size: 18px; line-height: 1.4">{{verdict}}</div>
+</div>
+<div style="flex-grow: 1"></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<button type="button" onClick="{{start}}" style="min-height: 68px; border-radius: 20px; border: 2px solid #1E5B4F; background: #FFFFFF; color: #17201B; font-family: inherit; font-size: 20px">Otra vez</button>
+<a href="Juan-Inicio.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 68px; border-radius: 20px; background: #1E5B4F; color: #FFFFFF; font-size: 20px; font-weight: 700; text-decoration: none">Terminar</a>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { phase: 'ready', taps: 0, last: '', left: 20 };
+    this.timer = null;
+  }
+  componentWillUnmount() {
+    if (this.timer) clearInterval(this.timer);
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    function start() {
+      if (self.timer) clearInterval(self.timer);
+      self.setState({ phase: 'playing', taps: 0, last: '', left: 20 });
+      self.timer = setInterval(function () {
+        var l = self.state.left - 1;
+        if (l <= 0) {
+          clearInterval(self.timer);
+          self.timer = null;
+          self.setState({ left: 0, phase: 'done' });
+        } else {
+          self.setState({ left: l });
+        }
+      }, 1000);
+    }
+    function tap(side) {
+      return function () {
+        if (self.state.phase !== 'playing' || self.state.last === side) return;
+        self.setState({ taps: self.state.taps + 1, last: side });
+      };
+    }
+    var playing = s.phase === 'playing';
+    var perSec = s.taps / 20;
+    var baseline = 5.8;
+    var past = [
+      { d: 'sáb', v: 6.1 }, { d: 'dom', v: 5.9 }, { d: 'lun', v: 5.7 },
+      { d: 'mar', v: 5.2 }, { d: 'mié', v: 5.6 }, { d: 'jue', v: 6.0 }
+    ];
+    var hist = past.concat([{ d: 'hoy', v: perSec, today: true }]);
+    var maxV = 8;
+    var history = hist.map(function (h) {
+      var px = Math.max(6, Math.round(Math.min(h.v, maxV) / maxV * 70));
+      return { d: h.d, px: px + 'px', bg: h.today ? '#2F5FA8' : '#C9D7EC' };
+    });
+    var verdict = perSec >= baseline * 0.85
+      ? 'Parecido a tus últimas veces.'
+      : 'Un poco más lento que tus últimas veces. Lo anotamos para tu neuróloga; no es un diagnóstico.';
+    return {
+      ready: s.phase === 'ready',
+      playing: playing,
+      done: s.phase === 'done',
+      taps: s.taps,
+      left: s.left,
+      rate: perSec.toFixed(1).replace('.', ','),
+      verdict: verdict,
+      history: history,
+      start: start,
+      tapL: tap('L'),
+      tapR: tap('R'),
+      leftBg: playing && s.last !== 'L' ? '#1E5B4F' : '#DCEBE6',
+      rightBg: playing && s.last === 'L' ? '#1E5B4F' : '#DCEBE6'
+    };
+  }
+}
+</script>
+</body>
+</html>

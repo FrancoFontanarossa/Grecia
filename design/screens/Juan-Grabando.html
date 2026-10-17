@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Juan · Grabando</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#FFFFFF}a:hover{color:#DCEBE6}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 60px 24px 32px; background: #123A32; color: #FFFFFF; font-family: 'Atkinson Hyperlegible', sans-serif; display: flex; flex-direction: column; align-items: center; gap: 24px">
+
+<div style="align-self: stretch; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 18px; color: #B9D3CB">Te escucho</div>
+<div style="font-size: 26px; font-weight: 700; line-height: 1.25">Contá con tus palabras. Si pasó otro día, decí cuándo.</div>
+</div>
+
+<div style="flex-grow: 1"></div>
+
+<div style="font-size: 44px; font-weight: 700; letter-spacing: 1px">0:12</div>
+
+<div style="display: flex; align-items: center; gap: 5px; height: 80px">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="28">
+<div style="width: 6px; border-radius: 3px; background: #7FB5A6; height: {{b.h}}"></div>
+</sc-for>
+</div>
+
+<div style="flex-grow: 1"></div>
+
+<a href="Juan-Anote.dc.html" style="width: 168px; height: 168px; border-radius: 84px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 16px rgba(255,255,255,0.14), 0 0 0 34px rgba(255,255,255,0.06); text-decoration: none" aria-label="Terminar y enviar">
+<div style="width: 52px; height: 52px; border-radius: 12px; background: #B42318"></div>
+</a>
+<div style="font-size: 22px; font-weight: 700; padding-top: 18px">Tocá para terminar</div>
+
+<a href="Juan-Inicio.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 28px; border-radius: 16px; border: 2px solid rgba(255,255,255,0.4); font-size: 19px; text-decoration: none">Cancelar</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var hs = [18, 30, 46, 62, 40, 24, 52, 70, 58, 34, 22, 44, 66, 76, 54, 30, 20, 38, 60, 48, 28, 42, 64, 50, 32, 22, 16, 12];
+    return { bars: hs.map(function (h) { return { h: h + 'px' }; }) };
+  }
+}
+</script>
+</body>
+</html>

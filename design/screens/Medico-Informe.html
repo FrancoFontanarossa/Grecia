@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Informe para la consulta · Juan R.</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;display=swap">
+<style>
+body{margin:0;background:#F2F4F1}
+a{color:#1E5B4F}a:hover{color:#123A32}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; background: #F2F4F1; color: #17201B; font-family: 'Atkinson Hyperlegible', sans-serif; padding: 32px 24px 48px">
+<div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+<div style="display: flex; align-items: center; gap: 14px">
+<div style="width: 44px; height: 44px; border-radius: 12px; background: #1E5B4F; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5.5 9.5V20h13V9.5"></path><path d="M9.5 20v-5a2.5 2.5 0 0 1 5 0v5"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column">
+<div style="font-size: 24px; font-weight: 700">Juan R. · 74 años</div>
+<div style="font-size: 15px; color: #4A5650">Período 20/09 – 17/10/2026 · consulta del miércoles 28/10 · Dra. Pereira</div>
+</div>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #C9D1CB; background: #FFFFFF; color: #17201B; font-size: 15px; text-decoration: none">Vista técnica</a>
+<a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 12px; background: #1E5B4F; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none">Imprimir</a>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<div style="padding: 8px 14px; border-radius: 10px; background: #FFFFFF; font-size: 15px">Levodopa/carbidopa · 8 · 12 · 16 · 20 h</div>
+<div style="padding: 8px 14px; border-radius: 10px; background: #FCEFD9; color: #6B3105; font-size: 15px; font-weight: 700">Pramipexol subido el 22/09 · hace 25 días</div>
+<div style="padding: 8px 14px; border-radius: 10px; background: #FFFFFF; font-size: 15px">Fuentes: 9 relatos de Juan · 5 de Marta · pasos del iPhone · 11 juegos</div>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 24px 26px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 14px; font-weight: 700; letter-spacing: 1px; color: #4A5650">RESUMEN DE LAS 4 SEMANAS</div>
+<p style="margin: 0; font-size: 18px; line-height: 1.6; max-width: 900px">Desde que se subió el pramipexol, el 22/09, la semana de Juan se mantuvo estable hasta la última: el martes 13, el jueves 15 y el viernes 16 se movió bastante menos en las dos horas siguientes a la toma de las 16. El jueves él lo explicó: «me sentí trabado, me costó salir a caminar»; los otros dos días quedaron sin explicación. En la misma semana apareció algo nuevo: Marta contó dos veces que Juan ve personas que no están durante la noche, y lo marcó para hablarlo en privado. Juan no lo mencionó. Durmió mal tres de siete noches y llegó a su meta de pasos 15 de 28 días. El juego de golpeteo se mantuvo estable.</p>
+<div style="font-size: 14px; color: #4A5650">Las cifras de este resumen salen de los datos; las frases entre comillas, de los relatos.</div>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px">
+<div style="font-size: 18px; font-weight: 700">Pasos por día · 4 semanas</div>
+<div style="display: flex; gap: 16px; font-size: 14px; color: #4A5650; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 6px"><div style="width: 12px; height: 12px; border-radius: 3px; background: #9DB6DD"></div>Día normal</div>
+<div style="display: flex; align-items: center; gap: 6px"><div style="width: 12px; height: 12px; border-radius: 3px; background: #B45309"></div>Día con caída post-dosis</div>
+<div style="display: flex; align-items: center; gap: 6px"><div style="width: 2px; height: 14px; background: #17201B"></div>Cambio de medicación</div>
+</div>
+</div>
+<div style="display: flex; align-items: flex-end; gap: 4px; height: 150px; overflow-x: auto">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="28">
+<div style="flex: 1; min-width: 10px; height: 150px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; border-left: {{d.line}}">
+<div style="width: 100%; border-radius: 4px 4px 0 0; background: {{d.bg}}; height: {{d.px}}"></div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #4A5650"><span>20/09</span><span>27/09</span><span>04/10</span><span>11/10</span><span>17/10</span></div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="font-size: 14px; font-weight: 700; letter-spacing: 1px; color: #4A5650">3 TEMAS PARA ESTA CONSULTA</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div style="font-size: 22px; font-weight: 700">1. Ve personas que no están, de noche</div>
+<div style="padding: 4px 10px; border-radius: 999px; background: #FCEFD9; color: #8A3F06; font-size: 13px; font-weight: 700">Nuevo desde el 22/09</div>
+<div style="padding: 4px 10px; border-radius: 999px; background: #F2F4F1; color: #4A5650; font-size: 13px; font-weight: 700">Para hablar en privado</div>
+</div>
+<p style="margin: 0; font-size: 17px; line-height: 1.6">Es la primera vez en el historial. Aparece a los 22 días del aumento de pramipexol y solo en el relato de Marta, que lo cuenta las dos veces de noche y con confusión al despertar. Juan, consultado por el sueño en la misma semana, habla de «sueños raros» y no menciona ver a nadie. No hay fiebre ni caídas registradas esos días.</p>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
+<div style="background: #F2F4F1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 13px; font-weight: 700; color: #4A5650">JUAN</div>
+<div style="font-size: 16px; line-height: 1.45">"Duermo bastante bien. A veces sueño cosas raras."</div>
+</div>
+<div style="background: #F2F4F1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 13px; font-weight: 700; color: #4A5650">MARTA · solo equipo médico</div>
+<div style="font-size: 16px; line-height: 1.45">"Anoche se levantó dos veces medio confundido, me dijo que había un hombre en el patio."</div>
+</div>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="#" style="padding: 6px 12px; border-radius: 10px; border: 1px solid #C9D1CB; color: #17201B; font-size: 14px; text-decoration: none">Marta · mié 14, 21:40</a>
+<a href="#" style="padding: 6px 12px; border-radius: 10px; border: 1px solid #C9D1CB; color: #17201B; font-size: 14px; text-decoration: none">Marta · vie 16, 22:10</a>
+<a href="#" style="padding: 6px 12px; border-radius: 10px; border: 1px solid #C9D1CB; color: #17201B; font-size: 14px; text-decoration: none">Juan · jue 15, 10:05</a>
+</div>
+<div style="padding: 12px 14px; border-radius: 12px; background: #DCEBE6; font-size: 16px; line-height: 1.4"><span style="font-weight: 700">Pregunta sugerida:</span> "¿Desde cuándo pasa y qué hace usted cuando los ve?"</div>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div style="font-size: 22px; font-weight: 700">2. Menos actividad después de la toma de las 16</div>
+<div style="padding: 4px 10px; border-radius: 999px; background: #E1EAF7; color: #1D3F73; font-size: 13px; font-weight: 700">3 episodios · 1 explicado</div>
+</div>
+<p style="margin: 0; font-size: 17px; line-height: 1.6">En las cuatro semanas previas, entre las 16 y las 18 h Juan caminaba unos 1.300 pasos. Esta semana bajó a la mitad o menos tres veces en cinco días. Cuando la app le preguntó el jueves, contó que se sintió trabado. Ningún otro tramo del día muestra el mismo patrón.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 14px; color: #4A5650">Pasos entre 16 y 18 h · línea punteada: mediana habitual (≈ 1.300)</div>
+<div style="position: relative; display: flex; align-items: flex-end; gap: 10px; height: 120px">
+<div style="position: absolute; left: 0; right: 0; bottom: 97px; border-top: 2px dashed #4A5650"></div>
+<sc-for list="{{post}}" as="p" hint-placeholder-count="6">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px">
+<div style="width: 100%; border-radius: 6px 6px 0 0; background: {{p.bg}}; height: {{p.px}}"></div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 10px">
+<sc-for list="{{post}}" as="p" hint-placeholder-count="6">
+<div style="flex: 1; text-align: center; font-size: 13px; color: #4A5650">{{p.l}}</div>
+</sc-for>
+</div>
+</div>
+<div style="flex: 1 1 240px; background: #F2F4F1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 13px; font-weight: 700; color: #4A5650">JUAN, AL PREGUNTARLE (jue 15)</div>
+<div style="font-size: 16px; line-height: 1.45">"Me sentí trabado, me costó salir a caminar."</div>
+<div style="font-size: 13px; color: #4A5650">Martes y viernes: sin explicación.</div>
+</div>
+</div>
+<div style="padding: 12px 14px; border-radius: 12px; background: #DCEBE6; font-size: 16px; line-height: 1.4"><span style="font-weight: 700">Pregunta sugerida:</span> "¿Cómo se siente una o dos horas después de la pastilla de la tarde?"</div>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 22px; font-weight: 700">3. Sueño interrumpido</div>
+<p style="margin: 0; font-size: 17px; line-height: 1.6">Tres de las últimas siete noches tuvieron despertares: Juan lo contó dos veces por la mañana y Marta una vez por la noche. En dos de esas tres, al día siguiente caminó menos de lo habitual. Una de las noches coincide con un relato de Marta sobre visiones (tema 1).</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="#" style="padding: 6px 12px; border-radius: 10px; border: 1px solid #C9D1CB; color: #17201B; font-size: 14px; text-decoration: none">Juan · sáb 17, 09:12</a>
+<a href="#" style="padding: 6px 12px; border-radius: 10px; border: 1px solid #C9D1CB; color: #17201B; font-size: 14px; text-decoration: none">Marta · vie 16, 22:10</a>
+</div>
+</div>
+</div>
+
+<div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="font-size: 14px; font-weight: 700; letter-spacing: 1px; color: #4A5650">DATOS DEL TELÉFONO</div>
+<div style="background: #FFFFFF; border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; color: #4A5650">Pasos, promedio diario</div><div style="font-size: 22px; font-weight: 700">3.720</div></div>
+<div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; color: #4A5650">Días en meta (4.000)</div><div style="font-size: 22px; font-weight: 700">15 / 28</div></div>
+<div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; color: #4A5650">Golpeteo, toques/seg</div><div style="font-size: 22px; font-weight: 700">5,7 <span style="font-size: 14px; font-weight: 400; color: #4A5650">estable</span></div></div>
+</div>
+<div style="background: #FFFFFF; border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 15px; font-weight: 700">Alertas del período</div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div style="padding: 3px 9px; border-radius: 999px; background: #FCEFD9; color: #8A3F06; font-size: 13px; font-weight: 700">Ámbar</div>Alucinaciones nocturnas · vie 16</div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div style="padding: 3px 9px; border-radius: 999px; background: #DCEBE6; color: #1E5B4F; font-size: 13px; font-weight: 700">Rojos</div>Ninguno</div>
+</div>
+<div style="background: #E8ECE9; border-radius: 16px; padding: 14px 16px; font-size: 14px; line-height: 1.5; color: #4A5650">Redactado con IA a partir de relatos y datos. Cada cifra se verificó contra los datos: 2 frases eliminadas por no coincidir. No es un diagnóstico ni sugiere cambios de medicación.</div>
+</div>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var steps = [4210, 3980, 4350, 3890, 4120, 3760, 4480, 4020, 3650, 3910, 4230, 3580, 3870, 4100,
+                 3720, 3540, 3960, 4050, 3480, 3820, 3990, 4300, 4120, 2650, 4410, 4060, 2380, 2840];
+    var days = steps.map(function (v, i) {
+      var isEp = i === 23 || i === 25 || i === 26;
+      return {
+        px: Math.round(v / 5000 * 140) + 'px',
+        bg: isEp ? '#B45309' : '#9DB6DD',
+        line: i === 2 ? '2px solid #17201B' : '2px solid transparent'
+      };
+    });
+    var postRaw = [
+      { l: 'sáb 10', v: 1250, ep: false }, { l: 'dom 11', v: 1320, ep: false },
+      { l: 'lun 12', v: 1290, ep: false }, { l: 'mar 13', v: 610, ep: true },
+      { l: 'mié 14', v: 1340, ep: false }, { l: 'jue 15', v: 540, ep: true },
+      { l: 'vie 16', v: 480, ep: true }
+    ];
+    var post = postRaw.map(function (p) {
+      return { l: p.l, px: Math.round(p.v / 1600 * 120) + 'px', bg: p.ep ? '#B45309' : '#9DB6DD' };
+    });
+    return { days: days, post: post };
+  }
+}
+</script>
+</body>
+</html>
