@@ -1,0 +1,52 @@
+{% from "_icons.html" import icon %}
+{% for a in hoy.alerts %}
+{% if a.lane == "rojo" %}
+<a href="/casa/emergencia/{{ a.id }}" class="card" style="background: var(--color-rojo-fondo); text-decoration: none; color: var(--color-tinta)">
+  <div class="lane lane--rojo">{{ icon("triangulo", 18, width=2.2) }} Rojo · actuar ahora</div>
+  <div style="font-size: 19px; font-weight: 700; line-height: 1.3">{{ a.text }}</div>
+</a>
+{% else %}
+<div class="card card--ambar">
+  <div class="lane lane--ambar">{{ icon("ambar", 18, width=2.2) }} Ámbar · para mirar</div>
+  <div style="font-size: 19px; font-weight: 700; line-height: 1.3">{{ a.text }}</div>
+  <div style="font-size: 16px; line-height: 1.45"><span style="font-weight: 700">Qué podés hacer:</span> {{ a.what_to_do or ("Ya está en el resumen para la " ~ hoy.doctor ~ ".") }}</div>
+  {% if a.evidence %}
+  <div class="chips">
+    {% for e in a.evidence %}<span class="chip-evidencia">{{ e.label }}</span>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endfor %}
+
+<div class="card" style="gap: 12px">
+  <div class="fila-entre" style="align-items: baseline">
+    <div style="font-size: 18px; font-weight: 700">La semana de {{ hoy.patient.name }}</div>
+    <div style="font-size: 14px; color: var(--color-tinta-suave)">pasos por día</div>
+  </div>
+  {% set con_datos = hoy.week_steps | selectattr("value") | list %}
+  {% if con_datos %}
+  <div class="barras" style="height: 96px">
+    {% for d in hoy.week_steps %}
+    <div class="barras__col">
+      <div class="barras__barra" style="background: {{ 'var(--color-bio)' if d.achieved else 'var(--color-bio-suave)' }}; height: {{ (((d.value or 0) / 5000 * 76) | round | int) }}px" title="{{ d.value | miles }} pasos"></div>
+      <div class="barras__dia">{{ d.date | dia_corto }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="leyenda">
+    <div><i style="background: var(--color-bio)"></i>Llegó a la meta</div>
+    <div><i style="background: var(--color-bio-suave)"></i>No llegó</div>
+  </div>
+  {% else %}
+  <div style="min-height: 96px; display: flex; align-items: center; font-size: 16px; color: var(--color-tinta-suave)">Todavía no hay datos de esta semana.</div>
+  {% endif %}
+  <div style="font-size: 16px; line-height: 1.4">{{ hoy.week_facts.line }}</div>
+</div>
+
+{% for l in hoy.logros[-1:] %}
+<div class="logro">
+  {{ icon("copa", 24, "var(--color-pino)") }}
+  <div><span style="font-weight: 700">{{ l.date | dia_largo | capitalize }}:</span> {{ l.text }}</div>
+</div>
+{% endfor %}

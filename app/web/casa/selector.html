@@ -1,0 +1,60 @@
+﻿{% extends "base.html" %}
+{% from "_icons.html" import icon, logo %}
+{% block title %}¿Quién sos? · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla" style="padding-top: max(64px, calc(env(safe-area-inset-top) + 16px)); gap: 28px" x-data="selector()">
+  {{ logo() }}
+
+  <template x-if="!elegida">
+    <div style="display: flex; flex-direction: column; gap: 28px; flex-grow: 1">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <h1 class="titulo-juan">¿Quién sos?</h1>
+        <p style="font-size: 18px; color: var(--color-tinta-suave); line-height: 1.4">Elegilo una vez. Este teléfono se va a acordar.</p>
+        {% if is_test %}<p class="pildora" style="align-self: flex-start">Paciente de prueba</p>{% endif %}
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        {% for p in people if p.role != "neurologo" %}
+        <button type="button" class="card-enlace {% if p.role == 'paciente' %}card-enlace--activa{% endif %}"
+                @click="elegir({{ p.id }}, {{ p.patient_id }}, '{{ p.role }}', '{{ p.name }}')">
+          <div class="avatar avatar--{{ p.role }}">{{ p.name[0] }}</div>
+          <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1">
+            <div class="card-enlace__nombre">{{ p.name }}</div>
+            <div class="card-enlace__rel">{{ p.relation }}</div>
+          </div>
+          {{ icon("chevron-derecha", 26, "var(--color-pino)" if p.role == "paciente" else "var(--color-tinta-suave)", 2.2) }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <div class="espaciador"></div>
+
+      {% set neuro = people | selectattr("role", "equalto", "neurologo") | first %}
+      <a href="/neuro/informe/{{ patient_id }}" hx-boost="false"
+         @click="{% if neuro %}EC.person.set({{ neuro.id }}, {{ patient_id }}, 'neurologo'){% endif %}"
+         style="display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; border-radius: 16px; background: #FFFFFF; border: 1px solid var(--color-borde-chip); color: var(--color-tinta); font-size: 17px; text-decoration: none">
+        {{ icon("monitor", 22) }}
+        Soy del equipo médico
+      </a>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <p class="rotulo-demo">Demo: sin contraseña. En el piloto, cada persona entra con su enlace.</p>
+        <p class="rotulo-demo">Entrecasa no es un servicio de emergencias.</p>
+      </div>
+    </div>
+  </template>
+
+  <template x-if="elegida">
+    <div style="display: flex; flex-direction: column; gap: 22px; flex-grow: 1">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <h1 class="titulo-juan" x-text="'Hola, ' + nombre"></h1>
+        <p style="font-size: 18px; color: var(--color-tinta-suave); line-height: 1.4">Este teléfono ya sabe quién sos.</p>
+      </div>
+      {% with dismissible=False, compact=False %}{% include "casa/_avisos.html" %}{% endwith %}
+      <div class="espaciador"></div>
+      <a href="/casa" class="btn btn--primario btn--grande">Seguir</a>
+      <button type="button" class="enlace-suave" style="align-self: center" @click="elegida = false">No soy yo</button>
+      <p class="rotulo-demo">Entrecasa no es un servicio de emergencias.</p>
+    </div>
+  </template>
+</main>
+{% endblock %}

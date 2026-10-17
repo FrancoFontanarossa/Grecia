@@ -1,0 +1,27 @@
+﻿{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Hoy · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla pantalla--familia">
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <div style="font-size: 16px; color: var(--color-tinta-suave)">{{ hoy.now | fecha_larga }}</div>
+    <h1 class="titulo-familia">Hola, {{ hoy.person.name }}</h1>
+  </div>
+
+  {% with dismissible=True, compact=True %}{% include "casa/_avisos.html" %}{% endwith %}
+
+  <div hx-get="/casa?parcial=1" hx-trigger="every 3s" hx-swap="innerHTML" style="display: flex; flex-direction: column; gap: 16px">
+    {% include "casa/marta_hoy_contenido.html" %}
+  </div>
+
+  <div class="espaciador"></div>
+
+  <div class="grilla-2-1">
+    <a href="/casa/contar" class="btn btn--primario btn--familia" onclick="EC.mic.acquire()">
+      {{ icon("mic", 26) }}
+      Contar algo
+    </a>
+    <a href="/casa/contar?modo=escribir" class="btn btn--secundario btn--familia-sec">Escribir</a>
+  </div>
+</main>
+{% endblock %}

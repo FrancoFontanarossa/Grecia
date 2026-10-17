@@ -1,0 +1,28 @@
+﻿{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Resumen · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla pantalla--familia">
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <div style="font-size: 16px; color: var(--color-tinta-suave)">{% if hoy.person.name == "Laura" %}Desde Salto{% else %}{{ hoy.now | fecha_larga }}{% endif %}</div>
+    <h1 class="titulo-familia">{% if hoy.patient.name == "Juan" %}Papá{% else %}{{ hoy.patient.name }}{% endif %} esta semana</h1>
+  </div>
+
+  {% with dismissible=True, compact=True %}{% include "casa/_avisos.html" %}{% endwith %}
+
+  <div hx-get="/casa?parcial=1" hx-trigger="every 3s" hx-swap="innerHTML" style="display: flex; flex-direction: column; gap: 16px">
+    {% include "casa/laura_resumen_contenido.html" %}
+  </div>
+
+  <div class="espaciador"></div>
+
+  <a href="/casa/contar" class="btn btn--secundario btn--familia-sec" onclick="EC.mic.acquire()">
+    {{ icon("mic", 22) }} Contar algo de {{ hoy.patient.name }}
+  </a>
+
+  <div class="aviso-borde">
+    {{ icon("campana", 22, "var(--color-pino)", style="flex-shrink: 0") }}
+    <div>Te avisamos de logros y de cualquier rojo. El resto, en este resumen.</div>
+  </div>
+</main>
+{% endblock %}
