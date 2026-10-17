@@ -5,9 +5,10 @@ from pydantic import ValidationError
 
 from app.config import TZ
 from app.models import (
-    Alert, BiometricSample, Deviation, Event, Explanation, GameResult, GoalDay,
-    Notification, Person, Question, QuestionText, RedResult, Report, ReportTopic,
-    TapEvent, Trigger,
+    Alert, AtajoPayload, AtajoSample, BiometricSample, ContextEntry, Deviation, Entry,
+    Event, Explanation, GameResult, GoalDay, Notification, Person, PromptContext,
+    Question, QuestionText, RedResult, Report, ReportTopic, TapEvent, Trigger,
+    UnderstoodItem,
 )
 
 NOW = dt.datetime(2026, 10, 13, 10, 30, tzinfo=TZ)
@@ -118,3 +119,46 @@ def test_naive_datetime_rejected():
     with pytest.raises(ValidationError):
         Alert(id=1, patient_id=1, lane="rojo", rule_id="x", recipients=[], text="",
               reserved=False, created_at=naive)
+
+
+def test_entry():
+    Entry(id=1, patient_id=1, speaker_id=2, speaker_role="cuidador", modality="audio",
+          raw_text="hoy estuvo duro a la tarde", audio_path="audios/1.m4a",
+          occurred_hint="esta_tarde", reserved_requested=False, corrected=False,
+          created_at=NOW, source="app")
+    Entry(id=2, patient_id=1, speaker_id=1, speaker_role="paciente", modality="texto",
+          question_id=1, raw_text="bien", reserved_requested=False, corrected=False,
+          created_at=NOW, source="app")
+    with pytest.raises(ValidationError):
+        Entry(id=3, patient_id=1, speaker_id=1, speaker_role="paciente", modality="texto",
+              raw_text="x", occurred_hint="la_semana_pasada", reserved_requested=False,
+              corrected=False, created_at=NOW, source="app")
+
+
+def test_prompt_context():
+    trigger = Trigger(rule_id="P-DESVIO", patient_id=1, to_person_id=1,
+                      facts={"pct_change": -75.0}, why="Caminó 75% menos que de costumbre")
+    deviation = Deviation(dose_time=NOW, window="0-120", observed=120, median=480.0,
+                          z=-2.8, pct_change=-75.0)
+    recent = [ContextEntry(speaker_role="cuidador", text="estuvo duro", created_at=NOW)]
+    PromptContext(now=NOW, patient_name="Juan", recipient_role="paciente", trigger=trigger,
+                  deviation=deviation, recent_entries=recent)
+    PromptContext(now=NOW, patient_name="Juan", recipient_role="cuidador", trigger=trigger,
+                  deviation=None, recent_entries=[])
+
+
+def test_understood_item():
+    UnderstoodItem(plain="Te tembló la mano", when="hoy a la tarde", domain="motor")
+
+
+def test_atajo_payload():
+    p = AtajoPayload.model_validate({
+        "window_start": "2026-10-13T13:00:00-03:00",
+        "window_end": "2026-10-13T16:00:00-03:00",
+        "samples": [{"kind": "steps", "value": 312, "start": "2026-10-13T13:00:00-03:00",
+                     "end": "2026-10-13T14:00:00-03:00"}],
+    })
+    assert isinstance(p.samples[0], AtajoSample)
+    AtajoPayload(window_start=NOW, window_end=NOW, samples=[])
+    with pytest.raises(ValidationError):
+        AtajoPayload(window_start=dt.datetime(2026, 10, 13, 13), window_end=NOW, samples=[])

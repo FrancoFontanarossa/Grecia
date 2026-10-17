@@ -11,6 +11,8 @@ Speaker = Literal["paciente","cuidador","familiar"]
 Role = Literal["paciente","cuidador","familiar","neurologo"]
 Lane = Literal["rojo","ambar","verde"]
 NotificationKind = Literal["pregunta","repregunta","logro","ambar","rojo","resumen"]
+BiometricKind = Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness"]
+OccurredHint = Literal["ahora","esta_manana","esta_tarde","anoche","ayer"]
 
 
 class Event(BaseModel):
@@ -35,11 +37,24 @@ class RedResult(BaseModel):
 
 class BiometricSample(BaseModel):
     patient_id: int
-    kind: Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness"]
+    kind: BiometricKind
     value: float
     start: AwareDatetime
     end: AwareDatetime
     source: Literal["atajo","importacion","seed","inyectado"]
+
+
+class AtajoSample(BaseModel):
+    kind: BiometricKind
+    value: float
+    start: AwareDatetime
+    end: AwareDatetime
+
+
+class AtajoPayload(BaseModel):              # cuerpo de POST /api/biometrics/atajo
+    window_start: AwareDatetime
+    window_end: AwareDatetime
+    samples: list[AtajoSample]
 
 
 class Deviation(BaseModel):
@@ -155,3 +170,42 @@ class Notification(BaseModel):              # tabla notifications
     created_at: AwareDatetime
     push_sent: bool
     read_at: AwareDatetime | None = None
+
+
+class Entry(BaseModel):                     # tabla entries
+    id: int
+    patient_id: int
+    speaker_id: int
+    speaker_role: Speaker
+    modality: Literal["texto","audio","toque"]
+    question_id: int | None = None
+    raw_text: str
+    audio_path: str | None = None
+    occurred_hint: OccurredHint | None = None
+    reserved_requested: bool
+    corrected: bool
+    created_at: AwareDatetime
+    source: str
+
+
+# Contexto de pipeline.explain / pipeline.ask, y lo que devuelve "Anoté esto".
+
+class ContextEntry(BaseModel):
+    speaker_role: Speaker
+    text: str
+    created_at: AwareDatetime
+
+
+class PromptContext(BaseModel):
+    now: AwareDatetime
+    patient_name: str
+    recipient_role: Role
+    trigger: Trigger
+    deviation: Deviation | None
+    recent_entries: list[ContextEntry]
+
+
+class UnderstoodItem(BaseModel):
+    plain: str
+    when: str
+    domain: Domain
