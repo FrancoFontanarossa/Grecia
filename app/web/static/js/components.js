@@ -176,6 +176,80 @@
     };
   };
 
+  /* ---------------------------------------------------------- panel de la demo (/admin/clock) */
+  window.adminPanel = function () {
+    var tok = "";
+    try { tok = localStorage.getItem("ec_admin_token") || ""; } catch (e) {}
+    return {
+      token: tok, now: "", offset: 0, setTo: "", msg: "", msgError: false,
+      drop: { patient_id: 1, day: "", dose: "16:00", pct: 70 },
+      init: function () { this.refresh(); },
+      saveToken: function () { try { localStorage.setItem("ec_admin_token", this.token); } catch (e) {} },
+      get nowLabel() {
+        if (!this.now) return "";
+        var d = this.now; // ISO con zona de Montevideo: se muestra tal cual, sin la hora del navegador
+        var dias = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+        var wd = new Date(d.slice(0, 10) + "T12:00:00").getDay();
+        return dias[wd] + " " + d.slice(8, 10) + "/" + d.slice(5, 7) + " · " + d.slice(11, 16);
+      },
+      get offsetLabel() {
+        if (!this.offset) return "";
+        var h = Math.round(this.offset / 360) / 10;
+        return "Reloj corrido " + (h > 0 ? "+" : "") + String(h).replace(".", ",") + " h respecto de la hora real";
+      },
+      _req: function (method, url, body) {
+        var self = this;
+        return fetch(url, {
+          method: method, headers: { "Content-Type": "application/json", "X-Admin-Token": self.token },
+          body: body ? JSON.stringify(body) : undefined
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (d) {
+            if (!r.ok) throw new Error((d && d.detail) || ("Error " + r.status));
+            return d;
+          });
+        });
+      },
+      _show: function (text, isError) { this.msg = text; this.msgError = !!isError; },
+      refresh: function () {
+        var self = this;
+        self._req("GET", "/admin/clock/state").then(function (d) {
+          self.now = d.now; self.offset = d.offset_seconds || 0;
+          if (!self.drop.day) self.drop.day = d.now.slice(0, 10);
+          self._show("");
+        }).catch(function (e) { self._show(e.message === "Error 404" ? "Todavía no está el reloj (app/clock.py)." : e.message, true); });
+      },
+      advance: function (min) {
+        var self = this;
+        self._req("POST", "/admin/clock/advance", { minutes: min }).then(function (d) {
+          self.now = d.now; self.refresh(); self._show("Reloj adelantado " + (min >= 60 ? (min / 60) + " h" : min + " min") + ".");
+        }).catch(function (e) { self._show(e.message, true); });
+      },
+      setClock: function () {
+        var self = this;
+        self._req("POST", "/admin/clock/set", { iso: self.setTo + (self.setTo.length === 16 ? ":00" : "") + "-03:00" })
+          .then(function (d) { self.now = d.now; self.refresh(); self._show("Hora fijada."); })
+          .catch(function (e) { self._show(e.message, true); });
+      },
+      injectDrop: function () {
+        var self = this;
+        var body = { patient_id: self.drop.patient_id, dose_time: self.drop.day + "T" + self.drop.dose + ":00-03:00", pct: self.drop.pct / 100 };
+        self._req("POST", "/admin/inject_drop", body)
+          .then(function () { self._show("Caída inyectada (" + self.drop.pct + "%) el " + self.drop.day + " después de la toma de las " + self.drop.dose + ". Adelantá el reloj para que la detecte."); })
+          .catch(function (e) { self._show(e.message, true); });
+      },
+      post: function (url, body, ok) {
+        var self = this;
+        self._req("POST", url, body).then(function () { self._show(ok); self.refresh(); }).catch(function (e) { self._show(e.message, true); });
+      },
+      pushTest: function (personId) {
+        var self = this;
+        fetch("/api/push/test/" + personId, { method: "POST" }).then(function (r) { return r.json(); })
+          .then(function (d) { self._show("Push de prueba: " + JSON.stringify(d)); })
+          .catch(function (e) { self._show(String(e), true); });
+      }
+    };
+  };
+
   /* ---------------------------------------------------------- tarjeta de avisos */
   window.avisosCard = function (dismissible) {
     return {

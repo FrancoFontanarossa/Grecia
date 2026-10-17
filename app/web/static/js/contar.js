@@ -195,6 +195,11 @@
         data.entry_id = id;
         try { sessionStorage.setItem("ec_entry_" + id, JSON.stringify(data)); if (opts.questionId) sessionStorage.setItem("ec_q_" + id, "1"); } catch (e) {}
         this.transcript = data.transcript || (this._blob ? "" : this.text);
+        // entries.py devuelve 200 con `error` si falla la IA: el relato crudo ya quedó guardado.
+        if (data.error && !(data.understood || []).length) {
+          if (this._blob && !data.transcript) { this._fail("no-escuche", TEXTS.notHeard); return; }
+          this._fail("ia", TEXTS.aiFailed); return;
+        }
         if (data.red) {
           var rojo = (data.alerts || []).filter(function (a) { return a.lane === "rojo"; })[0];
           try { sessionStorage.setItem("ec_red_" + id, JSON.stringify(data.red)); } catch (e) {}

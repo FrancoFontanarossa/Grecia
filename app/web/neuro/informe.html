@@ -1,0 +1,26 @@
+﻿{% extends "neuro/_base.html" %}
+{% block title %}Informe para la consulta · {{ r.meta.patient.name }}{% endblock %}
+{% block content %}
+<div class="neuro" hx-boost="false" x-data="{ ev: null }" @keydown.escape.window="ev = null">
+  <div class="neuro__contenedor">
+    {% include "neuro/_encabezado.html" %}
+    <div hx-get="/neuro/informe/{{ r.meta.patient.id }}?parcial=1" hx-trigger="every 3s" hx-swap="innerHTML"
+         style="display: flex; flex-direction: column; gap: 24px">
+      {% include "neuro/informe_contenido.html" %}
+    </div>
+  </div>
+
+  {# ---------- evidencia: la cita literal ---------- #}
+  <div class="modal" x-show="ev" x-cloak @click.self="ev = null" role="dialog" aria-modal="true" aria-labelledby="ev-titulo">
+    <div class="modal__caja">
+      <div class="fila-entre">
+        <div id="ev-titulo" style="font-size: 15px; font-weight: 700; color: var(--color-tinta-suave)" x-text="ev && ev.label"></div>
+        <button type="button" class="enlace-suave" @click="ev = null" style="font-size: 15px">Cerrar</button>
+      </div>
+      <div x-show="ev && ev.reserved === '1'" class="etiqueta-privado">Para hablar en privado · lo contó la familia</div>
+      <blockquote style="margin: 0; font-size: 19px; line-height: 1.55" x-text="ev && ('«' + ev.quote + '»')"></blockquote>
+      <div style="font-size: 13px; color: var(--color-tinta-suave)">Cita literal del relato (evento <span x-text="ev && ev.id"></span>).</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
