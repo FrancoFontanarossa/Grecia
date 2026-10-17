@@ -1,19 +1,18 @@
 # POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, lo pasa por la extracción.
 # Todavía sin audio, rojos ni avisos (vienen con transcribe y las reglas de Franco).
 import asyncio
-from typing import Literal
+from typing import Literal, get_args
 
 from fastapi import APIRouter, Form, HTTPException
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
 from app import notify
-from app.models import Entry
+from app.models import Entry, OccurredHint
 from app.pipeline import extract as extraction
 
 router = APIRouter()
 
-# TODO: reemplazar por OccurredHint de app/models.py cuando Franco lo sume.
-OCCURRED_HINTS = ("ahora", "esta_manana", "esta_tarde", "anoche", "ayer")
+OCCURRED_HINTS = get_args(OccurredHint)
 
 # TODO: mover a app/models.py. "app": entra por la PWA; "precorrer": relatos de la semana escritos por el equipo
 # (scripts/precorrer_semana.py), rotulados así en la declaración del README.
