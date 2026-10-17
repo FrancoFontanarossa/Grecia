@@ -89,6 +89,6 @@
     </div>
   </template>
 
-  <button type="button" class="btn btn--claro" x-show="phase !== 'procesando'" @click="cancelar()">Cancelar</button>
+  <button type="button" class="btn btn--claro" x-show="phase !== 'procesando' && !(phase === 'error' && errorKind === 'ia')" @click="cancelar()">Cancelar</button>
 </main>
 {% endblock %}

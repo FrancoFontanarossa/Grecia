@@ -36,19 +36,26 @@ def _db_module():
         return None
 
 
-_has_people_cache: dict[str, bool] = {}
+_has_db_cache = {"value": False, "checked": -1e9}
 
 
 def has_db() -> bool:
-    """Hay base real con personas (el seed ya corrió)."""
+    """Hay base real con personas (el seed ya corrió). Se revisa como mucho cada 5 s (reloj del proceso,
+    no de la demo: es solo un caché)."""
+    import time
+
+    if time.monotonic() - _has_db_cache["checked"] < 5:
+        return _has_db_cache["value"]
     db = _db_module()
-    if not db:
-        return False
-    try:
-        with db.connect() as conn:
-            return conn.execute("SELECT COUNT(*) FROM people").fetchone()[0] > 0
-    except Exception:
-        return False
+    value = False
+    if db:
+        try:
+            with db.connect() as conn:
+                value = conn.execute("SELECT COUNT(*) FROM people").fetchone()[0] > 0
+        except Exception:
+            value = False
+    _has_db_cache.update(value=value, checked=time.monotonic())
+    return value
 
 
 @contextmanager
