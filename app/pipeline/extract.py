@@ -2,6 +2,7 @@
 # 1 reintento si la salida no valida; después ExtractionError (la entrada ya quedó guardada con el texto crudo).
 import datetime as dt
 import logging
+import os
 from pathlib import Path
 
 import anthropic
@@ -134,6 +135,9 @@ def user_message(entry: Entry, *, patient_name: str, speaker_name: str | None) -
 
 async def _call_model(system: list[dict], content: str):
     global _client
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        # sin esto el SDK lanza TypeError (no AnthropicError) y el pedido terminaría en 500
+        raise ExtractionError("Falta ANTHROPIC_API_KEY")
     if _client is None:
         _client = anthropic.AsyncAnthropic()
     # Haiku 5.5: sin temperature (cualquier valor distinto del default da 400). La consistencia sale del tool

@@ -9,6 +9,7 @@ from app.models import Entry
 from app.pipeline import extract
 from tests.conftest import FakeModel, tool_response
 
+_REAL_CALL = extract._call_model   # antes de que el fixture autouse lo reemplace
 CREATED = dt.datetime(2026, 10, 17, 19, 20, tzinfo=TZ)
 MARTA = "anoche hablaba con alguien que no estaba, debe ser el cansancio"
 
@@ -118,3 +119,11 @@ def test_understood_con_when_del_codigo(monkeypatch):
     [u] = extract.understood(run(entry()), CREATED)
     assert u == {"plain": "Anoche Juan habló con alguien que no estaba. Vos pensás que fue el cansancio.",
                  "when": "anoche", "domain": "neuropsiquiatrico", "domain_label": "Alucinaciones y confusión"}
+
+
+def test_sin_key_es_error_claro_y_no_typeerror(monkeypatch):
+    monkeypatch.setattr(extract, "_call_model", _REAL_CALL)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    with pytest.raises(extract.ExtractionError, match="ANTHROPIC_API_KEY"):
+        run(entry())
