@@ -76,8 +76,8 @@
 | Hora | Qué |
 |---|---|
 | 7:30 | Smoke test en Railway: la app abre en los tres iPhone, llega una push, el reloj está en el lunes, créditos de Railway y de Claude |
-| 7:45 | `scripts/precorrer_semana.py` y `POST /admin/restore` del estado guardado |
-| 8:00–8:45 | Pitch entre los tres; ensayo cronometrado tres veces, con las preguntas de `docs/PRODUCTO.md` en voz alta |
+| 7:45 | En este orden: `data/seed.py` → `scripts/precorrer_semana.py` → `POST /admin/snapshot` (justo antes de la caída en vivo) |
+| 8:00–8:45 | Pitch entre los tres; ensayo cronometrado tres veces, con las preguntas de `docs/PRODUCTO.md` en voz alta y `POST /admin/restore` entre ensayos |
 | **8:45** | **Nadie pushea a `main`** |
 | ¿9:00–11:00? | Presentación (**confirmar el horario con la organización**) |
 
