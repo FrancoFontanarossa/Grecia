@@ -171,3 +171,50 @@ def test_si_falla_la_ia_no_hay_eventos(tmp_data_dir, monkeypatch):
     monkeypatch.setattr(extract, "_call_model", FakeModel(anthropic.APIConnectionError(request=None)))
     client.post("/api/entries", data={"person_id": 2, "text": "algo"})
     assert _rows("events") == [] and len(_rows("entries")) == 1
+
+
+def test_audio_se_transcribe_y_se_extrae(tmp_data_dir, monkeypatch):
+    from app.pipeline import extract, transcribe
+    from tests.conftest import FakeModel, tool_response
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    seen = {}
+
+    async def fake_transcribe(path):
+        seen["path"] = path
+        return "anoche hablaba con alguien que no estaba, debe ser el cansancio"
+    monkeypatch.setattr(transcribe, "transcribe", fake_transcribe)
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([_marta_event()])))
+
+    r = client.post("/api/entries", data={"person_id": 2, "occurred_hint": "anoche"},
+                    files={"audio": ("grabacion", b"\x00audio", "audio/mp4;codecs=mp4a.40.2")})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["transcript"].startswith("anoche hablaba") and len(body["understood"]) == 1 and "error" not in body
+    e = _rows("entries")[0]
+    assert e["modality"] == "audio" and e["raw_text"].startswith("anoche hablaba")
+    assert e["audio_path"].startswith("audios/") and e["audio_path"].endswith(".m4a")
+    assert seen["path"].suffix == ".m4a" and (tmp_data_dir / e["audio_path"]).read_bytes() == b"\x00audio"
+    assert len(_rows("events")) == 1
+
+
+def test_audio_sin_transcribir_queda_guardado_con_texto_vacio(tmp_data_dir, monkeypatch):
+    from app.pipeline import transcribe
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    r = client.post("/api/entries", data={"person_id": 2},
+                    files={"audio": ("a.webm", b"\x00audio", "audio/webm")})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["transcript"] == "" and body["understood"] == []
+    assert body["error"] == "No pude entenderlo esta vez. Lo guardé tal cual para tu neuróloga."
+    e = _rows("entries")[0]
+    assert e["raw_text"] == "" and e["modality"] == "audio" and e["audio_path"].endswith(".webm")
+    assert _rows("events") == [] and len(_rows("notifications")) == 1
+
+
+def test_audio_de_formato_desconocido_da_415_y_no_guarda(tmp_data_dir):
+    r = client.post("/api/entries", data={"person_id": 2}, files={"audio": ("a.mp3", b"x", "audio/mpeg")})
+    assert r.status_code == 415 and _rows("entries") == []

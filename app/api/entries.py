@@ -1,15 +1,16 @@
-# POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, lo pasa por la extracción.
-# Todavía sin audio, rojos ni avisos (vienen con transcribe y las reglas de Franco).
+# POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio)
+# y extrae los eventos. Todavía sin rojos ni avisos (vienen con las reglas de Franco).
 import asyncio
 from typing import Literal, get_args
 
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
 from app import _tmp_rules as rules  # TEMPORAL: app.rules de Franco
 from app import notify
 from app.models import Entry, Event, OccurredHint
 from app.pipeline import extract as extraction
+from app.pipeline import transcribe as transcription
 
 router = APIRouter()
 
@@ -26,6 +27,7 @@ AI_ERROR = "No pude entenderlo esta vez. Lo guardé tal cual para tu neuróloga.
 async def create_entry(
     person_id: int = Form(...),
     text: str | None = Form(None),
+    audio: UploadFile | None = File(None),
     occurred_hint: str | None = Form(None),
     question_id: int | None = Form(None),
     quick_reply: str | None = Form(None),
@@ -34,9 +36,8 @@ async def create_entry(
     if occurred_hint is not None and occurred_hint not in OCCURRED_HINTS:
         raise HTTPException(422, f"occurred_hint inválido: {occurred_hint!r}. Valores: {', '.join(OCCURRED_HINTS)}")
     raw_text = (text or quick_reply or "").strip()
-    if not raw_text:
-        # TODO: audio (pipeline.transcribe)
-        raise HTTPException(422, "Falta el texto")
+    if audio is None and not raw_text:
+        raise HTTPException(422, "Falta el texto o el audio")
 
     person = await asyncio.to_thread(db.person_info, person_id)
     if person is None:
@@ -44,26 +45,48 @@ async def create_entry(
     if person["role"] not in ("paciente", "cuidador", "familiar"):
         raise HTTPException(403, "Solo el paciente y la familia cuentan relatos")
 
+    audio_path = None
+    if audio is not None:
+        data = await audio.read()
+        try:
+            audio_path = await asyncio.to_thread(transcription.save_audio, data, audio.content_type)
+        except transcription.UnsupportedAudio as exc:
+            raise HTTPException(415, str(exc)) from exc
+        raw_text = ""   # se completa con la transcripción; si falla queda "" y el audio guardado
+        modality = "audio"
+    else:
+        modality = "toque" if quick_reply and not text else "texto"
+
     source: EntrySource = "app"
     entry_id = await asyncio.to_thread(
-        db.insert_entry, patient_id=person["patient_id"], speaker_id=person_id,
-        modality="toque" if quick_reply and not text else "texto",
+        db.insert_entry, patient_id=person["patient_id"], speaker_id=person_id, modality=modality,
         raw_text=raw_text, question_id=question_id, occurred_hint=occurred_hint,
         reserved_requested=reserved_requested, source=source,
+        audio_path=str(audio_path.relative_to(db.data_dir())) if audio_path else None,
     )
-    row = await asyncio.to_thread(db.get_entry, entry_id)
-    entry = Entry.model_validate({**row, "speaker_role": person["role"]})
 
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
-    try:
-        events = await extraction.extract(entry, patient_name=person["patient_name"] or "el paciente",
-                                          speaker_name=person["name"])
-    except extraction.ExtractionError:
-        response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
-    else:
-        await _save_events(entry, events)
-        response["understood"] = extraction.understood(events, db.now())
-        # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
+    if audio_path is not None:
+        try:
+            raw_text = await transcription.transcribe(audio_path)
+        except transcription.TranscriptionError:
+            response["error"] = AI_ERROR   # el audio quedó guardado para la neuróloga
+        else:
+            await asyncio.to_thread(db.set_entry_text, entry_id, raw_text)
+            response["transcript"] = raw_text
+
+    if raw_text:
+        row = await asyncio.to_thread(db.get_entry, entry_id)
+        entry = Entry.model_validate({**row, "speaker_role": person["role"]})
+        try:
+            events = await extraction.extract(entry, patient_name=person["patient_name"] or "el paciente",
+                                              speaker_name=person["name"])
+        except extraction.ExtractionError:
+            response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
+        else:
+            await _save_events(entry, events)
+            response["understood"] = extraction.understood(events, db.now())
+            # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
 
     await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
     return response
