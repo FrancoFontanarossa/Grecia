@@ -73,9 +73,12 @@ _init_lock = threading.Lock()
 _initialized: set[str] = set()
 
 
+def data_dir() -> Path:
+    return Path(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "./data"))
+
+
 def db_path() -> Path:
-    data_dir = Path(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "./data"))
-    return data_dir / "entrecasa.db"
+    return data_dir() / "entrecasa.db"
 
 
 def connect() -> sqlite3.Connection:
@@ -126,6 +129,16 @@ def insert_entry(*, patient_id: int, speaker_id: int, modality: str, raw_text: s
                  occurred_hint, int(reserved_requested), now().isoformat(), source),
             )
         return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def set_entry_text(entry_id: int, raw_text: str) -> None:
+    """Guarda la transcripción en una entrada de audio."""
+    conn = connect()
+    try:
+        with conn:
+            conn.execute("UPDATE entries SET raw_text = ? WHERE id = ?", (raw_text, entry_id))
     finally:
         conn.close()
 
