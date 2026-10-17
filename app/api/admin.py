@@ -1,11 +1,36 @@
-# Admin de la demo (CLAUDE.md §11): reloj, snapshot y restore. Todo con el encabezado X-Admin-Token.
+# Admin de la demo (CLAUDE.md §11): reloj, caída inyectada, snapshot y restore. Todo con X-Admin-Token.
 import os
 import secrets
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel, Field
 
-from app import clock, db
+from app import clock, config, db
+
+
+class NoSyncError(Exception):
+    """No hay un registro en biometric_syncs que cubra la ventana: no se sabe cuántos pasos hubo."""
+
+
+def inject_drop(patient_id: int, dose_time: datetime, pct: float) -> int:
+    """Multiplica por (1 − pct) los pasos de las muestras que empiezan en [toma, toma + 120 min)
+    y las rotula source=inyectado. Las ya inyectadas no se tocan (aplicarla dos veces no la duplica).
+    Devuelve cuántas muestras cambió."""
+    start = db.to_db(dose_time)
+    end = db.to_db(dose_time + timedelta(minutes=config.DEVIATION_WINDOW_MINUTES))
+    with db.connect() as conn:
+        covered = conn.execute(
+            "SELECT 1 FROM biometric_syncs WHERE patient_id = ? AND window_start <= ? AND window_end >= ?",
+            (patient_id, start, end),
+        ).fetchone()
+        if not covered:
+            raise NoSyncError
+        return conn.execute(
+            "UPDATE biometrics SET value = value * ?, source = 'inyectado' "
+            "WHERE patient_id = ? AND kind = 'steps' AND source != 'inyectado' AND start >= ? AND start < ?",
+            (1 - pct, patient_id, start, end),
+        ).rowcount
 
 
 def require_admin(x_admin_token: str | None = Header(default=None)) -> None:
@@ -25,6 +50,12 @@ class SetBody(BaseModel):
     iso: str
 
 
+class InjectDropBody(BaseModel):
+    patient_id: int
+    dose_time: AwareDatetime
+    pct: float = Field(gt=0, le=1)
+
+
 @router.get("/clock/state")   # /admin/clock queda para el panel HTML
 def get_clock():
     return {"now": clock.now().isoformat(), "offset_seconds": clock.offset().total_seconds()}
@@ -41,6 +72,15 @@ def set_clock(body: SetBody):
         return {"now": clock.set(body.iso).isoformat()}
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Fecha inválida: {body.iso!r} (usar ISO 8601)")
+
+
+@router.post("/inject_drop")
+def post_inject_drop(body: InjectDropBody):
+    try:
+        inject_drop(body.patient_id, body.dose_time, body.pct)
+    except NoSyncError:
+        raise HTTPException(status_code=409, detail="No hay pasos sincronizados que cubran esa ventana")
+    return {"ok": True}
 
 
 @router.post("/snapshot")

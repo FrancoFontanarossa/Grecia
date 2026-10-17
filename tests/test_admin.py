@@ -93,3 +93,68 @@ def test_snapshot_change_restore(client, data_dir):
 
 def test_admin_clock_is_free_for_the_html_panel(client):
     assert client.get("/admin/clock", headers=OK).status_code == 404
+
+
+def add_sync(window_start, window_end):
+    with db.connect() as conn:
+        conn.execute("INSERT INTO biometric_syncs (patient_id, window_start, window_end, received_at, n_samples) "
+                     "VALUES (1, ?, ?, ?, 0)", (window_start, window_end, window_start))
+
+
+def add_steps(start, end, value, source="importacion"):
+    with db.connect() as conn:
+        conn.execute('INSERT INTO biometrics (patient_id, kind, value, start, "end", source) VALUES (1, \'steps\', ?, ?, ?, ?)',
+                     (value, start, end, source))
+
+
+def steps():
+    with db.connect() as conn:
+        return [(r["start"], r["value"], r["source"])
+                for r in conn.execute("SELECT start, value, source FROM biometrics ORDER BY start")]
+
+
+DROP = {"patient_id": 1, "dose_time": "2026-10-13T16:00:00-03:00", "pct": 0.7}
+
+
+def test_inject_drop_applies_and_labels_only_the_window(client):
+    add_sync("2026-10-13T00:00:00-03:00", "2026-10-14T00:00:00-03:00")
+    add_steps("2026-10-13T15:00:00-03:00", "2026-10-13T16:00:00-03:00", 500)   # antes de la toma
+    add_steps("2026-10-13T16:00:00-03:00", "2026-10-13T17:00:00-03:00", 400)   # dentro
+    add_steps("2026-10-13T17:30:00-03:00", "2026-10-13T17:40:00-03:00", 100, source="atajo")  # dentro
+    add_steps("2026-10-13T18:00:00-03:00", "2026-10-13T19:00:00-03:00", 300)   # justo después
+    add_steps("2026-10-12T16:00:00-03:00", "2026-10-12T17:00:00-03:00", 450)   # otro día
+    assert client.post("/admin/inject_drop", json=DROP, headers=OK).json() == {"ok": True}
+    assert steps() == [
+        ("2026-10-12T16:00:00-03:00", 450, "importacion"),
+        ("2026-10-13T15:00:00-03:00", 500, "importacion"),
+        ("2026-10-13T16:00:00-03:00", pytest.approx(120), "inyectado"),
+        ("2026-10-13T17:30:00-03:00", pytest.approx(30), "inyectado"),
+        ("2026-10-13T18:00:00-03:00", 300, "importacion"),
+    ]
+
+
+def test_inject_drop_twice_does_not_compound(client):
+    add_sync("2026-10-13T00:00:00-03:00", "2026-10-14T00:00:00-03:00")
+    add_steps("2026-10-13T16:00:00-03:00", "2026-10-13T17:00:00-03:00", 400)
+    client.post("/admin/inject_drop", json=DROP, headers=OK)
+    client.post("/admin/inject_drop", json=DROP, headers=OK)
+    assert steps() == [("2026-10-13T16:00:00-03:00", pytest.approx(120), "inyectado")]
+
+
+@pytest.mark.parametrize("sync", [None, ("2026-10-13T16:30:00-03:00", "2026-10-13T19:00:00-03:00"),
+                                  ("2026-10-13T12:00:00-03:00", "2026-10-13T17:59:00-03:00")])
+def test_inject_drop_without_covering_sync_is_409(client, sync):
+    if sync:
+        add_sync(*sync)
+    add_steps("2026-10-13T16:00:00-03:00", "2026-10-13T17:00:00-03:00", 400)
+    assert client.post("/admin/inject_drop", json=DROP, headers=OK).status_code == 409
+    assert steps() == [("2026-10-13T16:00:00-03:00", 400, "importacion")]
+
+
+@pytest.mark.parametrize("body", [{**DROP, "pct": 0}, {**DROP, "pct": 1.5}, {**DROP, "dose_time": "2026-10-13T16:00"}])
+def test_inject_drop_validates_body(client, body):
+    assert client.post("/admin/inject_drop", json=body, headers=OK).status_code == 422
+
+
+def test_inject_drop_requires_token(client):
+    assert client.post("/admin/inject_drop", json=DROP).status_code == 401

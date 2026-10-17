@@ -466,7 +466,7 @@ API (JSON; el contrato entre la app y el backend):
 | `GET /api/patients/{id}/technical` | — | series de pasos por franja, tomas, desvíos, juego |
 | `GET /admin/clock/state` | — | `{now, offset_seconds}` (`/admin/clock` es el panel HTML) |
 | `POST /admin/clock/advance` · `/set` | `{minutes}` · `{iso}` | `{now}` |
-| `POST /admin/inject_drop` | `{patient_id, dose_time, pct}` | `{ok}` (crea pasos `source=inyectado`) |
+| `POST /admin/inject_drop` | `{patient_id, dose_time, pct}` | `{ok}`: multiplica por `1 − pct` los pasos de las 2 h después de la toma y los rotula `source=inyectado`; 409 si ningún `biometric_syncs` cubre la ventana |
 | `POST /admin/snapshot` | — | `{ok}` |
 | `POST /admin/restore` | — | `{ok}` |
 
