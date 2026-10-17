@@ -25,7 +25,7 @@ class SetBody(BaseModel):
     iso: str
 
 
-@router.get("/clock")
+@router.get("/clock/state")   # /admin/clock queda para el panel HTML
 def get_clock():
     return {"now": clock.now().isoformat(), "offset_seconds": clock.offset().total_seconds()}
 

@@ -11,7 +11,7 @@ def test_lifespan_creates_db_and_routes_respond(tmp_path, monkeypatch):
     with TestClient(app) as client:
         assert db.db_path().exists()
         assert client.get("/health").json() == {"status": "ok"}
-        assert client.get("/admin/clock", headers={"X-Admin-Token": "admin"}).status_code == 200
+        assert client.get("/admin/clock/state", headers={"X-Admin-Token": "admin"}).status_code == 200
         body = {"window_start": "2026-10-17T16:00:00-03:00", "window_end": "2026-10-17T19:00:00-03:00", "samples": []}
         r = client.post("/api/biometrics/atajo", json=body, headers={"X-Atajo-Token": "atajo"})
         assert r.json() == {"received": 0}

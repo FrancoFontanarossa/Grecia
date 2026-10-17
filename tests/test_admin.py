@@ -33,7 +33,7 @@ def add_person(id_, name):
 
 
 @pytest.mark.parametrize("method,path,body", [
-    ("get", "/admin/clock", None),
+    ("get", "/admin/clock/state", None),
     ("post", "/admin/clock/advance", {"minutes": 10}),
     ("post", "/admin/clock/set", {"iso": "2026-10-13T08:00"}),
     ("post", "/admin/snapshot", None),
@@ -47,16 +47,16 @@ def test_requires_admin_token(client, method, path, body, headers):
 
 def test_unset_admin_token_rejects(client, monkeypatch):
     monkeypatch.delenv("ADMIN_TOKEN")
-    assert client.get("/admin/clock", headers=OK).status_code == 401
+    assert client.get("/admin/clock/state", headers=OK).status_code == 401
 
 
 def test_clock_endpoints(client):
-    assert client.get("/admin/clock", headers=OK).json() == {"now": "2026-10-17T19:00:00-03:00", "offset_seconds": 0.0}
+    assert client.get("/admin/clock/state", headers=OK).json() == {"now": "2026-10-17T19:00:00-03:00", "offset_seconds": 0.0}
     r = client.post("/admin/clock/set", json={"iso": "2026-10-13T08:00"}, headers=OK)
     assert r.json() == {"now": "2026-10-13T08:00:00-03:00"}
     r = client.post("/admin/clock/advance", json={"minutes": 90}, headers=OK)
     assert r.json() == {"now": "2026-10-13T09:30:00-03:00"}
-    assert client.get("/admin/clock", headers=OK).json()["now"] == "2026-10-13T09:30:00-03:00"
+    assert client.get("/admin/clock/state", headers=OK).json()["now"] == "2026-10-13T09:30:00-03:00"
 
 
 def test_set_with_bad_iso_is_422(client):
@@ -89,3 +89,7 @@ def test_snapshot_change_restore(client, data_dir):
     with db.connect() as conn:
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
 
+
+
+def test_admin_clock_is_free_for_the_html_panel(client):
+    assert client.get("/admin/clock", headers=OK).status_code == 404

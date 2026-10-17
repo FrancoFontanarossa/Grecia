@@ -464,6 +464,7 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /api/notifications/{id}/read` | — | `{ok}` |
 | `GET /api/patients/{id}/report` | — | `Report` + metadatos |
 | `GET /api/patients/{id}/technical` | — | series de pasos por franja, tomas, desvíos, juego |
+| `GET /admin/clock/state` | — | `{now, offset_seconds}` (`/admin/clock` es el panel HTML) |
 | `POST /admin/clock/advance` · `/set` | `{minutes}` · `{iso}` | `{now}` |
 | `POST /admin/inject_drop` | `{patient_id, dose_time, pct}` | `{ok}` (crea pasos `source=inyectado`) |
 | `POST /admin/snapshot` | — | `{ok}` |
