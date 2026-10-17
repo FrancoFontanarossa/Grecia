@@ -116,11 +116,18 @@ La neuróloga abre `/neuro/informe/{patient}` → el código calcula las cifras 
 | `POST /api/tests` | Toques del golpeteo `{person_id, type, taps: [{t_ms, side}]}` → puntaje y últimas sesiones |
 | `GET/POST /api/consents/{patient_id}` | Interruptores por destinatario y tipo |
 | `POST /api/notifications/{id}/read` | Marca una notificación como leída |
+| `POST /api/alerts/{id}/ack` | Botón "Estoy bien" de la pantalla de emergencia: `acked_at = clock.now()` y la meta sale de pausa si no queda ningún rojo sin atender |
 
 **Biometría**
 | Método y ruta | Qué hace |
 |---|---|
 | `POST /api/biometrics/atajo` | Encabezado `X-Atajo-Token`; `AtajoPayload`: `{window_start, window_end, samples: [{kind, value, start, end}]}` → guarda las muestras en `biometrics` con `source=atajo` y la ventana en `biometric_syncs`. En `DEMO_MODE` corre las fechas según el offset del reloj |
+
+**Reglas que llaman `entries` y el scheduler** (firmas completas en CLAUDE.md §11)
+- `rules.red.check(text, patient_id)` · `rules.red.evaluate(text, meds)` · `rules.red.from_backup(suspected_rule)`
+- `rules.lanes.evaluate(patient_id, event_ids, *, red=None, speaker_id=None) -> list[Alert]` (ya guardados, con destinatarios)
+- `rules.consent.recipients(alert, speaker_id=None) -> list[Person]` · `rules.consent.is_reserved(...)` · `rules.consent.mark_new(...)`
+- `rules.games.score(taps, *, patient_id, taken_at=None) -> GameResult`
 
 **Neuróloga (JSON para las vistas)**
 - `GET /api/patients/{id}/report` · `GET /api/patients/{id}/technical`
@@ -128,7 +135,7 @@ La neuróloga abre `/neuro/informe/{patient}` → el código calcula las cifras 
 **Páginas (HTML)**
 - App de la casa: `/` (¿Quién sos?), `/casa`, `/casa/contar`, `/casa/anote/{entry_id}`, `/casa/pregunta/{id}`, `/casa/golpeteo`, `/casa/permisos`, `/casa/emergencia/{alert_id}`, `/prueba`
 - Neuróloga: `/neuro/informe/{patient_id}`, `/neuro/tecnica/{patient_id}`
-- Admin: `/admin/clock` (panel HTML), `GET /admin/clock/state` (JSON: `{now, offset_seconds}`), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/snapshot`, `POST /admin/restore` (con `ADMIN_TOKEN`)
+- Admin: `/admin/clock` (panel HTML), `GET /admin/clock/state` (JSON: `{now, offset_seconds}`), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/snapshot`, `POST /admin/restore`, `POST /admin/seed` (corre `data/seed.py`), `POST /admin/import_steps` (CSV `start,steps` por hora de `import_health --export-csv`, para cargar la base de Railway) (con `ADMIN_TOKEN`)
 - Infra: `GET /health`, `GET /manifest.webmanifest`, `GET /sw.js` (servido desde la raíz para que controle toda la app)
 
 ---
