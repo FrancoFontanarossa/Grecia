@@ -1,9 +1,10 @@
-# Admin de la demo (CLAUDE.md §11): reloj, caída inyectada, snapshot y restore. Todo con X-Admin-Token.
+# Admin de la demo (CLAUDE.md §11): reloj, caída inyectada, snapshot y restore, y carga de la base de Railway
+# (seed y pasos importados). Todo con X-Admin-Token.
 import os
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import AwareDatetime, BaseModel, Field
 
 from app import clock, config, db
@@ -96,3 +97,25 @@ def restore():
     except FileNotFoundError:
         raise HTTPException(status_code=409, detail="No hay snapshot guardado: primero POST /admin/snapshot")
     return {"ok": True}
+
+
+# Carga de la base de Railway. Import tardío: data.seed usa inject_drop de este módulo.
+@router.post("/seed")
+def post_seed():
+    from data import seed
+    result = seed.run()
+    people = [{"id": i, "name": n, "role": r, "patient_id": p} for i, n, r, p in result.pop("people")]
+    return {"ok": True, "people": people, **result}
+
+
+@router.post("/import_steps")
+async def import_steps(request: Request, patient_id: int = 1):
+    """Cuerpo: CSV `start,steps` por hora, ya corrido (python -m data.import_health … --export-csv)."""
+    from data import import_health
+    text = (await request.body()).decode("utf-8-sig")
+    try:
+        result = import_health.import_csv_text(text, patient_id)
+    except (import_health.HealthImportError, KeyError, ValueError) as e:
+        raise HTTPException(status_code=422, detail=f"CSV inválido: {e}. Formato: start,steps (una fila por hora)")
+    ws, we = result["window"]
+    return {"ok": True, "hours": result["hours"], "window_start": ws.isoformat(), "window_end": we.isoformat()}

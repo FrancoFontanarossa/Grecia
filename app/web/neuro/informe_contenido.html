@@ -1,0 +1,147 @@
+{% set m = r.meta %}
+{% set rep = r.report %}
+{% if r.report_simulated %}
+<div class="rotulo-neuro">Ejemplo: todavía no hay un informe generado para este paciente. Este es el del lienzo de diseño, para ver la forma.</div>
+{% endif %}
+
+{# ---------- medicación y fuentes ---------- #}
+<div class="chips" style="gap: 10px">
+  {% for med in m.medications %}
+  {% if med.changed %}
+  <div class="chip-neuro chip-neuro--ambar">{{ med.drug | capitalize }} {{ med.note or "cambiado" }} el {{ med.changed.date | ddmm }} · hace {{ med.changed.days_ago }} días</div>
+  {% else %}
+  <div class="chip-neuro">{{ med.label }}</div>
+  {% endif %}
+  {% endfor %}
+  {% set er = m.sources.entries_by_role %}
+  <div class="chip-neuro">Fuentes:
+    {%- for role, n in er.items() %} {{ n }} relatos de {{ m.sources.names.get(role, role) }}{% if not loop.last %} ·{% endif %}{% endfor %}
+    · pasos del iPhone · {{ m.sources.tests }} juegos</div>
+</div>
+
+{# ---------- resumen ---------- #}
+<div class="card-neuro" style="padding: 24px 26px; gap: 12px">
+  <div class="etiqueta-seccion">Resumen de las {{ (m.period.days / 7) | round | int }} semanas</div>
+  <p style="font-size: 18px; line-height: 1.6; max-width: 900px">{{ rep.summary or "Sin datos en el período." }}</p>
+  <div style="font-size: 14px; color: var(--color-tinta-suave)">Las cifras de este resumen salen de los datos; las frases entre comillas, de los relatos.</div>
+</div>
+
+{# ---------- pasos por día ---------- #}
+{% set maxv = [ (m.daily_steps | map(attribute="value") | select | max) or 0, 5000 ] | max %}
+<div class="card-neuro" style="padding: 20px 22px; gap: 14px">
+  <div class="fila-entre" style="flex-wrap: wrap; align-items: baseline; gap: 8px">
+    <div style="font-size: 18px; font-weight: 700">Pasos por día · {{ (m.period.days / 7) | round | int }} semanas</div>
+    <div class="leyenda" style="font-size: 14px">
+      <div><i style="background: var(--color-bio-medio)"></i>Día normal</div>
+      <div><i style="background: var(--color-ambar)"></i>Día con caída post-dosis</div>
+      <div><i style="background: var(--color-tinta); width: 2px; height: 14px; border-radius: 0"></i>Cambio de medicación</div>
+    </div>
+  </div>
+  <div style="display: flex; align-items: flex-end; gap: 4px; height: 150px" role="img" aria-label="Pasos por día del período">
+    {% for d in m.daily_steps %}
+    <div title="{{ d.date | ddmm }}: {{ d.value | miles }} pasos{% if d.episode %} · caída post-dosis{% endif %}"
+         style="flex: 1; min-width: 6px; height: 150px; display: flex; flex-direction: column; justify-content: flex-end; border-left: 2px solid {{ 'var(--color-tinta)' if d.med_change else 'transparent' }}">
+      {% if d.value is not none %}
+      <div style="width: 100%; border-radius: 4px 4px 0 0; background: {{ 'var(--color-ambar)' if d.episode else 'var(--color-bio-medio)' }}; height: {{ ((d.value / maxv) * 140) | round | int }}px"></div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="fila-entre" style="font-size: 13px; color: var(--color-tinta-suave)">
+    {% for d in m.daily_steps %}{% if loop.first or loop.last or loop.index0 % 7 == 0 %}<span>{{ d.date | ddmm }}</span>{% endif %}{% endfor %}
+  </div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+  {# ---------- 3 temas ---------- #}
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+    <div class="etiqueta-seccion">{{ rep.topics | length }} temas para esta consulta</div>
+    {% for t in rep.topics %}
+    <div class="card-neuro" style="padding: 22px; gap: 14px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+        <div style="font-size: 22px; font-weight: 700">{{ loop.index }}. {{ t.title }}</div>
+        {% for o in t.observed[:2] %}<div class="pildora-neuro {{ 'pildora-neuro--ambar' if loop.first and t.reserved else 'pildora-neuro--bio' }}">{{ o }}</div>{% endfor %}
+        {% if t.reserved %}<div class="pildora-neuro">Para hablar en privado</div>{% endif %}
+      </div>
+      <p style="font-size: 17px; line-height: 1.6">{{ t.narrative }}</p>
+      {% if t.observed | length > 2 %}
+      <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; color: var(--color-tinta-suave)">
+        {% for o in t.observed[2:] %}<li>{{ o }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if post_dose and post_dose.topic_index == loop.index0 %}
+      {% set pd = post_dose %}
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end">
+        <div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 14px; color: var(--color-tinta-suave)">Pasos entre {{ pd.window }} · línea punteada: mediana habitual (≈ {{ pd.median | miles }})</div>
+          <div style="position: relative; display: flex; align-items: flex-end; gap: 10px; height: 120px">
+            <div style="position: absolute; left: 0; right: 0; bottom: {{ ((pd.median / pd.max) * 120) | round | int }}px; border-top: 2px dashed var(--color-tinta-suave)"></div>
+            {% for p in pd.days %}
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 120px">
+              <div title="{{ p.value | miles }} pasos" style="width: 100%; border-radius: 6px 6px 0 0; background: {{ 'var(--color-ambar)' if p.episode else 'var(--color-bio-medio)' }}; height: {{ ((p.value / pd.max) * 120) | round | int }}px"></div>
+            </div>
+            {% endfor %}
+          </div>
+          <div style="display: flex; gap: 10px">{% for p in pd.days %}<div style="flex: 1; text-align: center; font-size: 13px; color: var(--color-tinta-suave)">{{ p.date | dia_corto }} {{ p.date[8:10] | int }}</div>{% endfor %}</div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if t.voices %}
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
+        {% for role, quote in t.voices.items() %}
+        <div style="background: var(--color-fondo); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 13px; font-weight: 700; color: var(--color-tinta-suave)">{{ (m.sources.names.get(role) or role) | upper }}{% if t.reserved and role != "paciente" %} · solo equipo médico{% endif %}</div>
+          <div style="font-size: 16px; line-height: 1.45">"{{ quote }}"</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if t.evidence_ids %}
+      <div class="chips">
+        {% for eid in t.evidence_ids %}{% set e = m.evidence.get(eid | string) %}{% if e %}
+        <button type="button" class="chip-ev {{ 'chip-ev--bio' if e.role == 'telefono' else '' }}"
+                data-id="{{ eid }}" data-label="{{ e.label }}" data-quote="{{ e.quote }}" data-reserved="{{ '1' if e.reserved else '0' }}"
+                @click="ev = Object.assign({}, $el.dataset)">{{ e.label }}</button>
+        {% endif %}{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if t.question %}
+      <div style="padding: 12px 14px; border-radius: 12px; background: var(--color-pino-claro); font-size: 16px; line-height: 1.4"><span style="font-weight: 700">Pregunta sugerida:</span> "{{ t.question }}"</div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="card-neuro" style="padding: 22px">Sin datos en el período.</div>
+    {% endfor %}
+  </div>
+
+  {# ---------- columna lateral ---------- #}
+  <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+    <div class="etiqueta-seccion">Datos del teléfono</div>
+    <div class="card-neuro" style="padding: 18px; gap: 14px">
+      <div class="fila-entre" style="align-items: baseline"><div style="font-size: 15px; color: var(--color-tinta-suave)">Pasos, promedio diario</div><div style="font-size: 22px; font-weight: 700">{{ m.phone.avg_steps | miles }}</div></div>
+      <div class="fila-entre" style="align-items: baseline"><div style="font-size: 15px; color: var(--color-tinta-suave)">Días en meta ({{ m.phone.goal | miles }})</div><div style="font-size: 22px; font-weight: 700">{{ m.phone.goal_days }} / {{ m.phone.days_with_data }}</div></div>
+      <div class="fila-entre" style="align-items: baseline"><div style="font-size: 15px; color: var(--color-tinta-suave)">Golpeteo, toques/seg</div><div style="font-size: 22px; font-weight: 700">{% if m.phone.tapping %}{{ m.phone.tapping.median | dec1 }} <span style="font-size: 14px; font-weight: 400; color: var(--color-tinta-suave)">{{ m.phone.tapping.trend }}</span>{% else %}—{% endif %}</div></div>
+    </div>
+    <div class="card-neuro" style="padding: 18px; gap: 10px">
+      <div style="font-size: 15px; font-weight: 700">Alertas del período</div>
+      {% set ambar = m.alerts | selectattr("lane", "equalto", "ambar") | list %}
+      {% set rojos = m.alerts | selectattr("lane", "equalto", "rojo") | list %}
+      {% for a in rojos %}
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--rojo">Rojo</div>{{ a.text }} · {{ a.created_at | dia_corto }} {{ a.created_at[8:10] | int }}</div>
+      {% endfor %}
+      {% for a in ambar %}
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--ambar">Ámbar</div>{{ a.text }} · {{ a.created_at | dia_corto }} {{ a.created_at[8:10] | int }}</div>
+      {% endfor %}
+      {% if not rojos %}<div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--verde">Rojos</div>Ninguno</div>{% endif %}
+      {% if not ambar %}<div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--verde">Ámbar</div>Ninguno</div>{% endif %}
+    </div>
+    <div style="background: var(--color-superficie-suave); border-radius: 16px; padding: 14px 16px; font-size: 14px; line-height: 1.5; color: var(--color-tinta-suave)">
+      Redactado con IA a partir de relatos y datos. Cada cifra se verificó contra los datos: {{ rep.removed_count }} {{ "frase eliminada" if rep.removed_count == 1 else "frases eliminadas" }} por no coincidir. No es un diagnóstico ni sugiere cambios de medicación.
+      {% if m.generated_at %}<br>Generado {{ m.generated_at | dia_corto }} {{ m.generated_at[8:10] | int }}, {{ m.generated_at | hora }}.{% endif %}
+    </div>
+  </div>
+</div>

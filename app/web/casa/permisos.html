@@ -1,0 +1,33 @@
+﻿{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Qué ve tu familia · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla" style="gap: 18px" x-data='permisos({{ patient_id }}, {{ consents | tojson }})'>
+  <div style="display: flex; align-items: center; gap: 8px">
+    <a href="/casa" aria-label="Volver" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--color-tinta)">{{ icon("chevron-izquierda", 26, width=2.2) }}</a>
+    <h1 style="font-size: 30px; font-weight: 700; line-height: 1.15">Qué le avisamos a tu familia</h1>
+  </div>
+  <p style="font-size: 19px; color: var(--color-tinta-suave); line-height: 1.4">Lo decidís vos. Lo podés cambiar cuando quieras.</p>
+
+  {% for rid, rows in by_person %}
+  <div class="card" style="padding: 6px 18px; gap: 0">
+    <div style="font-size: 22px; font-weight: 700; padding: 12px 0 4px">{{ rows[0].recipient_name }}</div>
+    {% for c in rows %}
+    <label style="display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 8px 0; {% if not loop.last %}border-bottom: 1px solid var(--color-linea-suave);{% endif %}">
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px">
+        <div style="font-size: 20px">{{ kind_labels[c.kind][0] }}</div>
+        <div style="font-size: 16px; color: var(--color-tinta-suave)">{{ kind_labels[c.kind][1] }}</div>
+      </div>
+      <input type="checkbox" style="width: 30px; height: 30px; accent-color: var(--color-pino); flex-shrink: 0"
+             :checked="get({{ c.recipient_id }}, '{{ c.kind }}')" @change="set({{ c.recipient_id }}, '{{ c.kind }}', $event.target.checked)">
+    </label>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  <div x-show="error" x-cloak x-text="error" role="alert" style="font-size: 17px; color: var(--color-rojo)"></div>
+  <div class="espaciador"></div>
+  <div class="nota nota--chica">{{ icon("candado", 20, "var(--color-tinta-suave)") }}<div>Los rojos le llegan siempre a tu familia. Entrecasa no es un servicio de emergencias.</div></div>
+  <a href="/casa" class="btn btn--primario btn--grande">Listo</a>
+</main>
+{% endblock %}

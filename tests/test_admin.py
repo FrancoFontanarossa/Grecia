@@ -158,3 +158,40 @@ def test_inject_drop_validates_body(client, body):
 
 def test_inject_drop_requires_token(client):
     assert client.post("/admin/inject_drop", json=DROP).status_code == 401
+
+
+def test_seed_endpoint(client):
+    r = client.post("/admin/seed", headers=OK)
+    body = r.json()
+    assert r.status_code == 200 and body["ok"]
+    assert [p["name"] for p in body["people"]][:2] == ["Juan", "Marta"] and len(body["people"]) == 6
+    assert body["tapping_sessions"] == 8 and body["injected_drops"] == 0 and body["warnings"]
+    assert client.post("/admin/seed", headers=OK).json()["doses"] == 112      # idempotente
+
+
+CSV = "start,steps\n" + "".join(
+    f"2026-10-{d:02d}T{h:02d}:00:00-03:00,{100 * h}\n" for d in range(4, 18) for h in (9, 16, 17))
+
+
+def test_import_steps_then_seed_injects_drops(client):
+    r = client.post("/admin/import_steps", content=CSV, headers={**OK, "Content-Type": "text/csv"})
+    assert r.json() == {"ok": True, "hours": 42, "window_start": "2026-10-04T00:00:00-03:00",
+                        "window_end": "2026-10-18T00:00:00-03:00"}
+    assert len(steps()) == 42 and {s[2] for s in steps()} == {"importacion"}
+    assert client.post("/admin/seed", headers=OK).json()["injected_drops"] == 3
+
+
+def test_import_steps_twice_replaces(client):
+    client.post("/admin/import_steps", content=CSV, headers=OK)
+    client.post("/admin/import_steps", content=CSV, headers=OK)
+    assert len(steps()) == 42
+
+
+@pytest.mark.parametrize("body", ["", "hora,pasos\n10,20\n", "start,steps\nayer,10\n"])
+def test_import_steps_bad_csv_is_422(client, body):
+    assert client.post("/admin/import_steps", content=body, headers=OK).status_code == 422
+
+
+@pytest.mark.parametrize("path", ["/admin/seed", "/admin/import_steps"])
+def test_load_endpoints_require_token(client, path):
+    assert client.post(path, content=CSV).status_code == 401

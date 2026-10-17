@@ -1,0 +1,107 @@
+﻿{% extends "neuro/_base.html" %}
+{% block title %}Vista técnica · {{ r.meta.patient.name }}{% endblock %}
+{% block neuro_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<div class="neuro" hx-boost="false">
+  <div class="neuro__contenedor">
+    {% include "neuro/_encabezado.html" %}
+    {% if t.simulated %}<div class="rotulo-neuro">Ejemplo: sin pasos en la base todavía. La forma es la de la serie real.</div>{% endif %}
+
+    <div class="card-neuro" style="padding: 20px 22px; gap: 12px">
+      <div class="fila-entre" style="flex-wrap: wrap; gap: 8px; align-items: baseline">
+        <div style="font-size: 18px; font-weight: 700">Pasos en las 2 h después de cada toma, por día</div>
+        <div style="font-size: 14px; color: var(--color-tinta-suave)">Ámbar: muestras inyectadas (rotuladas) o días con episodio</div>
+      </div>
+      <div class="grafico"><canvas id="g-tomas" aria-label="Pasos después de cada toma por día" role="img"></canvas></div>
+      <div style="font-size: 13px; color: var(--color-tinta-suave)">Fuente: {% for s, n in t.sources.items() %}{{ s }} ({{ n }} mediciones){% if not loop.last %} · {% endif %}{% endfor %}. Es la ventana que usa el desvío (mediana y MAD de 28 días, CLAUDE.md §7.3).</div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <div class="card-neuro" style="flex: 2 1 520px; padding: 20px 22px; gap: 12px; min-width: 0">
+        <div style="font-size: 18px; font-weight: 700">Pasos por hora del día (promedio del período)</div>
+        <div class="grafico" style="height: 240px"><canvas id="g-horas" aria-label="Pasos promedio por hora" role="img"></canvas></div>
+        <div style="font-size: 13px; color: var(--color-tinta-suave)">Las barras marcadas son las horas de las tomas ({{ t.doses | join(", ") }}).</div>
+      </div>
+      <div class="card-neuro" style="flex: 1 1 320px; padding: 20px 22px; gap: 12px; min-width: 0">
+        <div style="font-size: 18px; font-weight: 700">Episodios después de la toma</div>
+        {% if t.episodes %}
+        <table class="tabla-tec">
+          <thead><tr><th>Día</th><th>Toma</th><th>Pasos</th><th>Mediana</th><th>Estado</th></tr></thead>
+          <tbody>
+          {% for e in t.episodes %}
+          <tr><td>{{ e.dose_time | dia_corto }} {{ e.dose_time[8:10] | int }}/{{ e.dose_time[5:7] }}</td><td>{{ e.dose_time | hora }}</td>
+              <td>{{ e.deviation.observed | miles if e.deviation else "—" }}</td><td>{{ e.deviation.median | miles if e.deviation else "—" }}</td>
+              <td>{{ e.status | replace("_", " ") }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<div style="font-size: 15px; color: var(--color-tinta-suave)">Sin episodios en el período.</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="card-neuro" style="padding: 20px 22px; gap: 12px">
+      <div style="font-size: 18px; font-weight: 700">Juego de golpeteo · toques por segundo</div>
+      {% if t.tests %}
+      <div class="grafico" style="height: 220px"><canvas id="g-juego" aria-label="Historial del golpeteo" role="img"></canvas></div>
+      <div style="font-size: 13px; color: var(--color-tinta-suave)">{{ t.tests | length }} sesiones. Comparado solo contra su propio historial. No es un diagnóstico.</div>
+      {% else %}<div style="font-size: 15px; color: var(--color-tinta-suave)">Todavía no hay juegos.</div>{% endif %}
+    </div>
+  </div>
+</div>
+<script id="datos-tecnica" type="application/json">{{ t | tojson }}</script>
+<script>
+(function () {
+  function draw() {
+    if (!window.Chart) return setTimeout(draw, 100);
+    var t = JSON.parse(document.getElementById("datos-tecnica").textContent);
+    var css = getComputedStyle(document.documentElement);
+    var c = function (n) { return css.getPropertyValue(n).trim(); };
+    Chart.defaults.font.family = "'Atkinson Hyperlegible', sans-serif";
+    Chart.defaults.color = c("--color-tinta-suave");
+    var epDays = {};
+    (t.episodes || []).forEach(function (e) { epDays[e.dose_time.slice(0, 10) + "|" + e.dose_time.slice(11, 16)] = true; });
+
+    // 1) ventana post-toma por día, una serie por toma
+    var palette = [c("--color-bio-suave"), c("--color-bio-medio"), c("--color-bio"), c("--color-bio-texto")];
+    var dates = [];
+    Object.keys(t.post_dose).forEach(function (k) { t.post_dose[k].forEach(function (p) { if (dates.indexOf(p.date) < 0) dates.push(p.date); }); });
+    dates.sort();
+    var ds = Object.keys(t.post_dose).map(function (dose, i) {
+      var byDate = {}; t.post_dose[dose].forEach(function (p) { byDate[p.date] = p; });
+      return {
+        label: "Toma de las " + dose, data: dates.map(function (d) { return byDate[d] ? byDate[d].value : null; }),
+        backgroundColor: dates.map(function (d) { var p = byDate[d]; return p && (p.injected || epDays[d + "|" + dose]) ? c("--color-ambar") : palette[i % palette.length]; }),
+        borderRadius: 3
+      };
+    });
+    new Chart(document.getElementById("g-tomas"), {
+      type: "bar", data: { labels: dates.map(function (d) { return d.slice(8, 10) + "/" + d.slice(5, 7); }), datasets: ds },
+      options: { maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { beginAtZero: true, title: { display: true, text: "pasos" } } } }
+    });
+
+    // 2) perfil por hora
+    var sums = {}, counts = {};
+    t.hourly.forEach(function (h) { var hh = h.hour.slice(11, 13); sums[hh] = (sums[hh] || 0) + h.value; counts[hh] = (counts[hh] || 0) + 1; });
+    var days = dates.length || 1, hours = [];
+    for (var i = 6; i <= 23; i++) hours.push((i < 10 ? "0" : "") + i);
+    var doseHours = t.doses.map(function (d) { return d.slice(0, 2); });
+    new Chart(document.getElementById("g-horas"), {
+      type: "bar", data: { labels: hours.map(function (h) { return h + " h"; }),
+        datasets: [{ label: "Pasos promedio", data: hours.map(function (h) { return Math.round((sums[h] || 0) / days); }),
+          backgroundColor: hours.map(function (h) { return doseHours.indexOf(h) >= 0 ? c("--color-bio") : c("--color-bio-medio"); }), borderRadius: 3 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+
+    // 3) golpeteo
+    var g = document.getElementById("g-juego");
+    if (g) new Chart(g, {
+      type: "line", data: { labels: t.tests.map(function (x) { return x.taken_at.slice(8, 10) + "/" + x.taken_at.slice(5, 7); }),
+        datasets: [{ label: "Toques por segundo", data: t.tests.map(function (x) { return x.taps_per_s; }), borderColor: c("--color-bio"),
+          backgroundColor: c("--color-bio"), tension: 0.2 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, suggestedMax: 8 } } }
+    });
+  }
+  draw();
+})();
+</script>
+{% endblock %}

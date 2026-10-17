@@ -2,6 +2,10 @@
 
     python -m data.import_health ruta/a/export.xml --end 2026-10-17
     python -m data.import_health --csv pasos.csv --end 2026-10-17        # plan B
+    python -m data.import_health export.xml --end 2026-10-17 --export-csv pasos.csv   # solo genera el CSV
+
+--export-csv no toca la base: escribe las horas ya corridas en un CSV para subirlo a Railway con
+POST /admin/import_steps (que lo importa tal cual, sin volver a correr las fechas).
 
 Toma HKQuantityTypeIdentifierStepCount, agrega por hora (repartiendo cada muestra entre las horas
 que cubre) y corre las fechas para que los últimos `--days` días completos terminen en `--end`.
@@ -14,8 +18,11 @@ CSV del plan B: encabezado `start,steps`, una fila por hora; `start` en ISO 8601
 """
 import argparse
 import csv
+import io
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from xml.etree.ElementTree import iterparse
 
@@ -51,14 +58,18 @@ def read_export(path: str) -> list[Sample]:
     return samples
 
 
-def read_csv(path: str) -> list[Sample]:
+def parse_csv(lines: Iterable[str]) -> list[Sample]:
     samples: list[Sample] = []
-    with open(path, newline="") as f:
-        for row in csv.DictReader(f):
-            start = datetime.fromisoformat(row["start"])
-            start = start.replace(tzinfo=config.TZ) if start.tzinfo is None else start.astimezone(config.TZ)
-            samples.append((start, start + timedelta(hours=1), float(row["steps"]), "csv"))
+    for row in csv.DictReader(lines):
+        start = datetime.fromisoformat(row["start"])
+        start = start.replace(tzinfo=config.TZ) if start.tzinfo is None else start.astimezone(config.TZ)
+        samples.append((start, start + timedelta(hours=1), float(row["steps"]), "csv"))
     return samples
+
+
+def read_csv(path: str) -> list[Sample]:
+    with open(path, newline="") as f:
+        return parse_csv(f)
 
 
 def split_by_hour(start: datetime, end: datetime, value: float) -> list[tuple[datetime, float]]:
@@ -86,12 +97,21 @@ def source_window(samples: list[Sample], end: date, days: int, partial_last_day:
     return last - timedelta(days=days - 1), last
 
 
-def run(*, end: date, export: str | None = None, csv_path: str | None = None, days: int = 28,
-        patient_id: int = 1, source: str | None = None) -> dict:
-    samples = read_csv(csv_path) if csv_path else read_export(export)
+@dataclass
+class Prepared:
+    first: date                      # días reales importados
+    last: date
+    end: date                        # último día ya corrido
+    hourly: dict[datetime, float]    # hora ya corrida → pasos
+    window_start: datetime
+    window_end: datetime
+
+
+def prepare(samples: list[Sample], *, end: date, days: int, partial_last_day: bool,
+            source: str | None = None) -> Prepared:
     if not samples:
         raise HealthImportError("No hay muestras de pasos en el archivo.")
-    first, last = source_window(samples, end, days, partial_last_day=not csv_path)
+    first, last = source_window(samples, end, days, partial_last_day)
     in_window = [s for s in samples if first <= s[0].date() <= last]
 
     sources = Counter(s[3] for s in in_window)
@@ -109,29 +129,67 @@ def run(*, end: date, export: str | None = None, csv_path: str | None = None, da
         for hour, part in split_by_hour(start, stop, value):
             if first <= hour.date() <= last:
                 hourly[hour + shift] += part
+    return Prepared(first, last, end, dict(hourly),
+                    datetime.combine(first + shift, datetime.min.time(), config.TZ),
+                    datetime.combine(end + timedelta(days=1), datetime.min.time(), config.TZ))
 
-    window_start = datetime.combine(first + shift, datetime.min.time(), config.TZ)
-    window_end = datetime.combine(end + timedelta(days=1), datetime.min.time(), config.TZ)
+
+def write(p: Prepared, patient_id: int) -> None:
+    """biometrics (source=importacion), reemplazando lo importado e inyectado en la ventana, y biometric_syncs."""
     db.init()
     with db.connect() as conn:
         conn.execute(
             "DELETE FROM biometrics WHERE patient_id = ? AND source IN ('importacion', 'inyectado') AND kind = 'steps' "
             "AND start >= ? AND start < ?",
-            (patient_id, db.to_db(window_start), db.to_db(window_end)),
+            (patient_id, db.to_db(p.window_start), db.to_db(p.window_end)),
         )
         conn.executemany(
             'INSERT INTO biometrics (patient_id, kind, value, start, "end", source) '
             "VALUES (?, 'steps', ?, ?, ?, 'importacion')",
             [(patient_id, round(v, 1), db.to_db(h), db.to_db(h + timedelta(hours=1)))
-             for h, v in sorted(hourly.items())],
+             for h, v in sorted(p.hourly.items())],
         )
         conn.execute(
             "INSERT INTO biometric_syncs (patient_id, window_start, window_end, received_at, n_samples) "
             "VALUES (?, ?, ?, ?, ?)",
-            (patient_id, db.to_db(window_start), db.to_db(window_end), db.to_db(clock.now()), len(hourly)),
+            (patient_id, db.to_db(p.window_start), db.to_db(p.window_end), db.to_db(clock.now()), len(p.hourly)),
         )
-    return {"source_days": (first, last), "window": (window_start, window_end), "hours": len(hourly),
-            "by_weekday": by_weekday(hourly, first + shift, end)}
+
+
+def to_csv(p: Prepared) -> str:
+    out = io.StringIO()
+    out.write("start,steps\n")
+    for h, v in sorted(p.hourly.items()):
+        out.write(f"{db.to_db(h)},{round(v, 1)}\n")
+    return out.getvalue()
+
+
+def summary(p: Prepared) -> dict:
+    return {"source_days": (p.first, p.last), "window": (p.window_start, p.window_end), "hours": len(p.hourly),
+            "by_weekday": by_weekday(p.hourly, p.window_start.date(), p.end)}
+
+
+def run(*, end: date, export: str | None = None, csv_path: str | None = None, days: int = 28,
+        patient_id: int = 1, source: str | None = None, export_csv: str | None = None) -> dict:
+    samples = read_csv(csv_path) if csv_path else read_export(export)
+    p = prepare(samples, end=end, days=days, partial_last_day=not csv_path, source=source)
+    if export_csv:
+        with open(export_csv, "w") as f:
+            f.write(to_csv(p))
+    else:
+        write(p, patient_id)
+    return summary(p)
+
+
+def import_csv_text(text: str, patient_id: int = 1) -> dict:
+    """CSV de pasos por hora ya corrido (el de --export-csv): se importa tal cual, sin correr fechas."""
+    samples = parse_csv(io.StringIO(text))
+    if not samples:
+        raise HealthImportError("El CSV no tiene filas de pasos.")
+    first, last = min(s[0] for s in samples).date(), max(s[0] for s in samples).date()
+    p = prepare(samples, end=last, days=(last - first).days + 1, partial_last_day=False)
+    write(p, patient_id)
+    return summary(p)
 
 
 def by_weekday(hourly: dict[datetime, float], first: date, last: date) -> dict[str, dict]:
@@ -181,16 +239,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--days", type=int, default=28)
     parser.add_argument("--patient-id", type=int, default=1)
     parser.add_argument("--source", help="sourceName a usar si hay varias fuentes")
+    parser.add_argument("--export-csv", help="no escribe en la base: genera este CSV para POST /admin/import_steps")
     args = parser.parse_args(argv)
     if bool(args.export) == bool(args.csv_path):
         parser.error("pasá export.xml o --csv (uno de los dos)")
     try:
-        summary = run(end=args.end, export=args.export, csv_path=args.csv_path, days=args.days,
-                      patient_id=args.patient_id, source=args.source)
+        result = run(end=args.end, export=args.export, csv_path=args.csv_path, days=args.days,
+                     patient_id=args.patient_id, source=args.source, export_csv=args.export_csv)
     except HealthImportError as e:
         print(e, file=sys.stderr)
         return 1
-    print_report(summary)
+    print_report(result)
+    if args.export_csv:
+        print(f"\nCSV escrito en {args.export_csv} (la base no se tocó).")
     return 0
 
 
