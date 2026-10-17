@@ -72,6 +72,8 @@ async def create_entry(
     )
 
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
+    if question_id is not None:   # respuesta a una pregunta proactiva: queda respondida y entra al episodio
+        await asyncio.to_thread(db.answer_question, question_id, person_id, entry_id)
     if audio_path is not None:
         t = time.perf_counter()
         try:
