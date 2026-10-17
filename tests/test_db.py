@@ -7,7 +7,7 @@ from app import config, db
 TABLES = {
     "people", "push_subscriptions", "notifications", "clock_state", "consents",
     "med_schedule", "doses", "entries", "events", "biometrics", "biometric_syncs",
-    "episodes", "questions", "tests", "alerts", "goals", "goal_days", "reports",
+    "episodes", "questions", "tests", "alerts", "goals", "goal_days", "reports", "patterns",
 }
 
 
@@ -68,3 +68,10 @@ def test_biometrics_same_sample_is_stored_once(data_dir):
         conn.execute(sql, row)
         conn.execute(sql, row)
         assert conn.execute("SELECT count(*) FROM biometrics").fetchone()[0] == 1
+
+
+def test_patterns_columns(data_dir):
+    with db.connect() as conn:
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(patterns)")]
+    assert cols == ["id", "patient_id", "day", "kind", "title", "description", "evidence_ids",
+                    "suggested_action", "verified", "question_id", "created_at"]

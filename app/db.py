@@ -194,6 +194,19 @@ CREATE TABLE IF NOT EXISTS reports (
     removed_by_verifier INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS patterns (
+    id INTEGER PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('repeticion','coocurrencia','tras_medicacion','discrepancia_voces','otro')),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    evidence_ids TEXT NOT NULL DEFAULT '[]',
+    suggested_action TEXT NOT NULL CHECK (suggested_action IN ('informe','preguntar')),
+    verified INTEGER NOT NULL DEFAULT 0,
+    question_id INTEGER,
+    created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS ix_people_patient ON people (patient_id);
 CREATE INDEX IF NOT EXISTS ix_notifications_person ON notifications (person_id, created_at);
 CREATE INDEX IF NOT EXISTS ix_entries_patient ON entries (patient_id, created_at);
@@ -203,6 +216,7 @@ CREATE INDEX IF NOT EXISTS ix_biometrics_patient ON biometrics (patient_id, kind
 CREATE INDEX IF NOT EXISTS ix_syncs_patient ON biometric_syncs (patient_id, window_start);
 CREATE INDEX IF NOT EXISTS ix_questions_person ON questions (to_person_id, status);
 CREATE INDEX IF NOT EXISTS ix_alerts_patient ON alerts (patient_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_patterns_patient ON patterns (patient_id, day);
 """
 
 
