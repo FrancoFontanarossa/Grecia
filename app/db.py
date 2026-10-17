@@ -244,6 +244,28 @@ def init() -> None:
         conn.close()
 
 
+def _copy(src_path: Path, dst_path: Path) -> None:
+    # API de backup de sqlite3: copia consistente aunque la base esté en WAL.
+    src, dst = _open(src_path), _open(dst_path)
+    try:
+        src.backup(dst)
+    finally:
+        src.close()
+        dst.close()
+
+
+def snapshot() -> None:
+    """Guarda la base entera (incluido el reloj) en DATA_DIR/snapshot.db."""
+    _copy(db_path(), snapshot_path())
+
+
+def restore() -> None:
+    """Vuelve la base al último snapshot. FileNotFoundError si no hay ninguno."""
+    if not snapshot_path().exists():
+        raise FileNotFoundError(snapshot_path())
+    _copy(snapshot_path(), db_path())
+
+
 def to_db(value: datetime) -> str:
     """Fecha aware → texto ISO en America/Montevideo, con segundos (comparable como texto)."""
     if value.tzinfo is None:
