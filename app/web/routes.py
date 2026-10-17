@@ -163,9 +163,12 @@ def emergencia(request: Request, alert_id: int, entry: int | None = None, ec_per
     if not person:
         return RedirectResponse("/", status_code=303)
     patient = store.patient_person(person["patient_id"]) or person
-    # TODO(contrato): leer la alerta de la tabla alerts (texto fijo de la regla). Mientras tanto la pantalla
-    # usa el RedResult que devolvió POST /api/entries (guardado en el teléfono).
-    alert = {"id": alert_id, "text": None, "missing_criterion": None}
+    # La alerta de la tabla alerts (texto fijo de la regla). Si no está (alert_id 0), la pantalla usa el
+    # RedResult que devolvió POST /api/entries, guardado en el teléfono.
+    row = store.alert(alert_id) if alert_id else None
+    if row and person["id"] not in row["recipients"] and person["role"] != "neurologo":
+        row = None  # no es para esta persona
+    alert = {"id": alert_id, "text": row["text"] if row else None, "missing_criterion": None}
     name = "él" if person["role"] == "paciente" else patient["name"]
     steps = [s.format(name=name) for s in _RED_STEPS]
     if person["role"] == "paciente":

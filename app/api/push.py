@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 import os
@@ -28,7 +29,7 @@ def subscribe(body: Subscribe):
 
 # TEMPORAL: borrar cuando exista notify.send (Guada). Sirve para el Hito 0: manda una push de prueba.
 @router.post("/push/test/{person_id}")
-def push_test(person_id: int, url: str = "/casa"):
+async def push_test(person_id: int, url: str = "/casa"):
     person = store.person(person_id)
     if not person:
         raise HTTPException(404, "No encontramos a esa persona.")
@@ -39,7 +40,11 @@ def push_test(person_id: int, url: str = "/casa"):
 
         if hasattr(notify, "send"):
             n = notify.send(person_id, "resumen", title, body, url)
-            return {"ok": True, "via": "notify.send", "notification": getattr(n, "model_dump", lambda: n)()}
+            if inspect.isawaitable(n):
+                n = await n
+            return {"ok": True, "via": "notify.send",
+                    "push_sent": getattr(n, "push_sent", None),
+                    "subscriptions": len(store.push_subscriptions(person_id))}
     except ImportError:
         pass
     return {"ok": True, "via": "temporal", **_send_temporal(person_id, title, body, url)}

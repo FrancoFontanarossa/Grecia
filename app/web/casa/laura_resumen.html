@@ -5,7 +5,7 @@
 <main class="pantalla pantalla--familia">
   <div style="display: flex; flex-direction: column; gap: 2px">
     <div style="font-size: 16px; color: var(--color-tinta-suave)">{% if hoy.person.name == "Laura" %}Desde Salto{% else %}{{ hoy.now | fecha_larga }}{% endif %}</div>
-    <h1 class="titulo-familia">{% if hoy.patient.name == "Juan" %}Papá{% else %}{{ hoy.patient.name }}{% endif %} esta semana</h1>
+    <h1 class="titulo-familia">{% if person.relation in ("hija", "hijo") %}Papá{% else %}{{ hoy.patient.name }}{% endif %} esta semana</h1>
   </div>
 
   {% with dismissible=True, compact=True %}{% include "casa/_avisos.html" %}{% endwith %}

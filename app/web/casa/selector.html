@@ -20,7 +20,7 @@
           <div class="avatar avatar--{{ p.role }}">{{ p.name[0] }}</div>
           <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1">
             <div class="card-enlace__nombre">{{ p.name }}</div>
-            <div class="card-enlace__rel">{{ p.relation }}</div>
+            <div class="card-enlace__rel">{{ p.relation_label }}</div>
           </div>
           {{ icon("chevron-derecha", 26, "var(--color-pino)" if p.role == "paciente" else "var(--color-tinta-suave)", 2.2) }}
         </button>

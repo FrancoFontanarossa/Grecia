@@ -1,4 +1,4 @@
-{% from "_icons.html" import icon %}
+﻿{% from "_icons.html" import icon %}
 {% for a in hoy.alerts if a.lane == "rojo" %}
 <a href="/casa/emergencia/{{ a.id }}" class="card" style="background: var(--color-rojo-fondo); text-decoration: none; color: var(--color-tinta)">
   <div class="lane lane--rojo">{{ icon("triangulo", 18, width=2.2) }} Rojo · actuar ahora</div>
@@ -30,7 +30,7 @@
   </div>
   <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0">
     <div style="width: 44px; height: 44px; border-radius: 12px; background: var(--color-pino-claro); color: var(--color-pino); display: flex; align-items: center; justify-content: center; flex-shrink: 0">{{ icon("mensaje", 22) }}</div>
-    <div style="font-size: 17px; line-height: 1.35">Contó cómo estaba <span style="font-weight: 700">{{ f.entries_patient }} {{ "vez" if f.entries_patient == 1 else "veces" }}</span>; {% if hoy.patient.name == "Juan" %}tu mamá{% else %}la familia{% endif %}, {{ f.entries_family }}</div>
+    <div style="font-size: 17px; line-height: 1.35">Contó cómo estaba <span style="font-weight: 700">{{ f.entries_patient }} {{ "vez" if f.entries_patient == 1 else "veces" }}</span>; {% if person.relation in ("hija", "hijo") %}tu mamá{% else %}la familia{% endif %}, {{ f.entries_family }}</div>
   </div>
 </div>
 

@@ -1,3 +1,5 @@
+import datetime as dt
+
 from fastapi import APIRouter, HTTPException
 
 from app.api import _store as store
@@ -5,43 +7,46 @@ from app.api import _store as store
 router = APIRouter(prefix="/api", tags=["app"])
 
 
-def why_chart(facts: dict) -> dict | None:
-    """Datos del gráfico "Por qué te pregunto" a partir de Trigger.facts (cifras del código, nunca del modelo).
-    Para P-DESVIO usa los campos de Deviation: observed, median, window; y day_label ("sábados") si viene."""
-    if "observed" not in facts or "median" not in facts:
+def why_chart(dev: dict | None) -> dict | None:
+    """Gráfico "Por qué te pregunto" con las cifras del Deviation (código, nunca el modelo).
+    La etiqueta dice la base que realmente se usó (CLAUDE.md §7.3): días hábiles, fin de semana o todos."""
+    if not dev or "observed" not in dev or "median" not in dev:
         return None
-    median = float(facts["median"])
-    observed = float(facts["observed"])
-    window = facts.get("window", "")
-    day_label = facts.get("day_label") or "días"
-    dose = facts.get("dose_label") or (f"de las {facts['dose_hour']}" if facts.get("dose_hour") else "")
+    median, observed = float(dev["median"]), float(dev["observed"])
+    dose = dt.datetime.fromisoformat(dev["dose_time"]) if dev.get("dose_time") else None
+    end_h = (dose + dt.timedelta(hours=2)).hour if dose else None
+    window = f"{dose.hour} a {end_h} h" if dose else dev.get("window", "")
+    if dev.get("baseline") == "estrato" and dose:
+        usual = "Otros fines de semana" if dose.weekday() >= 5 else "Otros días de semana"
+    else:
+        usual = "Otros días"
     return {
-        "usual": {"label": f"Otros {day_label}, {window}".strip(", "), "value": round(median), "approx": True,
-                  "pct": 100},
-        "today": {"label": f"Hoy, después de la toma {dose}".strip(), "value": round(observed),
-                  "pct": max(2, min(100, round(observed / median * 100))) if median else 0},
+        "usual": {"label": f"{usual}, {window}", "value": round(median), "approx": True, "pct": 100},
+        "today": {"label": f"Hoy, después de la toma de las {dose.hour}" if dose else "Hoy",
+                  "value": round(observed), "pct": max(2, min(100, round(observed / median * 100))) if median else 0},
     }
 
 
 def _fake_question(question_id: int) -> dict | None:
-    # TODO(contrato): reemplazar por la tabla questions (la crea el scheduler con pipeline.ask; why y facts del código).
+    # Sin base: la pregunta del lienzo de diseño, rotulada como ejemplo.
     if question_id != 1:
         return None
-    facts = {"observed": 420, "median": 1300, "window": "16 a 18 h", "day_label": "sábados", "dose_hour": 16}
     return {
         "id": 1, "person_id": 1, "rule_id": "P-DESVIO",
         "question": "Juan, hoy a la tarde caminaste menos que otros sábados. ¿Pasó algo?",
-        "why": "Otros sábados, de 16 a 18 h: unos 1.300 pasos. Hoy, después de la toma de las 16: 420.",
+        "why": "Otros fines de semana, de 16 a 18 h: unos 1.300 pasos. Hoy, después de la toma de las 16: 420.",
         "options": ["Me sentí trabado", "Estaba cansado", "Me quedé en casa nomás"],
-        "url": "/casa/pregunta/1", "status": "enviada", "facts": facts, "simulated": True,
+        "url": "/casa/pregunta/1", "status": "enviada", "simulated": True,
+        "deviation": {"dose_time": "2026-10-17T16:00:00-03:00", "window": "16:00-18:00", "observed": 420,
+                      "median": 1300, "z": -4.1, "pct_change": -0.68, "baseline": "estrato", "baseline_n": 8},
     }
 
 
 def get_question(question_id: int) -> dict:
-    q = _fake_question(question_id)
+    q = store.question(question_id) if store.has_db() else _fake_question(question_id)
     if not q:
         raise HTTPException(404, "No encontramos esa pregunta.")
-    q["chart"] = why_chart(q.get("facts") or {})
+    q["chart"] = why_chart(q.get("deviation"))
     return q
 
 
