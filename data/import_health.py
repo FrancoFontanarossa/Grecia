@@ -7,7 +7,8 @@ Toma HKQuantityTypeIdentifierStepCount, agrega por hora (repartiendo cada muestr
 que cubre) y corre las fechas para que los últimos `--days` días completos terminen en `--end`.
 El corrimiento es de semanas enteras, así cada día cae en el mismo día de la semana que el real
 (la línea de base separa hábiles de fin de semana). Escribe en biometrics (source=importacion),
-reemplazando lo importado antes en esa ventana, y registra la ventana completa en biometric_syncs.
+reemplazando lo importado antes en esa ventana (y las caídas inyectadas sobre eso: hay que volver a
+correr data/seed.py), y registra la ventana completa en biometric_syncs.
 
 CSV del plan B: encabezado `start,steps`, una fila por hora; `start` en ISO 8601 (sin zona = Montevideo).
 """
@@ -114,7 +115,7 @@ def run(*, end: date, export: str | None = None, csv_path: str | None = None, da
     db.init()
     with db.connect() as conn:
         conn.execute(
-            "DELETE FROM biometrics WHERE patient_id = ? AND source = 'importacion' AND kind = 'steps' "
+            "DELETE FROM biometrics WHERE patient_id = ? AND source IN ('importacion', 'inyectado') AND kind = 'steps' "
             "AND start >= ? AND start < ?",
             (patient_id, db.to_db(window_start), db.to_db(window_end)),
         )

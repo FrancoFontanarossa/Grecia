@@ -127,3 +127,13 @@ def test_cli_prints_report(env, tmp_path, capsys):
 def test_cli_needs_exactly_one_input(env):
     with pytest.raises(SystemExit):
         ih.main(["--end", "2026-10-17"])
+
+
+def test_reimport_also_clears_injected_drops(env, tmp_path):
+    from app.api.admin import inject_drop
+    path = write_export(tmp_path / "export.xml", daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30)))
+    ih.run(end=END, export=path)
+    inject_drop(1, dt.datetime(2026, 10, 13, 16, tzinfo=TZ), 0.7)
+    ih.run(end=END, export=path)
+    assert rows("SELECT DISTINCT source FROM biometrics") == [{"source": "importacion"}]
+    assert rows("SELECT sum(value) AS total FROM biometrics") == [{"total": 28 * 900}]
