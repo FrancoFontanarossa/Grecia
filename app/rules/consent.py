@@ -94,4 +94,5 @@ def recipients(alert: Alert, *, speaker_id: int | None = None) -> list[Person]:
     if alert.reserved:
         chosen = [p for p in chosen if p.role == "neurologo"]
         chosen += [p for p in people if p.id == speaker_id and p.role != "paciente" and p not in chosen]
-    return [p for p in chosen if p.role != "paciente" or patient_can_see(reserved=alert.reserved, lane=alert.lane)]
+    return sorted((p for p in chosen if p.role != "paciente" or patient_can_see(reserved=alert.reserved, lane=alert.lane)),
+                  key=lambda p: p.id)
