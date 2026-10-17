@@ -142,3 +142,42 @@ def test_ask_a_juan_nunca_ve_lo_reservado_en_el_mensaje(tmp_data_dir, monkeypatc
     assert "me sentí trabado" in sent and "alguien que no estaba" not in sent
     with base.connect() as conn:
         assert conn.execute("SELECT count(*) FROM entries").fetchone()[0] == 2
+
+
+# ── ask: la comparación sale de la base que usó el código ──
+
+def test_ask_pasa_la_etiqueta_de_la_base(monkeypatch):
+    fake = FakeSonnet(GOOD)
+    monkeypatch.setattr(llm, "_create", fake)
+    t = TRIGGER.model_copy(update={"facts": {**TRIGGER.facts, "baseline_label": "otros días hábiles"}})
+    asyncio.run(ask.ask(t, ctx()))
+    assert '"otros días hábiles"' in fake.calls[0]["messages"][0]["content"]
+
+
+def test_ask_sin_etiqueta_usa_otras_tardes(monkeypatch):
+    fake = FakeSonnet(GOOD)
+    monkeypatch.setattr(llm, "_create", fake)
+    asyncio.run(ask.ask(TRIGGER, ctx()))
+    assert '"otras tardes"' in fake.calls[0]["messages"][0]["content"]
+
+
+def test_ask_rechaza_dia_de_la_semana_que_no_viene_en_facts(monkeypatch):
+    sabados = {**GOOD, "question": "Juan, hoy caminaste menos que otros sábados. ¿Pasó algo?"}
+    fake = FakeSonnet(sabados, GOOD)
+    monkeypatch.setattr(llm, "_create", fake)
+    assert asyncio.run(ask.ask(TRIGGER, ctx())).question == GOOD["question"] and len(fake.calls) == 2
+
+
+def test_ask_acepta_la_comparacion_si_viene_en_facts(monkeypatch):
+    habiles = {**GOOD, "question": "Juan, hoy caminaste menos que otros días hábiles. ¿Pasó algo?"}
+    fake = FakeSonnet(habiles)
+    monkeypatch.setattr(llm, "_create", fake)
+    t = TRIGGER.model_copy(update={"facts": {"baseline_label": "otros días hábiles"}})
+    assert asyncio.run(ask.ask(t, ctx())).question == habiles["question"] and len(fake.calls) == 1
+
+
+def test_pregunta_fija_usa_la_etiqueta(monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(anthropic.APIConnectionError(request=None)))
+    t = TRIGGER.model_copy(update={"facts": {"baseline_label": "otros días hábiles"}})
+    assert "otros días hábiles" in asyncio.run(ask.ask(t, ctx())).question
+    assert "otras tardes" in asyncio.run(ask.ask(TRIGGER, ctx())).question

@@ -44,7 +44,22 @@ def prompt() -> str:
     return knowledge.strip_comment(PROMPT_PATH.read_text(encoding="utf-8"))
 
 
-def check(out: _Output) -> None:
+DEFAULT_BASELINE_LABEL = "otras tardes"
+# Afirmar contra qué se compara solo vale si lo dice la base que usó el código (Franco usa la combinada si el
+# estrato tiene menos de 10 puntos). Días de la semana, "fin de semana" o "días hábiles": solo si vienen en facts.
+COMPARISON_WORDS = re.compile(r"\b(lunes|martes|miercoles|jueves|viernes|sabados?|domingos?|fines? de semana|"
+                              r"habiles?)\b")
+
+
+def baseline_label(trigger: Trigger) -> str:
+    return str((trigger.facts or {}).get("baseline_label") or DEFAULT_BASELINE_LABEL)
+
+
+def _facts_text(trigger: Trigger) -> str:
+    return _fold(" ".join(str(v) for v in (trigger.facts or {}).values() if isinstance(v, str)))
+
+
+def check(out: _Output, trigger: Trigger | None = None) -> None:
     """Reglas del código sobre el texto del modelo. ValueError → reintento."""
     q = out.question.strip()
     if not q or len(q.split()) > MAX_QUESTION_WORDS:
@@ -56,12 +71,24 @@ def check(out: _Output) -> None:
             raise ValueError(f"tiene cifras: {text!r}")
         if CLINICAL.search(_fold(text)):
             raise ValueError(f"tiene términos clínicos: {text!r}")
+    allowed = _facts_text(trigger) if trigger else ""
+    for word in COMPARISON_WORDS.findall(_fold(q)):
+        if word not in allowed:
+            raise ValueError(f"afirma una comparación que no viene en facts: {word!r}")
+
+
+def user_message(trigger: Trigger, context: PromptContext) -> str:
+    return (llm.render_context(context)
+            + f"\n<comparacion>Si decís contra qué se compara, usá exactamente: \"{baseline_label(trigger)}\". "
+            "No nombres días de la semana.</comparacion>")
 
 
 async def ask(trigger: Trigger, context: PromptContext) -> QuestionText:
     try:
-        out = await llm.call_tool(prompt(), TOOL, llm.render_context(context), _Output, check=check, max_tokens=2048)
+        out = await llm.call_tool(prompt(), TOOL, user_message(trigger, context), _Output,
+                                  check=lambda o: check(o, trigger), max_tokens=2048)
     except llm.LLMError as exc:
         log.error("ask falló; pregunta fija del banco para %s: %s", trigger.rule_id, exc)
-        return question_bank.proactive(trigger.rule_id, context.patient_name, context.recipient_role)
+        return question_bank.proactive(trigger.rule_id, context.patient_name, context.recipient_role,
+                                       baseline_label=baseline_label(trigger))
     return QuestionText(question=out.question.strip(), options=[o.strip() for o in out.options])
