@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from app.config import TZ
 from app.models import (
     Alert, AtajoPayload, AtajoSample, BiometricSample, ContextEntry, Deviation, Entry,
-    Event, Explanation, GameResult, GoalDay, Notification, Person, PromptContext,
+    Event, Explanation, GameResult, GoalDay, Notification, PatternCandidate, Person, PromptContext,
     Question, QuestionText, RedResult, Report, ReportTopic, TapEvent, Trigger,
     UnderstoodItem,
 )
@@ -171,3 +171,17 @@ def test_atajo_payload():
     AtajoPayload(window_start=NOW, window_end=NOW, samples=[])
     with pytest.raises(ValidationError):
         AtajoPayload(window_start=dt.datetime(2026, 10, 13, 13), window_end=NOW, samples=[])
+
+
+def test_pattern_candidate():
+    PatternCandidate(kind="coocurrencia", title="Noches malas antes de días con menos pasos",
+                     description="...", evidence_ids=[3, 7, 12], suggested_action="preguntar",
+                     ask_role="cuidador", confidence=0.7)
+    PatternCandidate(kind="repeticion", title="Rigidez a la tarde", description="...",
+                     evidence_ids=[1, 2], suggested_action="informe", ask_role=None, confidence=0.5)
+    with pytest.raises(ValidationError):
+        PatternCandidate(kind="tendencia", title="x", description="x", evidence_ids=[1, 2],
+                         suggested_action="informe", ask_role=None, confidence=0.5)
+    with pytest.raises(ValidationError):
+        PatternCandidate(kind="otro", title="x", description="x", evidence_ids=[1, 2],
+                         suggested_action="avisar", ask_role=None, confidence=0.5)

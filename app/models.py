@@ -211,3 +211,13 @@ class UnderstoodItem(BaseModel):
     plain: str
     when: str
     domain: Domain
+
+
+class PatternCandidate(BaseModel):          # P1: salida de pipeline.daily_review (sección 7.3 bis)
+    kind: Literal["repeticion","coocurrencia","tras_medicacion","discrepancia_voces","otro"]
+    title: str
+    description: str
+    evidence_ids: list[int]
+    suggested_action: Literal["informe","preguntar"]
+    ask_role: Speaker | None
+    confidence: float

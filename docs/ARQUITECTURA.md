@@ -128,7 +128,7 @@ La neuróloga abre `/neuro/informe/{patient}` → el código calcula las cifras 
 **Páginas (HTML)**
 - App de la casa: `/` (¿Quién sos?), `/casa`, `/casa/contar`, `/casa/anote/{entry_id}`, `/casa/pregunta/{id}`, `/casa/golpeteo`, `/casa/permisos`, `/casa/emergencia/{alert_id}`, `/prueba`
 - Neuróloga: `/neuro/informe/{patient_id}`, `/neuro/tecnica/{patient_id}`
-- Admin: `/admin/clock` (panel), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/snapshot`, `POST /admin/restore` (con `ADMIN_TOKEN`)
+- Admin: `/admin/clock` (panel HTML), `GET /admin/clock/state` (JSON: `{now, offset_seconds}`), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/snapshot`, `POST /admin/restore` (con `ADMIN_TOKEN`)
 - Infra: `GET /health`, `GET /manifest.webmanifest`, `GET /sw.js` (servido desde la raíz para que controle toda la app)
 
 ---

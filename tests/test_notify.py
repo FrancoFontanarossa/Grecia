@@ -5,6 +5,7 @@ import pytest
 from pywebpush import WebPushException
 
 from app import _tmp_db as db
+from app import db as base
 from app import notify
 from app.notify import push
 
@@ -14,11 +15,8 @@ def _subscribe(person_id, endpoint="https://push.example/abc"):
 
 
 def _notifications():
-    conn = db.connect()
-    try:
+    with base.connect() as conn:
         return [dict(r) for r in conn.execute("SELECT * FROM notifications")]
-    finally:
-        conn.close()
 
 
 def test_guarda_y_marca_push_sent(tmp_data_dir, monkeypatch):

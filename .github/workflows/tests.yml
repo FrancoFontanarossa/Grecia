@@ -1,0 +1,13 @@
+name: tests
+on: [pull_request, push]
+jobs:
+  test:
+    runs-on: ubuntu-latest   # reemplazar por el label del runner de Tenki
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest -q

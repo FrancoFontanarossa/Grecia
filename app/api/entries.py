@@ -85,7 +85,7 @@ async def create_entry(
             response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
         else:
             await _save_events(entry, events)
-            response["understood"] = extraction.understood(events, db.now())
+            response["understood"] = extraction.understood(events, await asyncio.to_thread(db.now))
             # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
 
     await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")

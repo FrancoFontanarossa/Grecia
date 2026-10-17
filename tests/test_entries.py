@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from pywebpush import WebPushException
 
 from app import _tmp_db as db
+from app import db as base
 from app.main import app
 from app.notify import push
 
@@ -12,11 +13,8 @@ client = TestClient(app)
 
 
 def _rows(table):
-    conn = db.connect()
-    try:
+    with base.connect() as conn:
         return [dict(r) for r in conn.execute(f"SELECT * FROM {table}")]
-    finally:
-        conn.close()
 
 
 def test_texto_se_guarda_y_devuelve_el_contrato(tmp_data_dir, monkeypatch):

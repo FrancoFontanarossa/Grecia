@@ -2,16 +2,28 @@ from types import SimpleNamespace
 
 import pytest
 
+from app import config, db
 from app.pipeline import extract
 
 
 @pytest.fixture
-def tmp_data_dir(tmp_path, monkeypatch):
-    """Base SQLite nueva en un directorio temporal para cada test."""
-    monkeypatch.setenv("RAILWAY_VOLUME_MOUNT_PATH", str(tmp_path))
+def data_dir(tmp_path, monkeypatch):
+    """Base nueva en un directorio temporal para cada test."""
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    db.init()
+    return tmp_path
+
+
+@pytest.fixture
+def tmp_data_dir(data_dir, monkeypatch):
+    """La base de data_dir con Juan (1), Marta (2) y Laura (3) del paciente 1, y VAPID de prueba."""
     monkeypatch.setenv("VAPID_PRIVATE_KEY", "clave-de-prueba")
     monkeypatch.setenv("VAPID_SUBJECT", "mailto:test@entrecasa.uy")
-    return tmp_path
+    with db.connect() as conn:
+        conn.executemany("INSERT INTO people (id, patient_id, role, name, relation) VALUES (?, 1, ?, ?, ?)",
+                         [(1, "paciente", "Juan", "paciente"), (2, "cuidador", "Marta", "esposa"),
+                          (3, "familiar", "Laura", "hija")])
+    return data_dir
 
 
 def tool_response(events: list[dict] | None = None, *, stop_reason: str = "tool_use", tool: bool = True):
