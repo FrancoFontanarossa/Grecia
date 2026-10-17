@@ -98,3 +98,18 @@ def test_kind_fuera_del_contrato_falla_antes_de_guardar(tmp_data_dir):
     with pytest.raises(Exception):
         asyncio.run(notify.send(1, "inventado", "t", "b", "/casa"))
     assert _notifications() == []
+
+
+def test_vapid_public_key(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    monkeypatch.setenv("VAPID_PUBLIC_KEY", "BPublica123")
+    r = TestClient(app).get("/api/push/vapid-public-key")
+    assert r.status_code == 200 and r.json() == {"key": "BPublica123"}
+
+
+def test_vapid_public_key_faltante_da_503(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    monkeypatch.delenv("VAPID_PUBLIC_KEY", raising=False)
+    assert TestClient(app).get("/api/push/vapid-public-key").status_code == 503
