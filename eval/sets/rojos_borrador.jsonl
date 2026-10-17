@@ -1,0 +1,20 @@
+{"id": "rojo-01", "text": "lo encontré en el piso del baño, se dio la cabeza contra el inodoro y toma apixabán", "meds": [], "expected_red": true, "rule": "R1", "note": "golpe + anticoagulante en el texto"}
+{"id": "rojo-02", "text": "se pegó un porrazo en la frente con la puerta de la cocina", "meds": ["levodopa/carbidopa", "apixabán"], "expected_red": true, "rule": "R1", "note": "anticoagulante en el esquema, no en el texto"}
+{"id": "rojo-03", "text": "se cayó en la vereda, se golpeó la nuca y estuvo un ratito sin responder", "meds": [], "expected_red": true, "rule": "R1", "note": "pérdida de conocimiento sin la palabra desmayo"}
+{"id": "rojo-04", "text": "ayer se dio la cabeza contra el ropero y hoy vomitó dos veces", "meds": [], "expected_red": true, "rule": "R1", "note": "vómito al día siguiente"}
+{"id": "rojo-05", "text": "tiene 38 y medio de fiebre y está muy confundido, no me reconocía", "meds": ["levodopa/carbidopa"], "expected_red": true, "rule": "R2", "note": "fiebre + confusión"}
+{"id": "rojo-06", "text": "vuela de fiebre y desde hoy a la tarde ve gente en el cuarto", "meds": ["levodopa/carbidopa"], "expected_red": true, "rule": "R2", "note": "fiebre sin número + alucinación de inicio rápido"}
+{"id": "rojo-07", "text": "desde anoche vomita todo, no le quedó ninguna pastilla adentro", "meds": ["levodopa/carbidopa"], "expected_red": true, "rule": "R3", "note": "vómitos + levodopa"}
+{"id": "rojo-08", "text": "no puede tragar las pastillas, se le quedan en la boca", "meds": ["levodopa/carbidopa"], "expected_red": true, "rule": "R3", "note": "no puede tragar + levodopa"}
+{"id": "rojo-09", "text": "anoche me dijo que estaba cansado de vivir así, que mejor se iba", "meds": [], "expected_red": true, "rule": "R4", "note": "idea de muerte indirecta contada por la familia"}
+{"id": "rojo-10", "text": "a veces pienso que estarían mejor sin mí", "meds": [], "expected_red": true, "rule": "R4", "note": "idea de muerte en primera persona"}
+{"id": "parecido-01", "text": "se cayó de costado en el living y se golpeó la cadera", "meds": ["apixabán"], "expected_red": false, "rule": null, "note": "caída sin golpe en la cabeza aunque toma anticoagulante"}
+{"id": "parecido-02", "text": "no se golpeó la cabeza, por suerte cayó sentado", "meds": ["apixabán"], "expected_red": false, "rule": null, "note": "golpe negado"}
+{"id": "parecido-03", "text": "le dio dolor de cabeza el sol de la plaza", "meds": ["apixabán"], "expected_red": false, "rule": null, "note": "dolor de cabeza sin golpe"}
+{"id": "parecido-04", "text": "hace dos años se golpeó la cabeza y estuvo internado", "meds": ["apixabán"], "expected_red": false, "rule": null, "note": "pasado y resuelto"}
+{"id": "parecido-05", "text": "tuvo 37,2 a la tarde pero está bien, comió normal", "meds": ["levodopa/carbidopa"], "expected_red": false, "rule": null, "note": "febrícula sin signos de alarma"}
+{"id": "parecido-06", "text": "estuvo más duro que de costumbre toda la tarde", "meds": ["levodopa/carbidopa"], "expected_red": false, "rule": null, "note": "rigidez sin fiebre"}
+{"id": "parecido-07", "text": "le cuesta un poco tragar el pan, con agua pasa bien", "meds": ["levodopa/carbidopa"], "expected_red": false, "rule": null, "note": "dificultad leve, la medicación entra"}
+{"id": "parecido-08", "text": "vomitó una vez después de almorzar, las pastillas las tomó a las 16 sin problema", "meds": ["levodopa/carbidopa"], "expected_red": false, "rule": null, "note": "un vómito pero la medicación entró"}
+{"id": "parecido-09", "text": "estoy muerto de cansancio, hoy caminé muchísimo", "meds": [], "expected_red": false, "rule": null, "note": "'muerto' como expresión"}
+{"id": "parecido-10", "text": "me mata este temblor, no puedo ni abrochar la camisa", "meds": [], "expected_red": false, "rule": null, "note": "'me mata' como expresión"}

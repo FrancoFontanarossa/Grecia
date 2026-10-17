@@ -33,3 +33,7 @@ EPISODES_COUNT, EPISODES_WINDOW_DAYS = 3, 7      # A3: 3 episodios en 7 días en
 # Claves de síntomas que usan las reglas. ALINEAR CON TAXONOMY DE GUADA (app/taxonomy.py en guada/ia).
 SYMPTOMS_NIGHT_WAKINGS = {"despertares_nocturnos", "insomnio"}   # P-NOCHES
 SYMPTOMS_A1 = {"alucinaciones", "delirios"}                      # A1: alucinación o delirio nuevo
+
+# Modelos (CLAUDE.md §7.4)
+MODEL_EXTRACT = "claude-haiku-5-5"
+MODEL_REASON = "claude-sonnet-5-5"   # explain, ask, report
