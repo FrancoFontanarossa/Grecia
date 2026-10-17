@@ -98,3 +98,12 @@ def fake_sonnet(monkeypatch):
     fake = FakeSonnet({"explained": False, "by": [], "reasoning": "x"})
     monkeypatch.setattr(llm, "_create", fake)
     return fake
+
+
+@pytest.fixture(autouse=True)
+def no_report_regeneration(monkeypatch):
+    """Los tests no regeneran el informe en segundo plano; guarda los pedidos."""
+    from app.pipeline import report
+    calls = []
+    monkeypatch.setattr(report, "request_regeneration", lambda pid: calls.append(pid))
+    return calls

@@ -1,0 +1,298 @@
+{
+ "_nota": "Facts FALSOS para probar pipeline.report (semana de Juan de CLAUDE.md §3). No es salida del pipeline.",
+ "patient": {
+  "id": 1,
+  "name": "Juan"
+ },
+ "period": {
+  "start": "2026-09-20",
+  "end": "2026-10-17",
+  "days": 28,
+  "label": "2026-09-20/2026-10-17",
+  "text": "20/09 al 17/10"
+ },
+ "medication": [
+  {
+   "drug": "levodopa/carbidopa",
+   "times": [
+    "08:00",
+    "12:00",
+    "16:00",
+    "20:00"
+   ]
+  },
+  {
+   "drug": "pramipexol",
+   "times": [],
+   "changed_at": "2026-09-22",
+   "days_since_change": 25,
+   "note": "La Dra. Pereira subió el pramipexol"
+  }
+ ],
+ "steps": {
+  "goal": 4000,
+  "days_with_data": 28,
+  "days_in_goal": 15,
+  "median_daily": 3950,
+  "daily": [
+   {
+    "date": "2026-10-11",
+    "steps": 4210
+   },
+   {
+    "date": "2026-10-12",
+    "steps": 4080
+   },
+   {
+    "date": "2026-10-13",
+    "steps": 3120
+   },
+   {
+    "date": "2026-10-14",
+    "steps": 4150
+   },
+   {
+    "date": "2026-10-15",
+    "steps": 3240
+   },
+   {
+    "date": "2026-10-16",
+    "steps": 3010
+   },
+   {
+    "date": "2026-10-17",
+    "steps": 3890
+   }
+  ]
+ },
+ "deviations": [
+  {
+   "date": "2026-10-13",
+   "dose": "16:00",
+   "observed_steps": 390,
+   "usual_steps": 1300,
+   "pct_change": -70,
+   "explained": false,
+   "explained_by": [],
+   "status": "preguntado",
+   "entry_ids": []
+  },
+  {
+   "date": "2026-10-15",
+   "dose": "16:00",
+   "observed_steps": 380,
+   "usual_steps": 1300,
+   "pct_change": -71,
+   "explained": false,
+   "explained_by": [],
+   "status": "respondido",
+   "entry_ids": [
+    12
+   ]
+  },
+  {
+   "date": "2026-10-16",
+   "dose": "16:00",
+   "observed_steps": 400,
+   "usual_steps": 1300,
+   "pct_change": -69,
+   "explained": false,
+   "explained_by": [],
+   "status": "preguntado",
+   "entry_ids": []
+  }
+ ],
+ "deviations_in_previous_weeks": 0,
+ "tapping": {
+  "sessions_in_period": 8,
+  "sessions_total": 8,
+  "median_taps_per_s": 4.5,
+  "last_taps_per_s": 4.5,
+  "last_date": "2026-10-11"
+ },
+ "entries_by_voice": {
+  "paciente": 5,
+  "cuidador": 7,
+  "familiar": 2
+ },
+ "alerts": [
+  {
+   "lane": "ambar",
+   "rule_id": "A1",
+   "date": "2026-10-14",
+   "text": "Alucinación o delirio nuevo, a 22 días del cambio de pramipexol",
+   "reserved": true
+  },
+  {
+   "lane": "ambar",
+   "rule_id": "A3",
+   "date": "2026-10-16",
+   "text": "3 episodios en 7 días después de la toma de las 16",
+   "reserved": false
+  }
+ ],
+ "events": [
+  {
+   "id": 201,
+   "told_at": "2026-10-12T08:30:00-03:00",
+   "occurred_at": "2026-10-11T22:00:00-03:00",
+   "time_vague": true,
+   "speaker": "cuidador",
+   "domain": "sueno",
+   "domain_label": "Sueño y descanso",
+   "symptom": "despertares_nocturnos",
+   "negated": false,
+   "foreign_attribution": null,
+   "quote": "se despertó tres veces anoche",
+   "is_new": false,
+   "reserved": false,
+   "days_since_med_change": 19,
+   "speaker_name": "Marta",
+   "speaker_relation": "esposa"
+  },
+  {
+   "id": 202,
+   "told_at": "2026-10-13T19:10:00-03:00",
+   "occurred_at": "2026-10-13T16:00:00-03:00",
+   "time_vague": true,
+   "speaker": "paciente",
+   "domain": "caidas",
+   "domain_label": "Caídas",
+   "symptom": "caida",
+   "negated": true,
+   "foreign_attribution": null,
+   "quote": "no me caí, pero hoy no tuve ganas de salir",
+   "is_new": false,
+   "reserved": false,
+   "days_since_med_change": 21,
+   "speaker_name": "Juan",
+   "speaker_relation": "paciente"
+  },
+  {
+   "id": 203,
+   "told_at": "2026-10-14T08:15:00-03:00",
+   "occurred_at": "2026-10-13T22:00:00-03:00",
+   "time_vague": true,
+   "speaker": "cuidador",
+   "domain": "sueno",
+   "domain_label": "Sueño y descanso",
+   "symptom": "despertares_nocturnos",
+   "negated": false,
+   "foreign_attribution": null,
+   "quote": "no durmió casi nada, se levantó cuatro veces",
+   "is_new": false,
+   "reserved": false,
+   "days_since_med_change": 21,
+   "speaker_name": "Marta",
+   "speaker_relation": "esposa"
+  },
+  {
+   "id": 204,
+   "told_at": "2026-10-14T10:05:00-03:00",
+   "occurred_at": "2026-10-14T10:05:00-03:00",
+   "time_vague": true,
+   "speaker": "paciente",
+   "domain": "sueno",
+   "domain_label": "Sueño y descanso",
+   "symptom": "insomnio",
+   "negated": true,
+   "foreign_attribution": null,
+   "quote": "duermo bastante bien, a veces sueño cosas raras",
+   "is_new": false,
+   "reserved": false,
+   "days_since_med_change": 22,
+   "speaker_name": "Juan",
+   "speaker_relation": "paciente"
+  },
+  {
+   "id": 205,
+   "told_at": "2026-10-14T21:40:00-03:00",
+   "occurred_at": "2026-10-13T22:00:00-03:00",
+   "time_vague": true,
+   "speaker": "cuidador",
+   "domain": "neuropsiquiatrico",
+   "domain_label": "Alucinaciones y confusión",
+   "symptom": "alucinaciones",
+   "negated": false,
+   "foreign_attribution": "el cansancio",
+   "quote": "anoche hablaba con alguien que no estaba",
+   "is_new": true,
+   "reserved": true,
+   "days_since_med_change": 21,
+   "speaker_name": "Marta",
+   "speaker_relation": "esposa"
+  },
+  {
+   "id": 206,
+   "told_at": "2026-10-15T18:20:00-03:00",
+   "occurred_at": "2026-10-15T17:00:00-03:00",
+   "time_vague": true,
+   "speaker": "paciente",
+   "domain": "motor",
+   "domain_label": "Movimiento",
+   "symptom": "rigidez",
+   "negated": false,
+   "foreign_attribution": null,
+   "quote": "me sentí trabado, me costó salir a caminar",
+   "is_new": false,
+   "reserved": false,
+   "days_since_med_change": 23,
+   "speaker_name": "Juan",
+   "speaker_relation": "paciente"
+  },
+  {
+   "id": 207,
+   "told_at": "2026-10-15T20:30:00-03:00",
+   "occurred_at": "2026-10-15T12:00:00-03:00",
+   "time_vague": true,
+   "speaker": "familiar",
+   "domain": "caidas",
+   "domain_label": "Caídas",
+   "symptom": "casi_caida",
+   "negated": false,
+   "foreign_attribution": "no es nada",
+   "quote": "mamá me contó que se tambaleó en la vereda",
+   "is_new": false,
+   "reserved": false,
+   "days_since_med_change": 23,
+   "speaker_name": "Laura",
+   "speaker_relation": "hija"
+  },
+  {
+   "id": 208,
+   "told_at": "2026-10-16T08:00:00-03:00",
+   "occurred_at": "2026-10-15T22:00:00-03:00",
+   "time_vague": true,
+   "speaker": "cuidador",
+   "domain": "sueno",
+   "domain_label": "Sueño y descanso",
+   "symptom": "despertares_nocturnos",
+   "negated": false,
+   "foreign_attribution": null,
+   "quote": "otra noche de levantarse varias veces",
+   "is_new": false,
+   "reserved": false,
+   "days_since_med_change": 23,
+   "speaker_name": "Marta",
+   "speaker_relation": "esposa"
+  },
+  {
+   "id": 209,
+   "told_at": "2026-10-16T22:10:00-03:00",
+   "occurred_at": "2026-10-16T22:00:00-03:00",
+   "time_vague": true,
+   "speaker": "cuidador",
+   "domain": "neuropsiquiatrico",
+   "domain_label": "Alucinaciones y confusión",
+   "symptom": "alucinaciones",
+   "negated": false,
+   "foreign_attribution": null,
+   "quote": "otra vez decía que había gente en el patio",
+   "is_new": false,
+   "reserved": true,
+   "days_since_med_change": 24,
+   "speaker_name": "Marta",
+   "speaker_relation": "esposa"
+  }
+ ]
+}
