@@ -34,7 +34,7 @@ async def _create(**kwargs):
 
 
 async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseModel], *,
-                    check=None, max_tokens: int = 4096) -> BaseModel:
+                    check=None, max_tokens: int = 4096, effort: str = "low") -> BaseModel:
     """Pide a Sonnet que responda con `tool` y devuelve la salida validada con `output`.
     `check(parsed)` puede lanzar ValueError para rechazar una salida válida pero que no cumple una regla del código."""
     system = knowledge.system_blocks(prompt)
@@ -47,7 +47,7 @@ async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseMode
                 system=system,
                 tools=[tool],
                 tool_choice={"type": "auto"},
-                output_config={"effort": "low"},
+                output_config={"effort": effort},
                 betas=[FALLBACK_BETA],
                 fallbacks="default",
                 messages=[{"role": "user", "content": content}],

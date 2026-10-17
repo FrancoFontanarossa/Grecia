@@ -92,3 +92,11 @@ def budget_allow(kind: str, now: _dt.datetime, sent_today: int) -> bool:
 def triggers_evaluate(patient_id: int, now: _dt.datetime) -> list:
     """STUB: sin rules.triggers de Franco no hay disparadores. El scheduler ya llama a esto en cada tick."""
     return []
+
+
+# ── Verificador del informe ────────────────────────────────────────────────────────────────────────────
+# TEMPORAL: reemplazar por rules.verifier.verify de Franco (borra cifras y citas que no coinciden y las cuenta).
+
+def verify_stub(report, facts: dict, sources: list) -> "object":
+    """No borra nada: devuelve el informe tal cual con removed_count=0."""
+    return report.model_copy(update={"removed_count": 0})
