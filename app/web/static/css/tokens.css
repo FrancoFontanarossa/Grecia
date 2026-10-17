@@ -1,0 +1,102 @@
+/* Entrecasa — tokens de diseño (CSS plano, sin build)
+ * Copiar a app/web/static/css/tokens.css y cargar en la plantilla base:
+ *   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+ *   <link rel="stylesheet" href="/static/css/tokens.css">
+ * Uso: background: var(--color-pino); border-radius: var(--radius-card); etc.
+ * Si algún día se usa Tailwind v4, este bloque se pega tal cual dentro de @theme { }.
+ */
+
+:root {
+  /* Base */
+  --color-fondo: #F2F4F1;
+  --color-superficie: #FFFFFF;
+  --color-superficie-suave: #E8ECE9;
+  --color-linea: #D5DBD6;
+  --color-linea-suave: #E3E8E4;
+  --color-borde-chip: #C9D1CB;
+  --color-tinta: #17201B;
+  --color-tinta-suave: #4A5650;
+
+  /* Acción */
+  --color-pino: #1E5B4F;
+  --color-pino-claro: #DCEBE6;
+  --color-pino-oscuro: #123A32;
+  --color-pino-texto-claro: #B9D3CB;
+  --color-onda: #7FB5A6;
+
+  /* Datos del teléfono */
+  --color-bio: #2F5FA8;
+  --color-bio-medio: #9DB6DD;
+  --color-bio-suave: #C9D7EC;
+  --color-bio-claro: #E1EAF7;
+  --color-bio-texto: #1D3F73;
+
+  /* Carriles */
+  --color-ambar: #B45309;
+  --color-ambar-fondo: #FCEFD9;
+  --color-ambar-texto: #8A3F06;
+  --color-rojo: #B42318;
+  --color-rojo-fondo: #FDE4E1;
+
+  /* Tipografía */
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+
+  --text-juan-titulo: 34px;
+  --text-juan-titulo--line-height: 1.15;
+  --text-juan: 22px;
+  --text-juan--line-height: 1.35;
+  --text-familia-titulo: 28px;
+  --text-familia: 18px;
+  --text-familia--line-height: 1.45;
+  --text-medico: 16px;
+  --text-medico--line-height: 1.6;
+  --text-etiqueta: 14px;
+
+  /* Radios */
+  --radius-chip: 10px;
+  --radius-boton: 18px;
+  --radius-card: 20px;
+  --radius-boton-grande: 22px;
+
+  /* Tamaños táctiles */
+  --spacing-toque-juan: 64px;
+  --spacing-toque-juan-principal: 76px;
+  --spacing-toque-familia: 56px;
+  --spacing-boton-voz: 188px;
+}
+
+/* Base global */
+html, body {
+  background: var(--color-fondo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Respetar el notch en modo app */
+.pantalla-telefono {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: max(56px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Halo del botón de voz */
+.halo-voz { box-shadow: 0 0 0 14px var(--color-pino-claro); }
+.halo-grabando { box-shadow: 0 0 0 16px rgba(255,255,255,0.14), 0 0 0 34px rgba(255,255,255,0.06); }
+
+/* Etiqueta de sección */
+.etiqueta-seccion {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
