@@ -48,3 +48,44 @@ def test_negado_no_cuenta_como_mencion_previa():
 
 def test_repetido_en_la_misma_entrada_solo_la_primera():
     assert mark_new([ev(), ev()], set()) == [True, False]
+
+
+from app._tmp_rules import RED_TEXTS, red_check, red_from_backup  # noqa: E402
+
+
+@pytest.mark.parametrize("text", [
+    "se golpeó la cabeza y toma apixabán",
+    "Se cayó, se pegó en la frente y después vomitó",
+    "lo encontré en el piso del baño, se dio la cabeza, toma apixaban",
+    "se golpeó la nuca y se desmayó un rato",
+    "se dio un golpe en la cabeza y ahora le duele la cabeza",
+])
+def test_r1_rojo(text):
+    r = red_check(text, [])
+    assert r and r.rule_id == "R1" and r.missing_criterion is None and r.text == RED_TEXTS["R1"]
+
+
+def test_r1_anticoagulante_del_esquema():
+    r = red_check("se pegó un porrazo en la cabeza con la puerta", ["levodopa/carbidopa", "Apixabán"])
+    assert r and r.missing_criterion is None
+
+
+def test_r1_sin_criterio_repregunta_solo_eso():
+    r = red_check("se cayó y se golpeó la cabeza", ["levodopa/carbidopa"])
+    assert r and r.rule_id == "R1" and r.missing_criterion == "anticoagulante_o_signos" and "anticoagulante" in r.text
+
+
+@pytest.mark.parametrize("text", [
+    "se cayó de costado y se golpeó la cadera",
+    "no se golpeó la cabeza, solo la rodilla",
+    "le dio dolor de cabeza el sol",
+    "estuvo más duro toda la tarde",
+    "",
+])
+def test_no_es_r1(text):
+    assert red_check(text, ["apixabán"]) is None
+
+
+def test_rojo_del_respaldo_usa_texto_fijo():
+    assert red_from_backup("R4").text == RED_TEXTS["R4"] and red_from_backup("R4").rule_id == "R4-IA"
+    assert red_from_backup(None).text == RED_TEXTS[None]
