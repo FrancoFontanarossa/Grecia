@@ -2,9 +2,9 @@
 app/main.py incluye solo `router` de este módulo."""
 from fastapi import APIRouter
 
-from app.api import _dev_entries, hoy, notifications, people, push
+from app.api import _dev_entries, consents, hoy, notifications, people, push, questions, tests
 from app.web import routes as web_routes
 
 router = APIRouter()
-for module in (people, hoy, push, notifications, _dev_entries, web_routes):
+for module in (people, hoy, push, notifications, questions, tests, consents, _dev_entries, web_routes):
     router.include_router(module.router)

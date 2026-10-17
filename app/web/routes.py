@@ -129,6 +129,66 @@ def contar(request: Request, modo: str = "", question_id: int | None = None, cor
                   start_mode=start_mode, back_url=back_url, hints=HINTS, doctor=store.DOCTOR)
 
 
+@router.get("/casa/pregunta/{question_id}")
+def pregunta(request: Request, question_id: int, ec_person: str | None = Cookie(default=None)):
+    from app.api.questions import get_question
+
+    person = current_person(ec_person)
+    if not person:
+        return RedirectResponse(f"/?next=/casa/pregunta/{question_id}", status_code=303)
+    q = get_question(question_id)
+    return render(request, "casa/pregunta.html", person=person, q=q, simulated=q.get("simulated"))
+
+
+@router.get("/casa/golpeteo")
+def golpeteo(request: Request, desde: str = "", ec_person: str | None = Cookie(default=None)):
+    person = current_person(ec_person)
+    if not person:
+        return RedirectResponse("/", status_code=303)
+    return render(request, "casa/golpeteo.html", person=person, desde_pregunta=desde == "pregunta")
+
+
+# Pasos genéricos y seguros mientras rules.red no traiga los suyos (texto fijo, sin IA).
+# TODO(contrato): reemplazar por los pasos fijos de cada regla (R1–R4) cuando existan en app/rules/red.py.
+_RED_STEPS = [
+    "Llamá ahora a tu emergencia móvil y contá lo que pasó.",
+    "Quedate con {name} hasta que llegue la ayuda.",
+    "Tené a mano la lista de remedios que toma.",
+]
+
+
+@router.get("/casa/emergencia/{alert_id}")
+def emergencia(request: Request, alert_id: int, entry: int | None = None, ec_person: str | None = Cookie(default=None)):
+    person = current_person(ec_person)
+    if not person:
+        return RedirectResponse("/", status_code=303)
+    patient = store.patient_person(person["patient_id"]) or person
+    # TODO(contrato): leer la alerta de la tabla alerts (texto fijo de la regla). Mientras tanto la pantalla
+    # usa el RedResult que devolvió POST /api/entries (guardado en el teléfono).
+    alert = {"id": alert_id, "text": None, "missing_criterion": None}
+    name = "él" if person["role"] == "paciente" else patient["name"]
+    steps = [s.format(name=name) for s in _RED_STEPS]
+    if person["role"] == "paciente":
+        steps[1] = "Quedate quieto y avisale a alguien de tu casa."
+    return render(request, "casa/emergencia.html", person=person, alert=alert, entry_id=entry, steps=steps)
+
+
+@router.get("/casa/permisos")
+def permisos(request: Request, ec_person: str | None = Cookie(default=None)):
+    person = current_person(ec_person)
+    if not person:
+        return RedirectResponse("/", status_code=303)
+    consents = store.consents(person["patient_id"])
+    by_person: dict[int, list] = {}
+    for c in consents:
+        if c["kind"] in ("avisos", "logros"):
+            by_person.setdefault(c["recipient_id"], []).append(c)
+    kind_labels = {"avisos": ("Avisos para mirar", "Cuando algo cambia y conviene prestarle atención"),
+                   "logros": ("Logros", "Cuando llegás a tu meta de pasos")}
+    return render(request, "casa/permisos.html", person=person, patient_id=person["patient_id"], consents=consents,
+                  by_person=list(by_person.items()), kind_labels=kind_labels, simulated=True)
+
+
 @router.get("/casa/anote/{entry_id}")
 def anote(request: Request, entry_id: int, ec_person: str | None = Cookie(default=None)):
     person = current_person(ec_person)

@@ -193,7 +193,7 @@
       _ok: function (data) {
         var id = data.entry_id || this.correctId;
         data.entry_id = id;
-        try { sessionStorage.setItem("ec_entry_" + id, JSON.stringify(data)); } catch (e) {}
+        try { sessionStorage.setItem("ec_entry_" + id, JSON.stringify(data)); if (opts.questionId) sessionStorage.setItem("ec_q_" + id, "1"); } catch (e) {}
         this.transcript = data.transcript || (this._blob ? "" : this.text);
         if (data.red) {
           var rojo = (data.alerts || []).filter(function (a) { return a.lane === "rojo"; })[0];
@@ -252,8 +252,11 @@
       },
       get items() { return (this.data && this.data.understood) || []; },
       confirmar: function () {
+        var fromQuestion = false;
+        try { fromQuestion = sessionStorage.getItem("ec_q_" + entryId) === "1"; } catch (e) {}
         fetch("/api/entries/" + entryId + "/confirm", { method: "POST" }).finally(function () {
-          location.assign("/casa");
+          // Después de responder una pregunta, la app ofrece el golpeteo (ARQUITECTURA §3.2).
+          location.assign(fromQuestion ? "/casa/golpeteo?desde=pregunta" : "/casa");
         });
       }
     };
