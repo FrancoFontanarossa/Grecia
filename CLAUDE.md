@@ -115,6 +115,8 @@ Lo que la consigna exige y nos cambia cosas:
 - A4 (caídas que se repiten → sugerir detección de caídas o teleasistencia).
 - Laura responde un logro con un audio que le llega a Juan.
 - Cola sin conexión: si no hay red, el relato se guarda y se manda cuando vuelve.
+- **Revisión diaria con IA (primer P1 de la noche):** `pipeline.daily_review` + verificador de patrones (sección 7.3, nivel 3).
+- Línea de base de nivel 2: "día raro" (pasos del día) y "tendencia" (semana contra las tres anteriores) (sección 7.3).
 
 ### P2 / diapositiva
 WhatsApp para la familia que vive lejos (en la hackatón solo sería viable el sandbox de Twilio; la API oficial tarda días por la verificación de Meta) · botonera para etapa avanzada · integración con relojes que detectan caídas o con teleasistencia · app nativa con lectura automática de Salud (HealthKit) y Health Connect para Android (camino: envolver esta misma PWA con Capacitor) · informe intermedio · FHIR · prueba de voz.
@@ -181,6 +183,7 @@ Progreso en el anillo de Juan. Al llegar a 4.000: Marta y Laura reciben "Juan ll
 | P-SILENCIO | Días sin contar nada | 2 días sin relatos de ninguna voz | Juan, con pregunta abierta |
 | P-JUEGO | Juego peor que su historial | toques/s < 85% de la mediana de sus últimas 7 sesiones (mínimo 3) | Juan |
 | P-REPITE | Algo que se repite | mismo síntoma contado 2 veces en 7 días por la familia y nunca por Juan | Juan, con pregunta suave |
+| P-PATRON (P1) | Patrón de la revisión diaria | `PatternCandidate` que pasó el verificador, con `suggested_action = preguntar` | El rol que propone, si el presupuesto lo permite |
 
 Cada disparador genera como máximo una `Question`. El texto lo redacta `pipeline.ask`; el "por qué te pregunto" lo arma el código con las cifras.
 
@@ -232,6 +235,24 @@ Lo que exige leer o juzgar lenguaje lo hace Claude. Lo que tiene que ser verific
 - Hay desvío si `z ≤ −2,5` **y** la caída es de al menos 40%. Con menos de 10 puntos de base devuelve `None`.
 - Umbrales en `config.py`, con tests.
 - **Antes de armar el seed:** revisar que en los pasos reales la ventana elegida no sea casi siempre cero (si quien exportó suele estar sentado de 16 a 18, se cambia la toma del escenario a una franja donde camine).
+
+### 7.3 bis · Cómo se detecta "algo raro" (tres niveles)
+| Nivel | Qué mira | Quién | Sale a | Estado |
+|---|---|---|---|---|
+| **1 · Línea de base estadística** | Pasos en las 2 h después de cada toma (desvío de arriba) y golpeteo contra la mediana de sus últimas 7 sesiones | Código (estadística robusta, explicable) | Disparador → pregunta | **P0** |
+| **2 · Más línea de base** | "Día raro": pasos del día contra la mediana/MAD de los últimos 28 días del mismo tipo de día (hábil o fin de semana), z ≤ −2,5. "Tendencia": mediana de los últimos 7 días contra la de los 21 anteriores, caída ≥ 25% | Código | Disparador + informe | P1 (20 min cada uno) |
+| **3 · Revisión diaria con IA** | Todo junto, una vez por día (21:00 del reloj): relatos de las tres voces, desvíos, golpeteo, cambios de medicación, preguntas sin respuesta | Claude **propone**, el código **verifica y decide** | Informe y, como mucho, una pregunta | P1 |
+
+Además, en P0 hay patrones por reglas sobre los eventos (P-NOCHES, P-SILENCIO, P-REPITE, A1–A3), y el **informe ya es una lectura de patrones con IA** sobre el período, con verificador.
+
+**Por qué no un modelo de ML entrenado** (isolation forest, autoencoder, etc.): no hay datos para entrenarlo, no se puede explicar a una neuróloga ni a un jurado, y con 28 días de una sola persona la estadística robusta es lo correcto. La consigna cuenta la detección de anomalías como ML; lo defendemos como estadística robusta por persona, sin inflarlo.
+
+**Revisión diaria (nivel 3), cómo es segura:**
+1. El código arma un **resumen compacto** de los últimos 7 días (tabla de eventos con ID, dominio, hablante, fecha y cita; pasos por día y desvíos; golpeteo; cambios de medicación). Claude no ve la base entera.
+2. `pipeline.daily_review(digest) -> list[PatternCandidate]`: hipótesis de patrones del tipo repetición, co-ocurrencia ("noches malas antes de los días de menos pasos"), cambio después de la medicación, o discrepancia entre voces, cada una con los IDs de evidencia.
+3. `rules.patterns.verify(candidates, facts)` descarta la que cite un ID que no existe o fuera de la ventana, la que tenga menos de 2 evidencias y la que traiga cifras que el código no puede recalcular. Si toca algo reservado, nunca se le pregunta a Juan.
+4. Lo que pasa se guarda en `patterns` y aparece en el informe como "Patrones que notó la revisión diaria (IA, verificados)". Solo si `suggested_action = preguntar` y el presupuesto del día lo permite, se convierte en una `Question` (P-PATRON).
+5. **La revisión diaria nunca crea ni sube un rojo o un ámbar:** eso es solo código.
 
 ### 7.4 Modelos
 En `app/config.py`: `claude-haiku-5-5` para extracción y respaldo de rojos si pasa el eval; `claude-sonnet-5-5` para explicar, preguntar e informe. Temperatura 0 en extracción. Prompt caching de `knowledge/parkinson.md`. La API key se comparte entre construir y el producto: vigilar el consumo.
@@ -393,6 +414,10 @@ class GameResult(BaseModel):   patient_id: int; game: Literal["tapping"]; taken_
 class ReportTopic(BaseModel):  title: str; narrative: str; observed: list[str]; voices: dict[str, str]
                                question: str; evidence_ids: list[int]; reserved: bool
 class Report(BaseModel):       summary: str; topics: list[ReportTopic]; removed_count: int
+class PatternCandidate(BaseModel):   # P1, pero el contrato se congela ahora
+    kind: Literal["repeticion","coocurrencia","tras_medicacion","discrepancia_voces","otro"]
+    title: str; description: str; evidence_ids: list[int]
+    suggested_action: Literal["informe","preguntar"]; ask_role: Speaker | None; confidence: float
 ```
 
 Funciones (firmas):
@@ -407,6 +432,7 @@ Funciones (firmas):
 - `rules.goals.status(patient_id, day) -> GoalDay`
 - `notify.send(person_id, kind, title, body, url) -> Notification` (guarda en `notifications` y manda la push; las reglas ya decidieron a quién)
 - `pipeline.report(patient_id, period) -> Report` · `rules.verifier.verify(report, facts, sources) -> Report`
+- (P1) `pipeline.daily_review(digest) -> list[PatternCandidate]` · `rules.patterns.verify(candidates, facts) -> list[PatternCandidate]`
 
 API (JSON; el contrato entre la app y el backend):
 | Método y ruta | Entrada | Salida |
@@ -453,6 +479,7 @@ alerts             id, patient_id, lane (rojo|ambar|verde), rule_id, recipients[
 goals              id, patient_id, metric, target, unit, set_by, active, paused_reason?
 goal_days          id, goal_id, date, value, achieved, hard_day, notified
 reports            id, patient_id, period, content (json), removed_by_verifier, created_at
+patterns           id, patient_id, day, kind, title, description, evidence_ids[], suggested_action, verified, question_id?, created_at   ← P1
 ```
 
 ---
@@ -569,4 +596,5 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 17:55 | `POST /api/entries` en un solo paso (procesa todo dentro del pedido) con `/confirm` y `/correct`; `questions` y `tests` como nombres de tabla | Juanpe y Franco |
 | 17:55 | Hito 0 en iPhone (los tres tenemos iPhone); horarios corridos 30 minutos | Juanpe, sobre propuesta de Franco |
 | 17:55 | Rebalanceo: `precorrer_semana.py` a Guada; pitch entre los tres el domingo; eval con 30 relatos y sin set de acompañamiento | Juanpe |
+| 18:00 | Detección de anomalías en tres niveles: estadística robusta (P0), más línea de base y revisión diaria con IA verificada por código (P1, contrato congelado ahora) | Juanpe |
 | 18:00 | **Juanpe y Franco intercambian roles:** Juanpe toma la app y la web (armó el diseño y tiene el contexto de las pantallas); Franco toma datos, reglas, calidad e infraestructura (armó ARQUITECTURA y la infra). Jinja + HTMX (+ Alpine.js opcional) se mantiene | Juanpe y Franco |
