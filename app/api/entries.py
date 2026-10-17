@@ -1,6 +1,8 @@
 # POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio)
 # corre los rojos (reglas + respaldo con IA que solo sube) y extrae los eventos. Sin avisos todavía.
 import asyncio
+import logging
+import time
 from typing import Literal, get_args
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -14,6 +16,7 @@ from app.pipeline import red_backup
 from app.pipeline import transcribe as transcription
 
 router = APIRouter()
+log = logging.getLogger("entrecasa.entries")
 
 OCCURRED_HINTS = get_args(OccurredHint)
 
@@ -34,6 +37,8 @@ async def create_entry(
     quick_reply: str | None = Form(None),
     reserved_requested: bool = Form(False),
 ):
+    t0 = time.perf_counter()
+    timing: dict[str, float] = {}
     if occurred_hint is not None and occurred_hint not in OCCURRED_HINTS:
         raise HTTPException(422, f"occurred_hint inválido: {occurred_hint!r}. Valores: {', '.join(OCCURRED_HINTS)}")
     raw_text = (text or quick_reply or "").strip()
@@ -68,6 +73,7 @@ async def create_entry(
 
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
     if audio_path is not None:
+        t = time.perf_counter()
         try:
             raw_text = await transcription.transcribe(audio_path)
         except transcription.TranscriptionError:
@@ -75,6 +81,7 @@ async def create_entry(
         else:
             await asyncio.to_thread(db.set_entry_text, entry_id, raw_text)
             response["transcript"] = raw_text
+        timing["transcripcion"] = time.perf_counter() - t
 
     if raw_text:
         row = await asyncio.to_thread(db.get_entry, entry_id)
@@ -85,6 +92,7 @@ async def create_entry(
         red = rules.red_check(raw_text, meds)
         is_red = red is not None and red.missing_criterion is None
         events: list[Event] | None = None
+        t = time.perf_counter()
         if not is_red:   # con rojo por regla no se extrae
             # El respaldo y la extracción corren en paralelo para no sumar latencia; si el respaldo sube a rojo,
             # la extracción se descarta.
@@ -98,6 +106,7 @@ async def create_entry(
                 response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
             else:
                 events = extracted
+        timing["rojos_y_extraccion"] = time.perf_counter() - t
         if red is not None:
             response["red"] = red.model_dump()
             # TODO: alerta roja con rules.lanes + rules.consent de Franco → notify.send(..., "rojo", ...)
@@ -107,6 +116,8 @@ async def create_entry(
             # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
 
     await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
+    timing["total"] = time.perf_counter() - t0
+    log.info("entrada %s (%s): %s", entry_id, modality, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
     return response
 
 
