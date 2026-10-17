@@ -137,3 +137,18 @@ def test_reimport_also_clears_injected_drops(env, tmp_path):
     ih.run(end=END, export=path)
     assert rows("SELECT DISTINCT source FROM biometrics") == [{"source": "importacion"}]
     assert rows("SELECT sum(value) AS total FROM biometrics") == [{"total": 28 * 900}]
+
+
+def test_export_csv_does_not_touch_db_and_imports_the_same(env, tmp_path):
+    path = write_export(tmp_path / "export.xml", daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30)))
+    out = tmp_path / "pasos.csv"
+    assert ih.main([path, "--end", "2026-10-17", "--export-csv", str(out)]) == 0
+    assert rows("SELECT count(*) AS n FROM biometrics") == [{"n": 0}]
+    lines = out.read_text().splitlines()
+    assert lines[0] == "start,steps" and lines[1] == "2026-09-20T09:00:00-03:00,300.0" and len(lines) == 85
+
+    result = ih.import_csv_text(out.read_text())
+    assert result["hours"] == 84
+    assert rows("SELECT sum(value) AS total FROM biometrics") == [{"total": 28 * 900}]
+    assert rows("SELECT window_start, window_end FROM biometric_syncs") == [
+        {"window_start": "2026-09-20T00:00:00-03:00", "window_end": "2026-10-18T00:00:00-03:00"}]
