@@ -1,0 +1,78 @@
+{% extends "neuro/_base.html" %}
+{% block title %}Panel de la demo · Entrecasa{% endblock %}
+{% block content %}
+<div class="neuro" hx-boost="false" x-data="adminPanel()">
+  <div class="neuro__contenedor" style="max-width: 880px">
+    <div class="fila-entre" style="flex-wrap: wrap; gap: 12px">
+      <div>
+        <div style="font-size: 24px; font-weight: 700">Panel de la demo</div>
+        <div style="font-size: 15px; color: var(--color-tinta-suave)">Reloj, caída inyectada (rotulada), snapshot y restauración. Lo que se hace acá queda marcado como simulado.</div>
+      </div>
+      <a href="/neuro/informe/1" class="btn-neuro">Informe de Juan</a>
+    </div>
+
+    <div class="card-neuro" style="padding: 18px 20px; gap: 10px">
+      <label for="tok" style="font-size: 15px; font-weight: 700">Token de admin</label>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap">
+        <input id="tok" type="password" x-model="token" @change="saveToken()" autocomplete="off"
+               style="flex: 1 1 260px; min-height: 44px; border-radius: 12px; border: 1px solid var(--color-borde-chip); padding: 0 12px; font: inherit">
+        <button type="button" class="btn-neuro" @click="refresh()">Probar</button>
+      </div>
+    </div>
+
+    <div class="card-neuro" style="padding: 18px 20px; gap: 14px">
+      <div class="fila-entre" style="flex-wrap: wrap; gap: 10px">
+        <div>
+          <div style="font-size: 14px; color: var(--color-tinta-suave)">Hora de la demo</div>
+          <div style="font-size: 30px; font-weight: 700" x-text="nowLabel || '—'"></div>
+          <div style="font-size: 13px; color: var(--color-tinta-suave)" x-show="offsetLabel" x-text="offsetLabel"></div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <button type="button" class="btn-neuro" @click="advance(30)">+30 min</button>
+          <button type="button" class="btn-neuro" @click="advance(120)">+2 h</button>
+          <button type="button" class="btn-neuro" @click="advance(1440)">+1 día</button>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+        <label for="ir-a" style="font-size: 15px">Ir a</label>
+        <input id="ir-a" type="datetime-local" x-model="setTo" style="min-height: 44px; border-radius: 12px; border: 1px solid var(--color-borde-chip); padding: 0 10px; font: inherit">
+        <button type="button" class="btn-neuro btn-neuro--pri" @click="setClock()" :disabled="!setTo">Fijar hora</button>
+      </div>
+    </div>
+
+    <div class="card-neuro" style="padding: 18px 20px; gap: 12px">
+      <div style="font-size: 18px; font-weight: 700">Inyectar una caída de pasos <span class="pildora-neuro pildora-neuro--ambar">rotulada: inyectado</span></div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 15px">
+        <label>Paciente <select x-model.number="drop.patient_id" style="min-height: 40px; border-radius: 10px; font: inherit">
+          <option value="1">Juan</option><option value="5">Paciente de prueba</option></select></label>
+        <label>Día <input type="date" x-model="drop.day" style="min-height: 40px; border-radius: 10px; font: inherit"></label>
+        <label>Toma <select x-model="drop.dose" style="min-height: 40px; border-radius: 10px; font: inherit">
+          <option>08:00</option><option>12:00</option><option selected>16:00</option><option>20:00</option></select></label>
+        <label>Caída <input type="number" min="10" max="100" step="5" x-model.number="drop.pct" style="width: 70px; min-height: 40px; border-radius: 10px; font: inherit"> %</label>
+        <button type="button" class="btn-neuro btn-neuro--pri" @click="injectDrop()">Inyectar</button>
+      </div>
+      <div style="font-size: 13px; color: var(--color-tinta-suave)">Multiplica por (1 − caída) los pasos de las 2 h después de la toma. Después adelantá el reloj para que corra el chequeo.</div>
+    </div>
+
+    <div class="card-neuro" style="padding: 18px 20px; gap: 12px">
+      <div style="font-size: 18px; font-weight: 700">Base de la demo</div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap">
+        <button type="button" class="btn-neuro" @click="post('/admin/snapshot', {}, 'Snapshot guardado.')">Guardar snapshot</button>
+        <button type="button" class="btn-neuro" style="border-color: var(--color-rojo); color: var(--color-rojo)"
+                @click="confirm('¿Volver la base al último snapshot? Se pierde lo que se cargó después.') && post('/admin/restore', {}, 'Base restaurada.')">Restaurar</button>
+      </div>
+    </div>
+
+    <div class="card-neuro" style="padding: 18px 20px; gap: 12px">
+      <div style="font-size: 18px; font-weight: 700">Push de prueba</div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+        {% for p in people %}
+        <button type="button" class="btn-neuro" @click="pushTest({{ p.id }})">{{ p.name }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div x-show="msg" x-cloak class="rotulo-neuro" role="status" :style="msgError ? 'color: var(--color-rojo)' : ''" x-text="msg"></div>
+  </div>
+</div>
+{% endblock %}

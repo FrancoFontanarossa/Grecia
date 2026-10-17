@@ -1,0 +1,29 @@
+/* Web de la neuróloga (computadora, página fluida; design/screens/Medico-Informe.html). */
+.neuro { min-height: 100vh; background: var(--color-fondo); color: var(--color-tinta); padding: 32px 24px 48px; }
+.neuro__contenedor { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.card-neuro { background: var(--color-superficie); border-radius: 20px; display: flex; flex-direction: column; }
+.chip-neuro { padding: 8px 14px; border-radius: 10px; background: var(--color-superficie); font-size: 15px; }
+.chip-neuro--ambar { background: var(--color-ambar-fondo); color: #6B3105; font-weight: 700; }
+.pildora-neuro { padding: 4px 10px; border-radius: 999px; background: var(--color-fondo); color: var(--color-tinta-suave); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.pildora-neuro--ambar { background: var(--color-ambar-fondo); color: var(--color-ambar-texto); }
+.pildora-neuro--bio { background: var(--color-bio-claro); color: var(--color-bio-texto); }
+.pildora-neuro--rojo { background: var(--color-rojo-fondo); color: var(--color-rojo); }
+.pildora-neuro--verde { background: var(--color-pino-claro); color: var(--color-pino); }
+.chip-ev { padding: 6px 12px; border-radius: 10px; border: 1px solid var(--color-borde-chip); background: #FFFFFF; color: var(--color-tinta); font-size: 14px; }
+.chip-ev:hover { border-color: var(--color-pino); }
+.chip-ev--bio { background: var(--color-bio-claro); color: var(--color-bio-texto); border-color: var(--color-bio-claro); }
+.btn-neuro { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 12px; font-size: 15px; text-decoration: none; border: 1px solid var(--color-borde-chip); background: #FFFFFF; color: var(--color-tinta); }
+.btn-neuro--pri { background: var(--color-pino); color: #FFFFFF; font-weight: 700; border-color: var(--color-pino); }
+.rotulo-neuro { padding: 10px 14px; border-radius: 12px; background: var(--color-superficie-suave); color: var(--color-tinta-suave); font-size: 14px; }
+.etiqueta-privado { align-self: flex-start; padding: 4px 10px; border-radius: 999px; background: var(--color-fondo); color: var(--color-tinta-suave); font-size: 13px; font-weight: 700; }
+.modal { position: fixed; inset: 0; background: rgba(23, 32, 27, 0.45); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 40; }
+.modal__caja { background: #FFFFFF; border-radius: 20px; padding: 22px 24px; max-width: 560px; width: 100%; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+.grafico { position: relative; height: 280px; }
+.tabla-tec { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabla-tec th, .tabla-tec td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--color-linea-suave); }
+.tabla-tec th { color: var(--color-tinta-suave); font-weight: 700; }
+@media print {
+  .no-imprimir, .rotulo-simulado { display: none !important; }
+  .neuro { padding: 0; background: #FFFFFF; }
+  .card-neuro { border: 1px solid var(--color-linea); break-inside: avoid; }
+}

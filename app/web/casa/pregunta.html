@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Una pregunta de hoy · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla" style="gap: 18px; padding-top: max(56px, calc(env(safe-area-inset-top) + 12px))"
+      x-data="pregunta({{ q.id }}, {{ person.id }})">
+  <div class="fila-entre">
+    <div class="pildora">Una pregunta de hoy</div>
+    <a href="/casa" class="enlace-suave">Ahora no</a>
+  </div>
+
+  <h1 style="font-size: 30px; line-height: 1.2; font-weight: 700">{{ q.question }}</h1>
+
+  {% if q.chart %}
+  <div class="card" style="padding: 16px 18px; gap: 12px">
+    <div style="font-size: 16px; color: var(--color-tinta-suave)">Por qué te pregunto</div>
+    <div class="compare">
+      <div class="compare__fila"><span>{{ q.chart.usual.label }}</span><span>{% if q.chart.usual.approx %}≈ {% endif %}{{ q.chart.usual.value | miles }} pasos</span></div>
+      <div class="compare__pista"><div class="compare__barra" style="width: {{ q.chart.usual.pct }}%; background: var(--color-bio-medio)"></div></div>
+    </div>
+    <div class="compare">
+      <div class="compare__fila"><span>{{ q.chart.today.label }}</span><span>{{ q.chart.today.value | miles }} pasos</span></div>
+      <div class="compare__pista"><div class="compare__barra" style="width: {{ q.chart.today.pct }}%; background: var(--color-bio)"></div></div>
+    </div>
+    <div style="font-size: 14px; color: var(--color-tinta-suave)">Medido por tu teléfono. No es un diagnóstico.</div>
+  </div>
+  {% elif q.why %}
+  <div class="card" style="padding: 16px 18px; gap: 8px">
+    <div style="font-size: 16px; color: var(--color-tinta-suave)">Por qué te pregunto</div>
+    <div style="font-size: 18px; line-height: 1.4">{{ q.why }}</div>
+  </div>
+  {% endif %}
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    {% for opt in q.options %}
+    <button type="button" class="quick-reply" :aria-pressed="elegida === {{ loop.index0 }} ? 'true' : 'false'"
+            :disabled="enviando" @click="responder({{ loop.index0 }}, {{ opt | tojson | forceescape }})">{{ opt }}</button>
+    {% endfor %}
+  </div>
+
+  <div x-show="enviando" x-cloak style="display: flex; align-items: center; gap: 12px; font-size: 19px" role="status">
+    <div class="indicador indicador--pino" style="width: 28px; height: 28px; border-width: 4px"></div>
+    <span x-text="slow ? 'Está tardando un poco más. No cierres la app.' : 'Entendiendo lo que contaste…'"></span>
+  </div>
+  <div x-show="error" x-cloak x-text="error" role="alert" style="font-size: 18px; color: var(--color-rojo)"></div>
+
+  <div class="espaciador"></div>
+
+  <a href="/casa/contar?question_id={{ q.id }}" class="btn btn--primario btn--grande" onclick="EC.mic.acquire()">
+    {{ icon("mic", 30) }}
+    Contalo con tu voz
+  </a>
+</main>
+{% endblock %}

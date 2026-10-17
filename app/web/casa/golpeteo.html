@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Juego de 20 segundos · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla" style="gap: 20px; padding-top: max(56px, calc(env(safe-area-inset-top) + 12px))"
+      x-data="golpeteo({{ person.id }})">
+  <div class="fila-entre">
+    <div class="pildora">Juego de 20 segundos</div>
+    <a href="/casa" class="enlace-suave" @click="salir()">Salir</a>
+  </div>
+
+  {# ---------- listo para empezar ---------- #}
+  <template x-if="phase === 'ready'">
+    <div style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1">
+      {% if desde_pregunta %}<div class="nota nota--chica" style="color: var(--color-tinta)">Gracias por contarlo. Si tenés ganas, hacemos el juego y lo anotamos junto con tu respuesta.</div>{% endif %}
+      <h1 style="font-size: 30px; line-height: 1.2; font-weight: 700">Tocá los dos círculos, uno y otro, lo más rápido que puedas.</h1>
+      <p style="font-size: 19px; color: var(--color-tinta-suave); line-height: 1.4">Usá un solo dedo, el índice de la mano que prefieras. Apoyá el teléfono en la mesa.</p>
+      <div style="display: flex; justify-content: center; gap: 40px; padding: 24px 0">
+        <div style="width: 120px; height: 120px; border-radius: 60px; background: var(--color-pino-claro)"></div>
+        <div style="width: 120px; height: 120px; border-radius: 60px; background: var(--color-pino-claro)"></div>
+      </div>
+      <div class="espaciador"></div>
+      <button type="button" class="btn btn--primario btn--grande" @click="start()">Empezar</button>
+    </div>
+  </template>
+
+  {# ---------- jugando ---------- #}
+  <template x-if="phase === 'playing'">
+    <div style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1; user-select: none; -webkit-user-select: none">
+      <div class="fila-entre" style="align-items: baseline">
+        <div style="display: flex; flex-direction: column"><div style="font-size: 16px; color: var(--color-tinta-suave)">Quedan</div><div style="font-size: 48px; font-weight: 700; font-variant-numeric: tabular-nums" x-text="left"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end"><div style="font-size: 16px; color: var(--color-tinta-suave)">Toques</div><div style="font-size: 48px; font-weight: 700; font-variant-numeric: tabular-nums" x-text="count"></div></div>
+      </div>
+      <div class="espaciador"></div>
+      <div class="fila-entre" style="padding-bottom: 40px; touch-action: none">
+        <button type="button" aria-label="Círculo izquierdo" @pointerdown.prevent="tap('izq')"
+                :style="'width: 150px; height: 150px; border-radius: 75px; border: none; background:' + (last !== 'izq' ? 'var(--color-pino)' : 'var(--color-pino-claro)')"></button>
+        <button type="button" aria-label="Círculo derecho" @pointerdown.prevent="tap('der')"
+                :style="'width: 150px; height: 150px; border-radius: 75px; border: none; background:' + (last === 'izq' ? 'var(--color-pino)' : 'var(--color-pino-claro)')"></button>
+      </div>
+      <div style="font-size: 18px; color: var(--color-tinta-suave); text-align: center">Tocá el círculo verde oscuro</div>
+    </div>
+  </template>
+
+  {# ---------- calculando ---------- #}
+  <template x-if="phase === 'sending'">
+    <div class="estado" style="flex-grow: 1; justify-content: center" role="status">
+      <div class="indicador indicador--pino"></div>
+      <div class="estado__texto">Calculando…</div>
+    </div>
+  </template>
+
+  {# ---------- error ---------- #}
+  <template x-if="phase === 'error'">
+    <div style="display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
+      <div class="card" role="alert"><div style="font-size: 20px; line-height: 1.4" x-text="error"></div></div>
+      <div class="espaciador"></div>
+      <div class="grilla-2">
+        <button type="button" class="btn btn--secundario" @click="send()">Probar de nuevo</button>
+        <a href="/casa" class="btn btn--primario">Terminar</a>
+      </div>
+    </div>
+  </template>
+
+  {# ---------- resultado ---------- #}
+  <template x-if="phase === 'done'">
+    <div style="display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
+      <h1 style="font-size: 32px; font-weight: 700">¡Listo, {{ person.name }}!</h1>
+      <div class="card" style="padding: 20px; gap: 6px">
+        <div style="font-size: 17px; color: var(--color-tinta-suave)">Hoy</div>
+        <div style="font-size: 44px; font-weight: 700"><span x-text="EC.fmtDec1(result.metrics.taps_per_s)"></span> <span style="font-size: 20px; font-weight: 400; color: var(--color-tinta-suave)">toques por segundo</span></div>
+        <div style="font-size: 17px; color: var(--color-tinta-suave)"><span x-text="count"></span> toques en 20 segundos</div>
+      </div>
+      <div class="card" style="padding: 20px; gap: 12px">
+        <div style="font-size: 17px; color: var(--color-tinta-suave)">Tus últimas veces</div>
+        <div class="barras" style="height: 90px; gap: 10px">
+          <template x-for="(h, i) in historyBars" :key="i">
+            <div class="barras__col">
+              <div class="barras__barra" :style="'height:' + h.px + 'px; background:' + (h.today ? 'var(--color-bio)' : 'var(--color-bio-suave)')"></div>
+              <div class="barras__dia" x-text="h.d"></div>
+            </div>
+          </template>
+        </div>
+        <div style="font-size: 18px; line-height: 1.4" x-text="verdict"></div>
+        <div x-show="result.simulated" style="font-size: 13px; color: var(--color-tinta-suave)">Simulado: el puntaje definitivo todavía no está conectado.</div>
+      </div>
+      <div class="espaciador"></div>
+      <div class="grilla-2">
+        <button type="button" class="btn btn--secundario btn--familia-sec" style="font-size: 20px" @click="start()">Otra vez</button>
+        <a href="/casa" class="btn btn--primario btn--familia">Terminar</a>
+      </div>
+    </div>
+  </template>
+</main>
+{% endblock %}
