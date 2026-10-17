@@ -382,6 +382,7 @@ class BiometricSample(BaseModel):
     value: float; start: datetime; end: datetime
     source: Literal["atajo","importacion","seed","inyectado"]
 class Deviation(BaseModel):    dose_time: datetime; window: str; observed: int; median: float; z: float; pct_change: float
+                               baseline: Literal["estrato","combinada"]; baseline_n: int   # base usada (7.3) y sus puntos
 class Trigger(BaseModel):      rule_id: str; patient_id: int; to_person_id: int; facts: dict; why: str   # why con cifras del código
 class Explanation(BaseModel):  explained: bool; by: list[str]; reasoning: str
 class QuestionText(BaseModel): question: str; options: list[str]          # 3 respuestas rápidas
@@ -547,7 +548,7 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 **Hitos** (corridos 30 minutos):
 - **18:00** contratos congelados (`models.py` + tabla de la API de la sección 11).
 - **19:30 · Hito 0:** en un **iPhone** con la app agregada a la pantalla de inicio desde Railway, un texto escrito se guarda y llega una push "Recibido" (sin IA) con la app cerrada. El Atajo hace POST y aparece en la base.
-- **19:00 · Integración:** texto en la app → eventos en la base de Railway.
+- **19:45 · Integración:** texto en la app → eventos en la base de Railway.
 - **20:30 · Checkpoint:** (a) Marta graba en la PWA → "Anoté esto" → ámbar en el informe de la neuróloga, y Juan no ve nada; (b) caída inyectada → push a Juan → respuesta → episodio; (c) un rojo dispara la push y la pantalla fija. Medir la latencia del audio. Si falla: recorte de la sección 4.
 - **21:00** sede cierra; Railway sigue vivo, llamada abierta.
 - **23:30** congelamos features; otro equipo prueba en el paciente de prueba.
@@ -594,3 +595,4 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 18:45 | API: `GET /api/people?patient_id=` y `POST /admin/snapshot` | Guada y Franco |
 | 18:45 | Hito 0 pasa a las 19:30, con push "Recibido" sin IA | Guada y Franco |
 | 18:45 | Orden del domingo: seed → precorrer → snapshot (justo antes de la caída en vivo) → ensayo, con restore entre ensayos | Guada y Franco |
+| 19:00 | `Deviation` suma `baseline` ("estrato" o "combinada") y `baseline_n`, para que el código arme el "why" según la base usada | Guada y Franco |

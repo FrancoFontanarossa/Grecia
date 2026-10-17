@@ -10,7 +10,7 @@
 ## 1. Cómo trabajamos
 
 1. **Contratos primero.** A las **18:00** se congelan `app/models.py` y la tabla de la API (CLAUDE.md §11). Desde ahí, cada uno trabaja contra esa forma aunque la pieza del otro no exista todavía, con datos falsos que la respeten.
-2. **Esqueleto que funcione de punta a punta antes de que algo esté bueno.** El Hito 0 y la integración de las 19:00 existen para eso. Primero feo y conectado; el pulido visual va al final.
+2. **Esqueleto que funcione de punta a punta antes de que algo esté bueno.** El Hito 0 y la integración de las 19:45 existen para eso. Primero feo y conectado; el pulido visual va al final.
 3. **Hitos con cortes decididos de antemano** (sección 4).
 4. **Cada uno en su carpeta y su rama**, PRs chicos, `main` siempre corre. Se integra cada ~90 minutos, no solo en los hitos.
 5. **Tests en verde para mergear** lo que toque `app/rules/`.
@@ -60,10 +60,10 @@
 |---|---|---|---|
 | **17:30–18:00** · Setup | Keys en Railway; claves VAPID; `models.py` con Franco | Leer `design/` y la sección 9 de CLAUDE.md; plantilla base Jinja con `tokens.css` y la tipografía | Repo con los 4 documentos y `design/`, Railway con volumen, Tenki, CI; exportación de Salud en marcha; `models.py` con Guada |
 | **18:00** | **Contratos congelados**: `models.py` + tabla de la API | | |
-| **18:00–18:45** | `POST /api/entries` con texto y transcripción; envío de push | Esqueleto de la PWA: manifest, `sw.js`, "¿Quién sos?", suscripción push con botón; inicio de Juan feo pero conectado; deploy | Prueba del Atajo + `POST /api/biometrics/atajo`; `db.py`, `clock.py`, `import_health.py`, `seed.py` con los pasos |
-| **18:45 · Hito 0** | ✅ En un **iPhone**, con la app agregada a la pantalla de inicio desde Railway: un texto escrito se guarda, llega una push con la app cerrada y el Atajo manda pasos que aparecen en la base. **Probar también el micrófono en modo app** | | |
-| **18:45–20:30** | Conocimiento y taxonomía; `extract`; repregunta; `red_backup`; scheduler | Contar algo con grabación, estados de progreso y "Anoté esto"; inicio de Marta; pregunta proactiva; golpeteo | Reglas con tests (rojos y canal reservado primero); desvío de pasos; disparadores; puntaje del golpeteo |
-| **19:00 · Integración** | Un texto escrito en la app aparece como eventos en la base de Railway | | |
+| **18:00–19:30** | `POST /api/entries` con texto y transcripción; envío de push | Esqueleto de la PWA: manifest, `sw.js`, "¿Quién sos?", suscripción push con botón; inicio de Juan feo pero conectado; deploy | Prueba del Atajo + `POST /api/biometrics/atajo`; `db.py`, `clock.py`, `import_health.py`, `seed.py` con los pasos |
+| **19:30 · Hito 0** | ✅ En un **iPhone**, con la app agregada a la pantalla de inicio desde Railway: un texto escrito se guarda, llega una push "Recibido" (sin IA) con la app cerrada y el Atajo manda pasos que aparecen en la base. **Probar también el micrófono en modo app** | | |
+| **19:30–20:30** | Conocimiento y taxonomía; `extract`; repregunta; `red_backup`; scheduler | Contar algo con grabación, estados de progreso y "Anoté esto"; inicio de Marta; pregunta proactiva; golpeteo | Reglas con tests (rojos y canal reservado primero); desvío de pasos; disparadores; puntaje del golpeteo |
+| **19:45 · Integración** | Un texto escrito en la app aparece como eventos en la base de Railway | | |
 | **20:30 · Checkpoint** | ✅ Marta graba en la app → "Anoté esto" → ámbar en el informe, y Juan no recibe nada. Caída inyectada → push a Juan → respuesta → episodio. Un rojo dispara la push y la pantalla fija. Medir latencia y consumo | | |
 | **20:30–21:00** | `explain` + `ask` con la pregunta disparada por push | Resumen de Laura; panel de admin | Lógica del admin; 30 relatos + primera etiqueta (los borradores se escriben en los ratos de espera desde temprano) |
 | **21:00–21:30** | Traslado. Railway sigue vivo. Llamada abierta el resto de la noche | | |
@@ -85,9 +85,9 @@
 
 ## 4. Hitos y recortes
 
-**Hito 0 (18:45)** — app agregada a la pantalla de inicio de un iPhone desde Railway, texto guardado, push recibida con la app cerrada, pasos del Atajo en la base, micrófono probado. Es la parte nueva y más riesgosa. Si la push no anda en 45 minutos, se pasa al plan B (todo visible desde `notifications` al abrir la app) y se sigue.
+**Hito 0 (19:30)** — app agregada a la pantalla de inicio de un iPhone desde Railway, texto guardado, push "Recibido" (sin IA) recibida con la app cerrada, pasos del Atajo en la base, micrófono probado. Es la parte nueva y más riesgosa. Si la push no anda en 45 minutos, se pasa al plan B (todo visible desde `notifications` al abrir la app) y se sigue.
 
-**Integración (19:00)** — texto en la app → eventos en la base de Railway.
+**Integración (19:45)** — texto en la app → eventos en la base de Railway.
 
 **Checkpoint (20:30)** — si falla, se recorta en este orden:
 1. La vista técnica queda en un solo gráfico.

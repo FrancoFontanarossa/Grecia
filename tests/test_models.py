@@ -46,7 +46,15 @@ def test_biometric_sample():
 
 def test_deviation():
     Deviation(dose_time=NOW, window="+60/+120", observed=120, median=480.0,
-              z=-2.4, pct_change=-75.0)
+              z=-2.4, pct_change=-75.0, baseline="estrato", baseline_n=20)
+    Deviation(dose_time=NOW, window="+60/+120", observed=120, median=480.0,
+              z=-2.4, pct_change=-75.0, baseline="combinada", baseline_n=12)
+    with pytest.raises(ValidationError):
+        Deviation(dose_time=NOW, window="+60/+120", observed=120, median=480.0,
+                  z=-2.4, pct_change=-75.0, baseline="semanal", baseline_n=20)
+    with pytest.raises(ValidationError):
+        Deviation(dose_time=NOW, window="+60/+120", observed=120, median=480.0,
+                  z=-2.4, pct_change=-75.0)
 
 
 def test_trigger():
@@ -115,7 +123,8 @@ def test_notification():
 def test_naive_datetime_rejected():
     naive = dt.datetime(2026, 10, 13, 10, 30)
     with pytest.raises(ValidationError):
-        Deviation(dose_time=naive, window="+60/+120", observed=1, median=1, z=0, pct_change=0)
+        Deviation(dose_time=naive, window="+60/+120", observed=1, median=1, z=0, pct_change=0,
+                  baseline="estrato", baseline_n=20)
     with pytest.raises(ValidationError):
         Alert(id=1, patient_id=1, lane="rojo", rule_id="x", recipients=[], text="",
               reserved=False, created_at=naive)
@@ -139,7 +148,7 @@ def test_prompt_context():
     trigger = Trigger(rule_id="P-DESVIO", patient_id=1, to_person_id=1,
                       facts={"pct_change": -75.0}, why="Caminó 75% menos que de costumbre")
     deviation = Deviation(dose_time=NOW, window="0-120", observed=120, median=480.0,
-                          z=-2.8, pct_change=-75.0)
+                          z=-2.8, pct_change=-75.0, baseline="estrato", baseline_n=20)
     recent = [ContextEntry(speaker_role="cuidador", text="estuvo duro", created_at=NOW)]
     PromptContext(now=NOW, patient_name="Juan", recipient_role="paciente", trigger=trigger,
                   deviation=deviation, recent_entries=recent)

@@ -64,6 +64,8 @@ class Deviation(BaseModel):
     median: float
     z: float
     pct_change: float
+    baseline: Literal["estrato","combinada"]  # base usada (sección 7.3); el why se arma según esta
+    baseline_n: int                         # puntos en la base usada
 
 
 class Trigger(BaseModel):
