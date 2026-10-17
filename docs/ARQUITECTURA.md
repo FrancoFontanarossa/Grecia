@@ -106,7 +106,7 @@ La neuróloga abre `/neuro/informe/{patient}` → el código calcula las cifras 
 **App de la casa (JSON)**
 | Método y ruta | Qué hace |
 |---|---|
-| `GET /api/people` | Personas para el selector de rol |
+| `GET /api/people?patient_id=` | Personas del paciente para el selector de rol |
 | `POST /api/push/subscribe` | `{person_id, subscription}` → guarda la suscripción push |
 | `GET /api/hoy/{person_id}` | Según el rol: pasos de hoy y meta, próxima toma, pregunta pendiente, lo último anotado, notificaciones sin leer; para la familia, además avisos, semana de pasos y logros |
 | `POST /api/entries` | `multipart`: `person_id`, `text` o `audio`, `occurred_hint?`, `question_id?`, `quick_reply?`, `reserved_requested?` → procesa todo y devuelve `{entry_id, transcript, understood, red?, alerts}` |
@@ -120,7 +120,7 @@ La neuróloga abre `/neuro/informe/{patient}` → el código calcula las cifras 
 **Biometría**
 | Método y ruta | Qué hace |
 |---|---|
-| `POST /api/biometrics/atajo` | Encabezado `X-Atajo-Token`; `{samples: [{kind, value, start, end}]}` → guarda en `biometrics` con `source=atajo` |
+| `POST /api/biometrics/atajo` | Encabezado `X-Atajo-Token`; `AtajoPayload`: `{window_start, window_end, samples: [{kind, value, start, end}]}` → guarda las muestras en `biometrics` con `source=atajo` y la ventana en `biometric_syncs`. En `DEMO_MODE` corre las fechas según el offset del reloj |
 
 **Neuróloga (JSON para las vistas)**
 - `GET /api/patients/{id}/report` · `GET /api/patients/{id}/technical`
@@ -128,7 +128,7 @@ La neuróloga abre `/neuro/informe/{patient}` → el código calcula las cifras 
 **Páginas (HTML)**
 - App de la casa: `/` (¿Quién sos?), `/casa`, `/casa/contar`, `/casa/anote/{entry_id}`, `/casa/pregunta/{id}`, `/casa/golpeteo`, `/casa/permisos`, `/casa/emergencia/{alert_id}`, `/prueba`
 - Neuróloga: `/neuro/informe/{patient_id}`, `/neuro/tecnica/{patient_id}`
-- Admin: `/admin/clock` (panel), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/restore` (con `ADMIN_TOKEN`)
+- Admin: `/admin/clock` (panel), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/snapshot`, `POST /admin/restore` (con `ADMIN_TOKEN`)
 - Infra: `GET /health`, `GET /manifest.webmanifest`, `GET /sw.js` (servido desde la raíz para que controle toda la app)
 
 ---
@@ -161,7 +161,7 @@ Toda notificación se guarda en `notifications`, haya llegado la push o no.
 
 ## 7. Modelo de datos
 
-El esquema completo está en CLAUDE.md §12. Respecto de la versión con Telegram: `people` pierde `telegram_chat_id` y suma `phone?`; se suman `push_subscriptions`, `notifications`, `clock_state`, `biometrics` (reemplaza a `steps`), `questions` con `rule_id`, `why`, `options` y `url`, y `tests` para el golpeteo.
+El esquema completo está en CLAUDE.md §12. Respecto de la versión con Telegram: `people` pierde `telegram_chat_id` y suma `phone?`; se suman `push_subscriptions`, `notifications`, `clock_state`, `biometrics` (reemplaza a `steps`), `biometric_syncs` (cada envío del Atajo o importación con su ventana `window_start`–`window_end`, `received_at` y `n_samples`: distingue "sin datos" de "0 pasos"), `questions` con `rule_id`, `why`, `options` y `url`, y `tests` para el golpeteo.
 
 ---
 
@@ -216,10 +216,11 @@ healthcheckPath = "/health"
 1. Proyecto desde el repo de GitHub, rama `main`.
 2. Volumen montado en `/data`.
 3. Variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:…`, `ATAJO_TOKEN`, `ADMIN_TOKEN`, `DEMO_MODE=1`.
-4. Settings → Networking → Generate Domain. Esa URL va en el QR y en el Atajo.
+4. Settings → Networking → Generate Domain. Esa URL va en el QR y en el Atajo (`POST /api/biometrics/atajo` con `AtajoPayload`).
 
 **Reglas de operación:**
 - Cada merge a `main` redespliega y corta unos segundos (hay volumen). **El domingo, después de las 8:45, nadie pushea.**
+- `POST /admin/snapshot` copia la base a `DATA_DIR/snapshot.db` (en el volumen, sobrevive al redeploy) justo antes de la caída en vivo; `POST /admin/restore` la vuelve a copiar entre ensayos.
 - Los límites del trial: US$5 y volumen de 0,5 GB. Alcanza para la base y los audios, **no** para el modelo de `faster-whisper`: la transcripción va por la API de OpenAI.
 - Revisar el consumo de Railway y de la API de Claude en cada checkpoint.
 
