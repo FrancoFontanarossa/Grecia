@@ -139,7 +139,10 @@ async def _call_model(system: list[dict], content: str):
         # sin esto el SDK lanza TypeError (no AnthropicError) y el pedido terminaría en 500
         raise ExtractionError("Falta ANTHROPIC_API_KEY")
     if _client is None:
-        _client = anthropic.AsyncAnthropic()
+        # Una key que no está atada a un workspace necesita el header anthropic-workspace-id.
+        workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID")
+        _client = anthropic.AsyncAnthropic(
+            default_headers={"anthropic-workspace-id": workspace} if workspace else None)
     # Haiku 5.5: sin temperature (cualquier valor distinto del default da 400). La consistencia sale del tool
     # forzado + schema strict + enums, y effort bajo. Con tool forzado el modelo no piensa antes de llamar.
     return await _client.messages.create(
