@@ -7,7 +7,7 @@ from statistics import median
 from app import config, db
 from app.config import TZ
 from app.models import Trigger
-from app.rules import episodes
+from app.rules import episodes, games
 
 DAY_NAMES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 FAMILY = ("cuidador", "familiar")
@@ -112,14 +112,6 @@ def p_silencio(patient_id: int, now: datetime) -> list[Trigger]:
                         f"{DAY_NAMES[last.weekday()]} {last:%d/%m}).")]
 
 
-def game_history(patient_id: int, before: datetime, limit: int = config.GAME_HISTORY) -> list[float]:
-    """toques/s de las últimas `limit` sesiones de golpeteo antes de `before`."""
-    with db.connect() as conn:
-        rows = conn.execute("SELECT metrics FROM tests WHERE patient_id = ? AND type = 'golpeteo' AND taken_at < ? "
-                            "ORDER BY taken_at DESC LIMIT ?", (patient_id, db.to_db(before), limit)).fetchall()
-    return [json.loads(r["metrics"])["taps_per_s"] for r in rows]
-
-
 def p_juego(patient_id: int, now: datetime) -> list[Trigger]:
     day = now.astimezone(TZ).date().isoformat()
     with db.connect() as conn:
@@ -130,12 +122,10 @@ def p_juego(patient_id: int, now: datetime) -> list[Trigger]:
     if patient is None or row is None:
         return []
     today = json.loads(row["metrics"])["taps_per_s"]
-    history = game_history(patient_id, db.from_db(row["taken_at"]))
-    if len(history) < config.GAME_MIN_HISTORY:
+    history = games.history(patient_id, db.from_db(row["taken_at"]))
+    if games.vs_history(today, history) != "mas_lento":
         return []
     med = median(history)
-    if today >= config.GAME_SLOWER_RATIO * med:
-        return []
     return [Trigger(rule_id="P-JUEGO", patient_id=patient_id, to_person_id=patient,
                     facts={"taps_per_s": today, "history_median": med, "history_n": len(history)},
                     why=f"Hoy {fmt_dec(today)} toques por segundo; tus últimas {len(history)} veces ≈ {fmt_dec(med)}.")]
