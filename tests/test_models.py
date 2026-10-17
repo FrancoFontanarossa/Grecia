@@ -23,6 +23,17 @@ def test_event():
              "time_vague": True, "foreign_attribution": None})
 
 
+def test_event_out_of_range_rejected():
+    base = dict(domain="motor", symptom="temblor", severity=2, negated=False,
+                occurred_at=NOW, time_vague=False, speaker_role="cuidador",
+                foreign_attribution=None, quote="le temblaba la mano",
+                plain="Te tembló la mano", confidence=0.9)
+    with pytest.raises(ValidationError):
+        Event(**{**base, "severity": 7})
+    with pytest.raises(ValidationError):
+        Event(**{**base, "confidence": 1.5})
+
+
 def test_red_result():
     RedResult(rule_id="caida_golpe_cabeza", missing_criterion=None, text="Llamá al 911")
 

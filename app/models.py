@@ -1,9 +1,9 @@
 # Contratos de CLAUDE.md §11 (y tipos de las tablas de §12). Si hay que cambiar uno, avisar.
 # Todos los datetime son aware (AwareDatetime); la zona del producto es app.config.TZ.
 import datetime as dt
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel
+from pydantic import AwareDatetime, BaseModel, Field
 
 Domain = Literal["motor","sueno","neuropsiquiatrico","animo","cognitivo","autonomico",
                  "dolor","deglucion","caidas","impulsos","sexual","otro"]
@@ -16,7 +16,7 @@ NotificationKind = Literal["pregunta","repregunta","logro","ambar","rojo","resum
 class Event(BaseModel):
     domain: Domain
     symptom: str                            # normalizado contra taxonomy.py
-    severity: int | None                    # 0-4, None si no se dice
+    severity: Annotated[int, Field(ge=0, le=4)] | None  # 0-4, None si no se dice
     negated: bool
     occurred_at: AwareDatetime | None
     time_vague: bool
@@ -24,7 +24,7 @@ class Event(BaseModel):
     foreign_attribution: str | None         # "la edad", "el cansancio"
     quote: str                              # literal del texto
     plain: str                              # frase corta para "Anoté esto", en segunda persona
-    confidence: float
+    confidence: float = Field(ge=0, le=1)
 
 
 class RedResult(BaseModel):
