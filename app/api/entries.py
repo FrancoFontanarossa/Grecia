@@ -1,0 +1,44 @@
+# POST /api/entries (CLAUDE.md §11). Hito 0: solo texto, sin IA; guarda la entrada y avisa "Recibido".
+import asyncio
+
+from fastapi import APIRouter, Form, HTTPException
+
+from app import _tmp_db as db  # TEMPORAL: app.db de Franco
+from app import notify
+
+router = APIRouter()
+
+# TODO: reemplazar por OccurredHint de app/models.py cuando Franco lo sume.
+OCCURRED_HINTS = ("ahora", "esta_manana", "esta_tarde", "anoche", "ayer")
+
+
+@router.post("/api/entries")
+async def create_entry(
+    person_id: int = Form(...),
+    text: str | None = Form(None),
+    occurred_hint: str | None = Form(None),
+    question_id: int | None = Form(None),
+    quick_reply: str | None = Form(None),
+    reserved_requested: bool = Form(False),
+):
+    if occurred_hint is not None and occurred_hint not in OCCURRED_HINTS:
+        raise HTTPException(422, f"occurred_hint inválido: {occurred_hint!r}. Valores: {', '.join(OCCURRED_HINTS)}")
+    raw_text = (text or quick_reply or "").strip()
+    if not raw_text:
+        # TODO: audio (pipeline.transcribe) después del Hito 0
+        raise HTTPException(422, "Falta el texto")
+
+    patient_id = await asyncio.to_thread(db.patient_id_for, person_id)
+    if patient_id is None:
+        raise HTTPException(404, f"No existe la persona {person_id}")
+
+    entry_id = await asyncio.to_thread(
+        db.insert_entry, patient_id=patient_id, speaker_id=person_id,
+        modality="toque" if quick_reply and not text else "texto",
+        raw_text=raw_text, question_id=question_id, occurred_hint=occurred_hint,
+        reserved_requested=reserved_requested, source="app",
+    )
+
+    await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
+
+    return {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
