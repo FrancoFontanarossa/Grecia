@@ -128,3 +128,10 @@ def save_subscription(*, person_id: int, endpoint: str, p256dh: str, auth: str) 
 def delete_subscription(endpoint: str) -> None:
     with db.connect() as conn:
         conn.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+
+
+def patient_meds(patient_id: int) -> list[str]:
+    """Fármacos del esquema del paciente (med_schedule), para los criterios de los rojos."""
+    with db.connect() as conn:
+        rows = conn.execute("SELECT drug FROM med_schedule WHERE patient_id = ? ORDER BY drug", (patient_id,)).fetchall()
+    return [r["drug"] for r in rows]

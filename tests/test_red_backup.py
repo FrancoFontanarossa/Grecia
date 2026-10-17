@@ -7,6 +7,8 @@ import pytest
 from app.models import RedResult
 from app.pipeline import red_backup as rb
 
+_REAL_CALL = rb._call_model   # antes de que el fixture autouse lo reemplace
+
 
 def verdict(is_red, rule=None, reason="x", stop_reason="tool_use"):
     block = SimpleNamespace(type="tool_use", name=rb.TOOL_NAME,
@@ -84,6 +86,7 @@ def test_rojo_sin_regla_escala_igual(monkeypatch):
 
 
 def test_sin_key_real_no_lanza(monkeypatch):
+    monkeypatch.setattr(rb, "_call_model", _REAL_CALL)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     assert run("algo").escalate is False

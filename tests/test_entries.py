@@ -216,3 +216,38 @@ def test_audio_sin_transcribir_queda_guardado_con_texto_vacio(tmp_data_dir, monk
 def test_audio_de_formato_desconocido_da_415_y_no_guarda(tmp_data_dir):
     r = client.post("/api/entries", data={"person_id": 2}, files={"audio": ("a.mp3", b"x", "audio/mpeg")})
     assert r.status_code == 415 and _rows("entries") == []
+
+
+def test_rojo_por_regla_no_extrae_ni_consulta_al_respaldo(tmp_data_dir, monkeypatch, fake_model, fake_red_backup):
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    r = client.post("/api/entries", data={"person_id": 2, "text": "se cayó, se golpeó la cabeza y toma apixabán"})
+    body = r.json()
+    assert body["red"]["rule_id"] == "R1" and body["red"]["missing_criterion"] is None
+    assert body["understood"] == [] and fake_model.calls == [] and fake_red_backup.calls == []
+    assert _rows("entries")[0]["raw_text"].startswith("se cayó")      # el relato queda igual
+
+
+def test_r1_sin_criterio_repregunta_y_sigue_extrayendo(tmp_data_dir, monkeypatch, fake_model):
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    body = client.post("/api/entries", data={"person_id": 2, "text": "se cayó y se golpeó la cabeza"}).json()
+    assert body["red"]["missing_criterion"] == "anticoagulante_o_signos" and len(fake_model.calls) == 1
+
+
+def test_el_respaldo_sube_a_rojo_con_texto_fijo(tmp_data_dir, monkeypatch):
+    from app._tmp_rules import RED_TEXTS
+    from app.pipeline import red_backup
+    from tests.conftest import FakeRedBackup
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.setattr(red_backup, "_call_model", FakeRedBackup(True, "R4"))
+    body = client.post("/api/entries", data={"person_id": 2, "text": "dice que está cansado de vivir así"}).json()
+    assert body["red"] == {"rule_id": "R4-IA", "missing_criterion": None, "text": RED_TEXTS["R4"]}
+    assert body["understood"] == [] and _rows("events") == []
+
+
+def test_el_respaldo_recibe_la_medicacion_del_esquema(tmp_data_dir, monkeypatch, fake_red_backup):
+    from app import db as base
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    with base.connect() as conn:
+        conn.execute("INSERT INTO med_schedule (patient_id, drug, times) VALUES (1, 'levodopa/carbidopa', '[]')")
+    client.post("/api/entries", data={"person_id": 2, "text": "estuvo más duro toda la tarde"})
+    assert "levodopa/carbidopa" in fake_red_backup.calls[0]

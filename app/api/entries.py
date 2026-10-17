@@ -1,5 +1,5 @@
 # POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio)
-# y extrae los eventos. Todavía sin rojos ni avisos (vienen con las reglas de Franco).
+# corre los rojos (reglas + respaldo con IA que solo sube) y extrae los eventos. Sin avisos todavía.
 import asyncio
 from typing import Literal, get_args
 
@@ -10,6 +10,7 @@ from app import _tmp_rules as rules  # TEMPORAL: app.rules de Franco
 from app import notify
 from app.models import Entry, Event, OccurredHint
 from app.pipeline import extract as extraction
+from app.pipeline import red_backup
 from app.pipeline import transcribe as transcription
 
 router = APIRouter()
@@ -78,18 +79,43 @@ async def create_entry(
     if raw_text:
         row = await asyncio.to_thread(db.get_entry, entry_id)
         entry = Entry.model_validate({**row, "speaker_role": person["role"]})
-        try:
-            events = await extraction.extract(entry, patient_name=person["patient_name"] or "el paciente",
-                                              speaker_name=person["name"])
-        except extraction.ExtractionError:
-            response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
-        else:
+        meds = await asyncio.to_thread(db.patient_meds, entry.patient_id)
+
+        # Rojos: primero las reglas (código); el respaldo con IA solo puede subir. ARQUITECTURA §3.1
+        red = rules.red_check(raw_text, meds)
+        is_red = red is not None and red.missing_criterion is None
+        events: list[Event] | None = None
+        if not is_red:   # con rojo por regla no se extrae
+            # El respaldo y la extracción corren en paralelo para no sumar latencia; si el respaldo sube a rojo,
+            # la extracción se descarta.
+            extracted, verdict = await asyncio.gather(
+                _extract_or_error(entry, person),
+                red_backup.red_backup(raw_text, red, meds=meds),
+            )
+            if red is None and verdict.escalate:
+                red, is_red = rules.red_from_backup(verdict.suspected_rule), True
+            elif isinstance(extracted, extraction.ExtractionError):
+                response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
+            else:
+                events = extracted
+        if red is not None:
+            response["red"] = red.model_dump()
+            # TODO: alerta roja con rules.lanes + rules.consent de Franco → notify.send(..., "rojo", ...)
+        if events is not None:
             await _save_events(entry, events)
             response["understood"] = extraction.understood(events, await asyncio.to_thread(db.now))
             # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
 
     await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
     return response
+
+
+async def _extract_or_error(entry: Entry, person: dict) -> list[Event] | extraction.ExtractionError:
+    try:
+        return await extraction.extract(entry, patient_name=person["patient_name"] or "el paciente",
+                                        speaker_name=person["name"])
+    except extraction.ExtractionError as exc:
+        return exc
 
 
 async def _save_events(entry: Entry, events: list[Event]) -> list[int]:

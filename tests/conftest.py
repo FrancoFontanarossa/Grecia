@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import config, db
-from app.pipeline import extract
+from app.pipeline import extract, red_backup
 
 
 @pytest.fixture
@@ -51,4 +51,23 @@ def fake_model(monkeypatch):
     """Ningún test llama a la API real. Por defecto la extracción devuelve cero eventos."""
     fake = FakeModel()
     monkeypatch.setattr(extract, "_call_model", fake)
+    return fake
+
+
+class FakeRedBackup:
+    """Reemplaza red_backup._call_model. Por defecto: no es rojo."""
+    def __init__(self, is_red=False, rule=None):
+        self.is_red, self.rule, self.calls = is_red, rule, []
+
+    async def __call__(self, system, content):
+        self.calls.append(content)
+        block = SimpleNamespace(type="tool_use", name=red_backup.TOOL_NAME,
+                                input={"is_red": self.is_red, "suspected_rule": self.rule, "reason": "test"})
+        return SimpleNamespace(content=[block], stop_reason="tool_use")
+
+
+@pytest.fixture(autouse=True)
+def fake_red_backup(monkeypatch):
+    fake = FakeRedBackup()
+    monkeypatch.setattr(red_backup, "_call_model", fake)
     return fake
