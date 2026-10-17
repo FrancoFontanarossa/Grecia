@@ -180,9 +180,9 @@ Progreso en el anillo de Juan. Al llegar a 4.000: Marta y Laura reciben "Juan ll
 | P-NOCHES | Noches malas | 3 noches con despertares contados en 7 días | Marta (lo nocturno lo ve ella) |
 | P-SILENCIO | Días sin contar nada | 2 días sin relatos de ninguna voz | Juan, con pregunta abierta |
 | P-JUEGO | Juego peor que su historial | toques/s < 85% de la mediana de sus últimas 7 sesiones (mínimo 3) | Juan |
-| P-REPITE | Algo que se repite | mismo síntoma contado 2 veces en 7 días por la familia y nunca por Juan | Juan, con pregunta suave |
+| P-REPITE | Algo que se repite | mismo síntoma contado 2 veces en 7 días por la familia y nunca por Juan; ignora los eventos reservados | Juan, con pregunta suave |
 
-Cada disparador genera como máximo una `Question`. El texto lo redacta `pipeline.ask`; el "por qué te pregunto" lo arma el código con las cifras.
+Cada disparador genera como máximo una `Question`. El texto lo redacta `pipeline.ask`; el "por qué te pregunto" lo arma el código con las cifras. Lo reservado nunca entra al contexto de `explain` ni de `ask` si el destinatario es el paciente.
 
 ### 6.3 Avisos
 | ID | Aviso | Carril | Regla (código) | A quién |
@@ -226,10 +226,10 @@ Lo que exige leer o juzgar lenguaje lo hace Claude. Lo que tiene que ser verific
 | Informe | Resumen, elección de temas y redacción con tope de palabras | Cifras, orden, verificador |
 
 ### 7.3 Desvío (`rules/episodes.deviation`)
-- `x` = pasos en la ventana de 0 a 120 minutos después de una toma.
-- Línea de base = la misma ventana en todas las tomas de esa hora de los 28 días previos, separando días hábiles de fin de semana (unos 20 puntos) y excluyendo los días que ya son episodio.
+- `x` = pasos en la ventana de 0 a 120 minutos después de una toma. Si no hay un registro en `biometric_syncs` que cubra la ventana, devuelve `None` (no se sabe); si lo hay y no hay muestras, `x = 0` pasos.
+- Línea de base = la misma ventana en todas las tomas de esa hora de los 28 días previos, separando días hábiles de fin de semana (unos 20 puntos) y excluyendo los días que ya son episodio. Si el estrato (días hábiles o fin de semana) tiene menos de 10 puntos, se usa la base combinada; el "why" lo arma el código según la base usada.
 - `z = (x − mediana) / (1,4826 · MAD)`, con el MAD como mínimo en el 10% de la mediana.
-- Hay desvío si `z ≤ −2,5` **y** la caída es de al menos 40%. Con menos de 10 puntos de base devuelve `None`.
+- Hay desvío si `z ≤ −2,5` **y** la caída es de al menos 40%. Con menos de 10 puntos en la base combinada devuelve `None`.
 - Umbrales en `config.py`, con tests.
 - **Antes de armar el seed:** revisar que en los pasos reales la ventana elegida no sea casi siempre cero (si quien exportó suele estar sentado de 16 a 18, se cambia la toma del escenario a una franja donde camine).
 
@@ -253,7 +253,7 @@ En `app/config.py`: `claude-haiku-5-5` para extracción y respaldo de rojos si p
 
 ## 8. Biometría
 
-**En vivo: Atajo de iOS "Entrecasa · enviar pasos".** Acciones: *Buscar muestras de Salud* (pasos de las últimas 3 horas) → armar JSON → *Obtener contenido de URL* con POST a `/api/biometrics/atajo`, con un token del paciente en el encabezado. Se corre con un botón (demo) y con automatizaciones personales por horario 2 h después de cada toma (10:00, 14:00, 18:00 y 22:00). **Verificar entre las 17:30 y las 18:00** que el Atajo lee pasos y que la automatización corre sin pedir confirmación en la versión de iOS de los tres teléfonos. Si no corre sola, en la demo se toca el botón.
+**En vivo: Atajo de iOS "Entrecasa · enviar pasos".** Acciones: *Buscar muestras de Salud* (pasos de las últimas 3 horas) → armar JSON con `window_start`, `window_end` (la ventana consultada) y `samples` → *Obtener contenido de URL* con POST a `/api/biometrics/atajo`, con un token del paciente en el encabezado. En `DEMO_MODE` el endpoint corre las fechas según el offset del reloj. Se corre con un botón (demo) y con automatizaciones personales por horario 2 h después de cada toma (10:00, 14:00, 18:00 y 22:00). **Verificar entre las 17:30 y las 18:00** que el Atajo lee pasos y que la automatización corre sin pedir confirmación en la versión de iOS de los tres teléfonos. Si no corre sola, en la demo se toca el botón.
 
 **Historia: exportación de Salud** del iPhone de un integrante (Ajustes → Salud → Exportar todos los datos de salud) → `data/import_health.py` lee `export.xml` con `iterparse` y toma `HKQuantityTypeIdentifierStepCount` → agrega por hora → corre las fechas al 20/09–17/10 → `biometrics` con `source=importacion`. La exportación nunca se sube al repo.
 
@@ -393,6 +393,19 @@ class GameResult(BaseModel):   patient_id: int; game: Literal["tapping"]; taken_
 class ReportTopic(BaseModel):  title: str; narrative: str; observed: list[str]; voices: dict[str, str]
                                question: str; evidence_ids: list[int]; reserved: bool
 class Report(BaseModel):       summary: str; topics: list[ReportTopic]; removed_count: int
+
+OccurredHint = Literal["ahora","esta_manana","esta_tarde","anoche","ayer"]
+class Entry(BaseModel):        # campos de la tabla entries (sección 12) + speaker_role
+                               id: int; patient_id: int; speaker_id: int; speaker_role: Speaker
+                               modality: Literal["texto","audio","toque"]; question_id: int | None
+                               raw_text: str; audio_path: str | None; occurred_hint: OccurredHint | None
+                               reserved_requested: bool; corrected: bool; created_at: datetime; source: str
+class ContextEntry(BaseModel): speaker_role: Speaker; text: str; created_at: datetime
+class PromptContext(BaseModel): now: datetime; patient_name: str; recipient_role: Role   # contexto de explain/ask
+                               trigger: Trigger; deviation: Deviation | None; recent_entries: list[ContextEntry]
+class UnderstoodItem(BaseModel): plain: str; when: str; domain: Domain                   # "Anoté esto"
+class AtajoPayload(BaseModel): window_start: datetime; window_end: datetime             # aware
+                               samples: list[{kind, value, start, end}]
 ```
 
 Funciones (firmas):
@@ -411,14 +424,14 @@ Funciones (firmas):
 API (JSON; el contrato entre la app y el backend):
 | Método y ruta | Entrada | Salida |
 |---|---|---|
-| `GET /api/people` | — | personas del paciente activo (para "¿Quién sos?") |
+| `GET /api/people?patient_id=` | — | personas del paciente (para "¿Quién sos?") |
 | `GET /api/hoy/{person_id}` | — | `{now, role, greeting, steps_today, goal, next_dose, pending_question, last_understood, notifications_unread}` (familia: además `alerts`, `week_steps`, `logros`) |
 | `POST /api/entries` | multipart: `person_id`, `text` o `audio`, `occurred_hint?`, `question_id?`, `quick_reply?`, `reserved_requested?` | `{entry_id, transcript, understood: [{plain, when, domain}], red: RedResult?, alerts: [...]}`. **Un solo paso:** transcribe, rojos, extracción, reglas y avisos dentro del pedido |
 | `POST /api/entries/{id}/confirm` | — | `{ok}` (marca "Sí, está bien"; no vuelve a procesar) |
 | `POST /api/entries/{id}/correct` | `text` | igual que `POST /api/entries`; reemplaza los eventos de esa entrada |
 | `GET /api/questions/{id}` | — | `Question` + datos del gráfico del "por qué" |
 | `POST /api/push/subscribe` | `{person_id, subscription}` | `{ok}` |
-| `POST /api/biometrics/atajo` | encabezado `X-Atajo-Token`; `{samples: [{kind, value, start, end}]}` | `{received}` |
+| `POST /api/biometrics/atajo` | encabezado `X-Atajo-Token`; `AtajoPayload`: `{window_start, window_end, samples: [{kind, value, start, end}]}` | `{received}` |
 | `POST /api/tests` | `{person_id, type: "golpeteo", taps: [{t_ms, side}]}` | `GameResult` + últimas 6 sesiones |
 | `GET/POST /api/consents/{patient_id}` | interruptores | estado |
 | `POST /api/notifications/{id}/read` | — | `{ok}` |
@@ -426,6 +439,7 @@ API (JSON; el contrato entre la app y el backend):
 | `GET /api/patients/{id}/technical` | — | series de pasos por franja, tomas, desvíos, juego |
 | `POST /admin/clock/advance` · `/set` | `{minutes}` · `{iso}` | `{now}` |
 | `POST /admin/inject_drop` | `{patient_id, dose_time, pct}` | `{ok}` (crea pasos `source=inyectado`) |
+| `POST /admin/snapshot` | — | `{ok}` |
 | `POST /admin/restore` | — | `{ok}` |
 
 ---
@@ -445,6 +459,7 @@ entries            id, patient_id, speaker_id, modality (texto|audio|toque), que
                    occurred_hint?, reserved_requested, corrected, created_at, source
 events             id, entry_id, patient_id, <campos de Event>, minutes_since_dose?, is_new, reserved
 biometrics         id, patient_id, kind, value, start, end, source (atajo|importacion|seed|inyectado)
+biometric_syncs    id, patient_id, window_start, window_end, received_at, n_samples
 episodes           id, patient_id, dose_time, deviation (json), explanation (json), question_id?, entry_ids[], test_id?, status
 questions          id, patient_id, to_person_id, rule_id, question, why, options[], url,
                    status (pendiente|enviada|respondida|descartada), sent_at?, answered_entry_id?
@@ -531,13 +546,13 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 
 **Hitos** (corridos 30 minutos):
 - **18:00** contratos congelados (`models.py` + tabla de la API de la sección 11).
-- **18:45 · Hito 0:** en un **iPhone** con la app agregada a la pantalla de inicio desde Railway, un texto escrito se guarda y llega una push con la app cerrada. El Atajo hace POST y aparece en la base.
+- **19:30 · Hito 0:** en un **iPhone** con la app agregada a la pantalla de inicio desde Railway, un texto escrito se guarda y llega una push "Recibido" (sin IA) con la app cerrada. El Atajo hace POST y aparece en la base.
 - **19:00 · Integración:** texto en la app → eventos en la base de Railway.
 - **20:30 · Checkpoint:** (a) Marta graba en la PWA → "Anoté esto" → ámbar en el informe de la neuróloga, y Juan no ve nada; (b) caída inyectada → push a Juan → respuesta → episodio; (c) un rojo dispara la push y la pantalla fija. Medir la latencia del audio. Si falla: recorte de la sección 4.
 - **21:00** sede cierra; Railway sigue vivo, llamada abierta.
 - **23:30** congelamos features; otro equipo prueba en el paciente de prueba.
 - **01:00** video de respaldo y a dormir.
-- **Dom 7:30** smoke test, `precorrer_semana.py`, ensayo cronometrado tres veces. **Desde las 8:45 nadie pushea a `main`.**
+- **Dom 7:30** smoke test y, en este orden: seed → `precorrer_semana.py` → `POST /admin/snapshot` (justo antes de la caída en vivo) → ensayo cronometrado tres veces, con `POST /admin/restore` entre ensayos. **Desde las 8:45 nadie pushea a `main`.**
 
 ---
 
@@ -570,3 +585,12 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 17:55 | Hito 0 en iPhone (los tres tenemos iPhone); horarios corridos 30 minutos | Juanpe, sobre propuesta de Franco |
 | 17:55 | Rebalanceo: `precorrer_semana.py` a Guada; pitch entre los tres el domingo; eval con 30 relatos y sin set de acompañamiento | Juanpe |
 | 18:00 | **Juanpe y Franco intercambian roles:** Juanpe toma la app y la web (armó el diseño y tiene el contexto de las pantallas); Franco toma datos, reglas, calidad e infraestructura (armó ARQUITECTURA y la infra). Jinja + HTMX (+ Alpine.js opcional) se mantiene | Juanpe y Franco |
+| 18:45 | `Event`: `severity` entre 0 y 4 (o `None`) y `confidence` entre 0 y 1, validados por Pydantic | Guada y Franco |
+| 18:45 | Contratos nuevos: `OccurredHint`, `Entry`, `ContextEntry`, `PromptContext`, `UnderstoodItem` y `AtajoPayload` | Guada y Franco |
+| 18:45 | Desvío: si el estrato (hábiles o fin de semana) tiene menos de 10 puntos se usa la base combinada; el "why" lo arma el código según la base usada | Guada y Franco |
+| 18:45 | Tabla `biometric_syncs`: sin un registro que cubra la ventana el desvío es `None`; con registro y sin muestras son 0 pasos | Guada y Franco |
+| 18:45 | El Atajo manda `window_start` y `window_end`; en `DEMO_MODE` el endpoint corre las fechas según el offset del reloj | Guada y Franco |
+| 18:45 | P-REPITE ignora los eventos reservados; lo reservado nunca entra al contexto de `explain`/`ask` si el destinatario es el paciente | Guada y Franco |
+| 18:45 | API: `GET /api/people?patient_id=` y `POST /admin/snapshot` | Guada y Franco |
+| 18:45 | Hito 0 pasa a las 19:30, con push "Recibido" sin IA | Guada y Franco |
+| 18:45 | Orden del domingo: seed → precorrer → snapshot (justo antes de la caída en vivo) → ensayo, con restore entre ensayos | Guada y Franco |
