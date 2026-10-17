@@ -1,7 +1,12 @@
 .env
 .venv/
-data/
 __pycache__/
 *.db
-export.xml
+*.db-wal
+*.db-shm
+data/*.db
+data/audios/
+data/apple_health_export/
+export*.xml
+export.zip
 .DS_Store
