@@ -3,6 +3,7 @@
   "use strict";
 
   var EC = window.ENTRECASA || (window.ENTRECASA = {});
+  window.EC = EC;  // atajo para onclick y expresiones de Alpine
 
   /* ---------------------------------------------------------- quién sos (demo, sin login) */
   function setCookie(name, value) {

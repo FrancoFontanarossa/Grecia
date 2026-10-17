@@ -1,0 +1,94 @@
+﻿{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Te escucho · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla pantalla--oscura"
+      x-data="contar({ personId: {{ person.id }}, questionId: {{ question_id or 'null' }}, correctId: {{ correct_id or 'null' }}, startMode: '{{ start_mode }}', family: false, backUrl: '{{ back_url }}' })">
+
+  <div class="grabando__cabecera">
+    <div class="grabando__te-escucho">{% if correct_id %}Corregir{% else %}Te escucho{% endif %}</div>
+    <div class="grabando__consigna" x-show="phase !== 'escribir'">Contá con tus palabras. Si pasó otro día, decí cuándo.</div>
+    <div class="grabando__consigna" x-show="phase === 'escribir'" x-cloak>Escribilo con tus palabras. Si pasó otro día, decí cuándo.</div>
+  </div>
+
+  <div class="espaciador"></div>
+
+  {# ---------- grabando ---------- #}
+  <template x-if="phase === 'grabando' || phase === 'pidiendo'">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 24px">
+      <div class="grabando__contador" x-text="mmss">0:00</div>
+      <div class="onda" aria-hidden="true">
+        <template x-for="(h, i) in bars" :key="i"><div class="onda__barra" :style="'height:' + h + 'px'"></div></template>
+      </div>
+    </div>
+  </template>
+
+  {# ---------- listo: iOS pidió un toque ---------- #}
+  <template x-if="phase === 'listo'">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 18px">
+      <button type="button" class="voz__boton" style="box-shadow: 0 0 0 14px rgba(255,255,255,0.14)" @click="empezar()" aria-label="Tocá para empezar">
+        {{ icon("mic", 72, width=1.7) }}
+      </button>
+      <div class="grabando__terminar">Tocá para empezar</div>
+    </div>
+  </template>
+
+  {# ---------- procesando ---------- #}
+  <template x-if="phase === 'procesando'">
+    <div class="estado" role="status" aria-live="polite">
+      <div class="onda" aria-hidden="true" style="height: 40px">
+        <template x-for="(h, i) in bars" :key="i"><div class="onda__barra" style="height: 10px"></div></template>
+      </div>
+      <div class="indicador"></div>
+      <div class="estado__texto" x-text="progress"></div>
+      <div class="estado__sub" x-show="slow" style="color: var(--color-pino-texto-claro)">Está tardando un poco más. No cierres la app.</div>
+    </div>
+  </template>
+
+  {# ---------- error ---------- #}
+  <template x-if="phase === 'error'">
+    <div class="estado" role="alert" style="align-self: stretch">
+      <div class="estado__texto" x-text="error"></div>
+      <div x-show="transcript" class="card" style="color: var(--color-tinta); align-self: stretch; text-align: left">
+        <div style="font-size: 15px; color: var(--color-tinta-suave)">Lo que guardamos</div>
+        <div style="font-size: 19px; line-height: 1.4" x-text="'«' + transcript + '»'"></div>
+      </div>
+    </div>
+  </template>
+
+  {# ---------- escribir ---------- #}
+  <template x-if="phase === 'escribir'">
+    <div style="align-self: stretch; display: flex; flex-direction: column; gap: 14px">
+      <label for="texto-juan" class="sr-only">Lo que querés contar</label>
+      <textarea id="texto-juan" class="caja-texto" x-model="text" placeholder="Por ejemplo: hoy a la tarde me sentí trabado." autofocus></textarea>
+      <div x-show="error" x-text="error" style="font-size: 18px; color: var(--color-pino-texto-claro)"></div>
+    </div>
+  </template>
+
+  <div class="espaciador"></div>
+
+  {# ---------- botones de abajo ---------- #}
+  <template x-if="phase === 'grabando' || phase === 'pidiendo'">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 0">
+      <button type="button" class="detener" @click="terminar()" aria-label="Terminar y enviar" :disabled="phase !== 'grabando'">
+        <div class="detener__cuadrado"></div>
+      </button>
+      <div class="grabando__terminar">Tocá para terminar</div>
+    </div>
+  </template>
+  <template x-if="phase === 'error'">
+    <div style="align-self: stretch; display: flex; flex-direction: column; gap: 12px">
+      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 700" @click="reintentar()"
+              x-text="errorKind === 'sin-permiso' ? 'Escribir en vez de hablar' : (errorKind === 'ia' ? 'Volver al inicio' : 'Probar de nuevo')"></button>
+      <button type="button" x-show="errorKind !== 'sin-permiso'" class="btn btn--claro" style="align-self: center" @click="escribir()">Escribir en vez de hablar</button>
+    </div>
+  </template>
+  <template x-if="phase === 'escribir'">
+    <div style="align-self: stretch">
+      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 700" @click="enviarTexto()" :disabled="!text.trim()">Listo</button>
+    </div>
+  </template>
+
+  <button type="button" class="btn btn--claro" x-show="phase !== 'procesando'" @click="cancelar()">Cancelar</button>
+</main>
+{% endblock %}

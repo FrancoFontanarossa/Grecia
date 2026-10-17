@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Anoté esto · Entrecasa{% endblock %}
+{% block content %}
+<main class="pantalla" style="gap: 20px" x-data='anote({{ entry_id }}, {{ domain_labels | tojson }})'>
+  <div class="check-grande">{{ icon("check", 34, width=2.4) }}</div>
+
+  <h1 style="font-size: 32px; line-height: 1.15; font-weight: 700">Gracias, {{ person.name }}. Anoté esto:</h1>
+
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <template x-if="loading">
+      <div class="entendido" style="align-items: center"><div class="indicador indicador--pino"></div></div>
+    </template>
+    <template x-for="(u, i) in items" :key="i">
+      <div class="entendido">
+        <div class="entendido__meta" x-text="u.when + ' · ' + (labels[u.domain] || 'Otro')"></div>
+        <div class="entendido__texto" x-text="u.plain"></div>
+      </div>
+    </template>
+    <template x-if="!loading && !items.length">
+      <div class="entendido">
+        <div class="entendido__meta">Lo guardé tal cual</div>
+        <div class="entendido__texto" x-text="data && data.transcript ? '«' + data.transcript + '»' : 'Lo guardé para tu neuróloga.'"></div>
+      </div>
+    </template>
+    <div x-show="data && data.simulated" x-cloak style="font-size: 13px; color: var(--color-tinta-suave)">Simulado: la IA todavía no está conectada.</div>
+  </div>
+
+  <div class="nota nota--chica">
+    {{ icon("nota", 20, "var(--color-tinta-suave)") }}
+    <div>Lo va a ver la {{ doctor }} en el resumen para tu consulta del {{ visit_label }}.</div>
+  </div>
+
+  <div class="espaciador"></div>
+
+  <div style="font-size: 20px; font-weight: 700; text-align: center">¿Está bien así?</div>
+  <div class="grilla-2">
+    <a href="/casa/contar?corregir={{ entry_id }}" class="btn btn--secundario" onclick="EC.mic.acquire()">Corregir</a>
+    <button type="button" class="btn btn--primario" @click="confirmar()">Sí, está bien</button>
+  </div>
+</main>
+{% endblock %}

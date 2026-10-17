@@ -58,10 +58,21 @@ def ddmm(value) -> str:
     return _as_date(value).strftime("%d/%m")
 
 
+def _asset_version() -> str:
+    """Hash de JS y CSS: cambia cuando cambia el código, así el teléfono no usa una versión vieja."""
+    import hashlib
+
+    h = hashlib.sha1()
+    for f in sorted(STATIC_DIR.rglob("*")):
+        if f.suffix in (".js", ".css"):
+            h.update(f.read_bytes())
+    return h.hexdigest()[:8]
+
+
 templates.env.filters.update(miles=miles, dec1=dec1, fecha_larga=fecha_larga, dia_corto=dia_corto,
                              dia_largo=dia_largo, hora=hora, ddmm=ddmm)
 templates.env.globals.update(
     VAPID_PUBLIC_KEY=os.environ.get("VAPID_PUBLIC_KEY", ""),
     DEMO_MODE=os.environ.get("DEMO_MODE", "1") == "1",
-    ASSET_VERSION="1",
+    ASSET_VERSION=_asset_version(),
 )

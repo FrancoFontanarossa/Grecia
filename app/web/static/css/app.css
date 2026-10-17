@@ -81,6 +81,7 @@ html:has(.pantalla--roja) { background: var(--color-rojo-fondo); }
 .btn--chico { min-height: 56px; font-size: 17px; border-radius: 16px; }
 .btn:disabled { opacity: 0.6; }
 .grilla-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.grilla-2 .btn, .grilla-1-2 .btn, .grilla-2-1 .btn { padding: 0 10px; }
 .grilla-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
 .grilla-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
 

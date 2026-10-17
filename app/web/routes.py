@@ -89,3 +89,50 @@ def casa(request: Request, parcial: int = 0, ec_person: str | None = Cookie(defa
     if parcial:
         name = name.replace(".html", "_contenido.html")
     return render(request, name, hoy=hoy, person=person, simulated=hoy.get("simulated"))
+
+
+# ---------------------------------------------------------------- contar algo y "Anoté esto"
+
+# OccurredHint del contrato (app/models.py), en el orden de los chips.
+HINTS = [("ahora", "Ahora"), ("esta_manana", "Esta mañana"), ("esta_tarde", "Esta tarde"), ("anoche", "Anoche"), ("ayer", "Ayer")]
+
+DOMAIN_LABELS = {
+    "motor": "Movimiento", "sueno": "Sueño", "neuropsiquiatrico": "Percepción", "animo": "Ánimo",
+    "cognitivo": "Memoria y atención", "autonomico": "Cuerpo", "dolor": "Dolor", "deglucion": "Tragar",
+    "caidas": "Caídas", "impulsos": "Impulsos", "sexual": "Intimidad", "otro": "Otro",
+}
+
+
+def _visit_label() -> str:
+    from app.web import MESES
+
+    return f"{store.NEXT_VISIT.day} de {MESES[store.NEXT_VISIT.month - 1]}"
+
+
+@router.get("/casa/contar")
+def contar(request: Request, modo: str = "", question_id: int | None = None, corregir: int | None = None,
+           ec_person: str | None = Cookie(default=None)):
+    person = current_person(ec_person)
+    if not person:
+        return RedirectResponse("/", status_code=303)
+    patient = store.patient_person(person["patient_id"]) or person
+    is_patient = person["role"] == "paciente"
+    if modo == "escribir":
+        start_mode = "escribir"
+    elif is_patient:
+        start_mode = "grabar"  # Juan tocó "Contame cómo estás": ya empieza a grabar
+    else:
+        start_mode = "listo"   # la familia primero elige "¿cuándo pasó?"
+    back_url = f"/casa/pregunta/{question_id}" if question_id else "/casa"
+    return render(request, "casa/contar_juan.html" if is_patient else "casa/contar_familia.html",
+                  person=person, patient=patient, question_id=question_id, correct_id=corregir,
+                  start_mode=start_mode, back_url=back_url, hints=HINTS, doctor=store.DOCTOR)
+
+
+@router.get("/casa/anote/{entry_id}")
+def anote(request: Request, entry_id: int, ec_person: str | None = Cookie(default=None)):
+    person = current_person(ec_person)
+    if not person:
+        return RedirectResponse("/", status_code=303)
+    return render(request, "casa/anote.html", person=person, entry_id=entry_id, doctor=store.DOCTOR,
+                  visit_label=_visit_label(), domain_labels=DOMAIN_LABELS)
