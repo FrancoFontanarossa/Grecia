@@ -74,7 +74,7 @@ def connect() -> sqlite3.Connection:
 
 
 def patient_id_for(person_id: int) -> int | None:
-    """patient_id de la persona. TEMPORAL: si todavía no existe la tabla people, asume el paciente 1."""
+    """patient_id de la persona (el paciente de prueba es otro). TEMPORAL: sin tabla people, asume el paciente 1."""
     conn = connect()
     try:
         row = conn.execute("SELECT patient_id FROM people WHERE id = ?", (person_id,)).fetchone()

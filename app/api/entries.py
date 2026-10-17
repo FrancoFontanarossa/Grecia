@@ -1,5 +1,6 @@
 # POST /api/entries (CLAUDE.md §11). Hito 0: solo texto, sin IA; guarda la entrada y avisa "Recibido".
 import asyncio
+from typing import Literal
 
 from fastapi import APIRouter, Form, HTTPException
 
@@ -10,6 +11,10 @@ router = APIRouter()
 
 # TODO: reemplazar por OccurredHint de app/models.py cuando Franco lo sume.
 OCCURRED_HINTS = ("ahora", "esta_manana", "esta_tarde", "anoche", "ayer")
+
+# TODO: mover a app/models.py. "app": entra por la PWA; "precorrer": relatos de la semana escritos por el equipo
+# (scripts/precorrer_semana.py), rotulados así en la declaración del README.
+EntrySource = Literal["app", "precorrer"]
 
 
 @router.post("/api/entries")
@@ -32,11 +37,12 @@ async def create_entry(
     if patient_id is None:
         raise HTTPException(404, f"No existe la persona {person_id}")
 
+    source: EntrySource = "app"
     entry_id = await asyncio.to_thread(
         db.insert_entry, patient_id=patient_id, speaker_id=person_id,
         modality="toque" if quick_reply and not text else "texto",
         raw_text=raw_text, question_id=question_id, occurred_hint=occurred_hint,
-        reserved_requested=reserved_requested, source="app",
+        reserved_requested=reserved_requested, source=source,
     )
 
     await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
