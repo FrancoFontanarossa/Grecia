@@ -1,0 +1,129 @@
+import datetime as dt
+
+import pytest
+
+from app import clock, db
+from app.config import TZ
+from data import import_health as ih
+
+REAL = dt.datetime(2026, 10, 17, 19, 0, tzinfo=TZ)
+END = dt.date(2026, 10, 17)            # sábado
+
+
+def record(start, end, value, source="iPhone de Franco", type_=ih.STEP_TYPE):
+    return (f'<Record type="{type_}" sourceName="{source}" unit="count" '
+            f'startDate="{start}" endDate="{end}" value="{value}"/>')
+
+
+def write_export(path, records):
+    path.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE HealthData [\n<!ELEMENT HealthData (Record)*>\n]>\n'
+        '<HealthData locale="es_UY">\n' + "\n".join(records) + "\n</HealthData>\n"
+    )
+    return str(path)
+
+
+@pytest.fixture
+def env(data_dir, monkeypatch):
+    monkeypatch.setattr(clock, "_real_now", lambda: REAL)
+    return data_dir
+
+
+def rows(sql):
+    with db.connect() as conn:
+        return [dict(r) for r in conn.execute(sql)]
+
+
+def daily_records(first: dt.date, last: dt.date, **kw):
+    """Cada día: 300 pasos de 16:30 a 16:40 y 600 de 9:50 a 10:10 (cruza la hora)."""
+    out, d = [], first
+    while d <= last:
+        out.append(record(f"{d} 16:30:00 -0300", f"{d} 16:40:00 -0300", 300, **kw))
+        out.append(record(f"{d} 09:50:00 -0300", f"{d} 10:10:00 -0300", 600, **kw))
+        d += dt.timedelta(days=1)
+    return out
+
+
+def test_split_by_hour_is_proportional():
+    s = dt.datetime(2026, 10, 1, 9, 50, tzinfo=TZ)
+    assert ih.split_by_hour(s, s + dt.timedelta(minutes=20), 600) == [
+        (dt.datetime(2026, 10, 1, 9, tzinfo=TZ), 300.0), (dt.datetime(2026, 10, 1, 10, tzinfo=TZ), 300.0)]
+
+
+def test_import_export_shifts_by_whole_weeks(env, tmp_path):
+    # Datos reales del 01/06 al 30/06/2025 (el 30, lunes, es el día de la exportación: incompleto).
+    path = write_export(tmp_path / "export.xml", daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30)) + [
+        record("2025-06-10 12:00:00 -0300", "2025-06-10 12:01:00 -0300", 70, type_="HKQuantityTypeIdentifierHeartRate"),
+    ])
+    summary = ih.run(end=END, export=path)
+
+    # Último día completo con el mismo día de la semana que el 17/10/2026 (sábado): 28/06/2025.
+    first, last = summary["source_days"]
+    assert last == dt.date(2025, 6, 28) and last.weekday() == END.weekday()
+    assert first == dt.date(2025, 6, 1)
+    assert (END - last).days % 7 == 0
+
+    data = rows('SELECT value, start, "end", source FROM biometrics ORDER BY start')
+    assert {r["source"] for r in data} == {"importacion"}
+    assert len(data) == 28 * 3                       # 9h, 10h y 16h de cada día
+    assert data[0] == {"value": 300.0, "start": "2026-09-20T09:00:00-03:00",
+                       "end": "2026-09-20T10:00:00-03:00", "source": "importacion"}
+    assert data[-1]["start"] == "2026-10-17T16:00:00-03:00"
+    assert sum(r["value"] for r in data) == 28 * 900  # el ritmo cardíaco no entra
+
+    assert rows("SELECT window_start, window_end, received_at, n_samples FROM biometric_syncs") == [{
+        "window_start": "2026-09-20T00:00:00-03:00", "window_end": "2026-10-18T00:00:00-03:00",
+        "received_at": "2026-10-17T19:00:00-03:00", "n_samples": 84}]
+
+
+def test_reimport_replaces_previous_import(env, tmp_path):
+    path = write_export(tmp_path / "export.xml", daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30)))
+    ih.run(end=END, export=path)
+    ih.run(end=END, export=path)
+    assert rows("SELECT count(*) AS n, sum(value) AS total FROM biometrics") == [{"n": 84, "total": 28 * 900}]
+
+
+def test_multiple_sources_require_choosing(env, tmp_path):
+    recs = (daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30))
+            + daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30), source="Apple Watch"))
+    path = write_export(tmp_path / "export.xml", recs)
+    with pytest.raises(ih.HealthImportError, match="--source"):
+        ih.run(end=END, export=path)
+    assert rows("SELECT count(*) AS n FROM biometrics") == [{"n": 0}]
+
+    ih.run(end=END, export=path, source="Apple Watch")
+    assert rows("SELECT sum(value) AS total FROM biometrics") == [{"total": 28 * 900}]
+
+
+def test_csv_plan_b(env, tmp_path):
+    path = tmp_path / "pasos.csv"
+    lines = ["start,steps"]
+    d = dt.date(2025, 6, 1)
+    while d <= dt.date(2025, 6, 28):
+        lines += [f"{d}T16:00,120", f"{d}T10:00:00-03:00,500"]
+        d += dt.timedelta(days=1)
+    path.write_text("\n".join(lines) + "\n")
+    summary = ih.run(end=END, csv_path=str(path))
+    assert summary["source_days"] == (dt.date(2025, 6, 1), dt.date(2025, 6, 28))  # en CSV el último día cuenta
+    assert rows("SELECT count(*) AS n, sum(value) AS total FROM biometrics") == [{"n": 56, "total": 28 * 620}]
+
+
+def test_weekday_report_compares_window_with_rest(env, tmp_path):
+    path = write_export(tmp_path / "export.xml", daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30)))
+    report = ih.run(end=END, export=path)["by_weekday"]
+    assert list(report) == ih.DAY_NAMES
+    assert report["sábado"] == {"days": 4, "window_per_day": 300.0, "window_per_hour": 150.0,
+                                "rest_per_hour": 600 / 22, "window_zero_days": 0}
+
+
+def test_cli_prints_report(env, tmp_path, capsys):
+    path = write_export(tmp_path / "export.xml", daily_records(dt.date(2025, 6, 1), dt.date(2025, 6, 30)))
+    assert ih.main([path, "--end", "2026-10-17"]) == 0
+    out = capsys.readouterr().out
+    assert "16 a 18" in out and "sábado" in out
+
+
+def test_cli_needs_exactly_one_input(env):
+    with pytest.raises(SystemExit):
+        ih.main(["--end", "2026-10-17"])
