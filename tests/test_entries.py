@@ -27,7 +27,7 @@ def test_texto_se_guarda_y_devuelve_el_contrato(tmp_data_dir, monkeypatch):
 
     assert r.status_code == 200
     body = r.json()
-    assert set(body) == {"entry_id", "transcript", "understood", "red", "alerts"}
+    assert set(body) == {"entry_id", "transcript", "understood", "red", "alerts"}  # sin "error"
     assert body["transcript"] == texto.strip()
     assert body["understood"] == [] and body["red"] is None and body["alerts"] == []
     entry = db.get_entry(body["entry_id"])
@@ -91,3 +91,35 @@ def test_respuesta_rapida_se_guarda_como_toque(tmp_data_dir, monkeypatch):
     assert r.status_code == 200 and r.json()["transcript"] == "Me sentí trabado"
     e = _rows("entries")[0]
     assert (e["modality"], e["question_id"], e["reserved_requested"]) == ("toque", 5, 1)
+
+
+def test_understood_sale_de_la_extraccion(tmp_data_dir, monkeypatch):
+    from app.pipeline import extract
+    from tests.conftest import FakeModel, tool_response
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([{
+        "domain": "motor", "symptom": "rigidez", "negated": False, "foreign_attribution": None, "severity": None,
+        "time_said": {"day": "no_dice", "weekday": None, "part": "tarde", "clock": None},
+        "quote": "me sentí trabado", "confidence": 0.8, "plain": "A la tarde te sentiste trabado."}])))
+
+    r = client.post("/api/entries", data={"person_id": 1, "text": "me sentí trabado"})
+
+    [u] = r.json()["understood"]
+    assert u["plain"] == "A la tarde te sentiste trabado." and u["domain"] == "motor"
+    assert u["domain_label"] == "Movimiento" and u["when"]
+    assert "error" not in r.json()
+
+
+def test_si_falla_la_ia_queda_el_texto_crudo_y_el_mensaje(tmp_data_dir, monkeypatch):
+    import anthropic
+    from app.pipeline import extract
+    from tests.conftest import FakeModel
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.setattr(extract, "_call_model", FakeModel(anthropic.APIConnectionError(request=None)))
+
+    r = client.post("/api/entries", data={"person_id": 2, "text": "anoche hablaba con alguien que no estaba"})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["understood"] == [] and body["error"].startswith("No pude entenderlo esta vez")
+    assert _rows("entries")[0]["raw_text"] == "anoche hablaba con alguien que no estaba"

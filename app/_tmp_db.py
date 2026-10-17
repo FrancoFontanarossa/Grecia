@@ -73,16 +73,24 @@ def connect() -> sqlite3.Connection:
     return conn
 
 
-def patient_id_for(person_id: int) -> int | None:
-    """patient_id de la persona (el paciente de prueba es otro). TEMPORAL: sin tabla people, asume el paciente 1."""
+# TEMPORAL: sin tabla people, las personas del seed de la demo (Juan, Marta, Laura) para el paciente 1.
+_FALLBACK_PEOPLE = {1: (1, "paciente", "Juan"), 2: (1, "cuidador", "Marta"), 3: (1, "familiar", "Laura")}
+
+
+def person_info(person_id: int) -> dict | None:
+    """{patient_id, role, name, patient_name} de la persona (el paciente de prueba es otro patient_id)."""
     conn = connect()
     try:
-        row = conn.execute("SELECT patient_id FROM people WHERE id = ?", (person_id,)).fetchone()
+        row = conn.execute(
+            "SELECT p.patient_id, p.role, p.name,"
+            " (SELECT name FROM people WHERE patient_id = p.patient_id AND role = 'paciente' LIMIT 1) AS patient_name"
+            " FROM people p WHERE p.id = ?", (person_id,)).fetchone()
     except sqlite3.OperationalError:
-        return 1
+        patient_id, role, name = _FALLBACK_PEOPLE.get(person_id, (1, "paciente", None))
+        return {"patient_id": patient_id, "role": role, "name": name, "patient_name": "Juan"}
     finally:
         conn.close()
-    return row["patient_id"] if row else None
+    return dict(row) if row else None
 
 
 def insert_entry(*, patient_id: int, speaker_id: int, modality: str, raw_text: str | None,
