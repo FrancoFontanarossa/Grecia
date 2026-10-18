@@ -23,68 +23,81 @@
 .tabla-tec th, .tabla-tec td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--color-linea-suave); }
 .tabla-tec th { color: var(--color-tinta-suave); font-weight: 600; }
 
-/* Informe v2 (docs/PULIDO.md §3): nota clínica, densa, con aire entre secciones. */
-.neuro-encabezado { display: flex; flex-direction: column; gap: 10px; }
-.neuro-cobertura { font-size: 14px; color: var(--color-tinta-suave); display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-.neuro-seccion { padding: 20px 22px; gap: 12px; }
-.neuro-resumen { font-size: 17px; line-height: 1.6; max-width: 900px; }
-.neuro-nota { font-size: 13px; line-height: 1.5; color: var(--color-tinta-suave); border-top: 1px solid var(--color-linea-suave); padding-top: 10px; }
-.neuro-titular { font-size: 17px; font-weight: 600; line-height: 1.4; }
-.barras-neuro { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 150px; }
-.barras-neuro__col { position: relative; z-index: 1; flex: 1; min-width: 6px; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; border-left: 2px solid transparent; }
-.barras-neuro__col--cambio { border-left-color: var(--color-tinta); }
-.barras-neuro__barra { width: 100%; border-radius: 3px 3px 0 0; background: var(--color-bio-medio); }
-/* La caída no es solo color: barra ámbar rayada + marca triangular arriba. */
-.barras-neuro__barra--episodio { background: repeating-linear-gradient(135deg, var(--color-ambar) 0 3px, #C98A3A 3px 6px); }
-.marca-episodio { display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--color-ambar); background: none !important; }
-.leyenda .marca-episodio { width: 0; height: 0; border-radius: 0; }
-.banda-habitual { position: absolute; left: 0; right: 0; z-index: 0; background: var(--color-bio-claro); border-top: 1px solid var(--color-bio-suave); border-bottom: 1px solid var(--color-bio-suave); }
-.neuro-columnas { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
-.neuro-columnas__principal { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-.neuro-columnas__lateral { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-.neuro-tema { padding: 20px 22px; gap: 12px; }
-.neuro-por-que { font-size: 14px; color: var(--color-tinta-suave); }
-.neuro-por-que span { font-weight: 600; color: var(--color-tinta); }
-.neuro-cronologia { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.4; }
-.neuro-cronologia td { padding: 5px 10px 5px 0; border-top: 1px solid var(--color-linea-suave); vertical-align: top; color: var(--color-tinta-suave); }
-.neuro-cronologia td:last-child { color: var(--color-tinta); }
-.neuro-voces { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-.neuro-voz { border: 1px solid var(--color-linea); border-radius: var(--radius-boton); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
-.neuro-pregunta { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: var(--radius-boton); background: var(--color-pino-claro); font-size: 15.5px; line-height: 1.45; }
-.neuro-pregunta .etiqueta-seccion { color: var(--color-pino); }
-.neuro-lista { padding: 14px 16px; gap: 10px; font-size: 14.5px; }
-.neuro-lista .fila-entre { align-items: baseline; color: var(--color-tinta-suave); }
-.neuro-lista b { font-size: 19px; font-weight: 600; color: var(--color-tinta); }
-.neuro-lista small { font-size: 13px; font-weight: 400; color: var(--color-tinta-suave); }
-.neuro-alerta { display: flex; align-items: baseline; gap: 8px; line-height: 1.45; }
-.neuro-alerta--tinta { color: var(--color-tinta); }
-.tabla-neuro { width: 100%; border-collapse: collapse; font-size: 14.5px; }
-.tabla-neuro th, .tabla-neuro td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--color-linea-suave); }
-.tabla-neuro th:first-child, .tabla-neuro td:first-child { text-align: left; padding-left: 0; }
-.tabla-neuro th { font-size: 13px; font-weight: 600; color: var(--color-tinta-suave); vertical-align: bottom; }
-.tabla-neuro th small { display: block; font-weight: 400; }
-.tabla-neuro__sin { color: var(--color-tinta-suave); font-style: italic; text-align: right; }
-.neuro-no-sabemos { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; line-height: 1.5; }
-.neuro-pie { font-size: 13px; line-height: 1.5; color: var(--color-tinta-suave); border-top: 1px solid var(--color-linea); padding-top: 12px; }
+/* Informe v2 (design/boceto-informe.html): una hoja sobria, secciones separadas por líneas, sin hero ni degradé. */
+.inf-barra { max-width: 1180px; margin: 0 auto 14px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--color-tinta-suave); }
+.inf-barra__marca { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-tinta); text-decoration: none; }
+.inf-barra__marca i { width: 22px; height: 22px; border-radius: 6px; background: var(--color-pino); display: inline-block; }
+.inf-barra__acc { display: flex; gap: 18px; }
+.inf-barra__acc a, .inf-barra__acc button { color: var(--color-tinta); text-decoration: none; font: 500 14px var(--font-sans); background: none; border: 0; padding: 8px 0; cursor: pointer; }
+.inf-hoja { max-width: 1180px; margin: 0 auto; background: var(--color-superficie); border: 1px solid var(--color-linea); border-radius: 12px; padding: 36px 44px 32px; }
+.inf-enc { display: grid; grid-template-columns: 1fr auto; gap: 24px; padding-bottom: 22px; border-bottom: 1px solid var(--color-linea); }
+.inf-enc h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.inf-enc__sub { font-size: 14.5px; color: var(--color-tinta-suave); margin-top: 6px; line-height: 1.6; }
+.inf-enc__sub b { font-weight: 500; color: var(--color-tinta); }
+.inf-kv { display: grid; grid-template-columns: auto auto; gap: 4px 18px; font-size: 14px; align-content: start; margin: 0; }
+.inf-kv dt { color: var(--color-tinta-suave); }
+.inf-kv dd { font-weight: 500; margin: 0; }
+.inf-kv__cambio { color: var(--color-ambar); }
+.inf-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 44px; margin-top: 26px; }
+.inf-h2 { font-size: 13px; font-weight: 600; color: var(--color-tinta-suave); letter-spacing: 0.01em; margin-bottom: 10px; }
+.inf-minuto { font-size: 17px; line-height: 1.65; max-width: 70ch; }
+.inf-ver { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--color-tinta-suave); margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--color-linea); }
+.inf-temas { margin-top: 30px; }
+.inf-tema { padding: 22px 0; border-top: 1px solid var(--color-linea); }
+.inf-tema__h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.inf-tema__n { font-size: 15px; font-weight: 600; color: var(--color-tinta-suave); width: 18px; }
+.inf-tema__h h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.inf-priv { font-size: 12px; font-weight: 500; color: var(--color-tinta-suave); border: 1px solid var(--color-linea); border-radius: 5px; padding: 1px 7px; }
+.inf-porque { font-size: 13.5px; color: var(--color-ambar); font-weight: 500; margin: 4px 0 0 30px; }
+.inf-par { font-size: 15.5px; line-height: 1.6; margin: 10px 0 0 30px; max-width: 70ch; }
+.inf-crono { margin: 12px 0 0 30px; border-collapse: collapse; font-size: 13.5px; width: calc(100% - 30px); }
+.inf-crono th { font-weight: 500; color: var(--color-tinta-suave); text-align: left; padding: 0 12px 6px 0; border-bottom: 1px solid var(--color-linea); }
+.inf-crono td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--color-linea-suave); vertical-align: top; line-height: 1.45; }
+.inf-crono td:first-child { white-space: nowrap; color: var(--color-tinta-suave); width: 96px; }
+.inf-crono td:nth-child(2) { white-space: nowrap; font-weight: 500; width: 110px; }
+.inf-solo { font-weight: 400; color: var(--color-tinta-suave); }
+.inf-preg { margin: 12px 0 0 30px; font-size: 14.5px; line-height: 1.5; background: #F7F8FA; border-radius: 8px; padding: 10px 12px; }
+.inf-preg b { font-weight: 600; }
+.inf-ev { margin: 10px 0 0 30px; display: flex; flex-wrap: wrap; gap: 6px; }
+.inf-ev button { font: 12.5px var(--font-sans); color: var(--color-tinta-suave); background: none; border: 1px solid var(--color-linea); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+.inf-ev button:hover { border-color: var(--color-tinta-suave); color: var(--color-tinta); }
+.inf-lado section { padding: 18px 0; border-top: 1px solid var(--color-linea); }
+.inf-lado section:first-child { border-top: 0; padding-top: 0; }
+.inf-lado h4 { font-size: 15px; font-weight: 600; line-height: 1.4; }
+.inf-s { font-size: 13px; color: var(--color-tinta-suave); margin-top: 3px; line-height: 1.45; }
+.inf-barras { position: relative; display: flex; align-items: flex-end; gap: 3px; height: 110px; margin: 12px 0 6px; }
+.inf-banda { position: absolute; left: 0; right: 0; background: var(--color-bio-claro); z-index: 0; }
+.inf-barras__col { position: relative; z-index: 1; flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; }
+.inf-barras__col--cambio { box-shadow: -2px 0 0 -1px var(--color-tinta); }
+.inf-barras__barra { width: 100%; border-radius: 2px; background: #B7CDF1; }
+.inf-barras__barra--ep { background: var(--color-ambar); }
+.inf-marca { display: inline-block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--color-ambar); vertical-align: 1px; }
+.inf-dc { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+.inf-dc th { font-weight: 500; color: var(--color-tinta-suave); text-align: right; padding: 0 0 6px 8px; border-bottom: 1px solid var(--color-linea); }
+.inf-dc td { text-align: right; padding: 7px 0 7px 8px; border-bottom: 1px solid var(--color-linea-suave); }
+.inf-dc th:first-child, .inf-dc td:first-child { text-align: left; padding-left: 0; }
+.inf-dc__sin { color: var(--color-tinta-suave); font-style: italic; }
+.inf-l { margin: 8px 0 0; padding: 0; }
+.inf-l li { font-size: 13.5px; line-height: 1.5; margin: 5px 0 0 16px; }
+.inf-al { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.5; padding: 6px 0; border-bottom: 1px solid var(--color-linea-suave); }
+.inf-al > span:first-child { width: 56px; flex: none; color: var(--color-tinta-suave); }
+.inf-pie { display: flex; justify-content: space-between; gap: 20px; margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--color-linea); font-size: 12.5px; color: var(--color-tinta-suave); }
+@media (max-width: 1060px) { .inf-grid, .inf-enc { grid-template-columns: 1fr; } .inf-hoja { padding: 24px 20px; } }
 
-/* A4, 1 o 2 páginas, sin botones ni evidencia clickeable. */
+/* A4, sin botones ni evidencia clickeable. */
 @media print {
-  @page { size: A4; margin: 14mm 12mm; }
+  @page { size: A4; margin: 12mm 12mm; }
   html, body { background: #FFFFFF !important; }
   .no-imprimir, .rotulo-simulado, .modal { display: none !important; }
-  .neuro { padding: 0; background: #FFFFFF; min-height: 0; font-size: 11pt; }
-  .neuro__contenedor { max-width: none; gap: 10px; }
-  .neuro__contenedor > div { gap: 10px !important; }
-  .card-neuro { border: 1px solid var(--color-linea); break-inside: avoid; }
-  .neuro-seccion, .neuro-tema { padding: 10px 12px; gap: 6px; }
-  .neuro-resumen { font-size: 11pt; line-height: 1.45; }
-  .neuro-tema p, .neuro-pregunta, .neuro-voz div { font-size: 10pt !important; line-height: 1.4 !important; }
-  .neuro-tema h3 { font-size: 12pt !important; }
-  .barras-neuro { zoom: 0.62; }
-  .neuro-columnas { gap: 10px; }
-  .neuro-columnas__principal { flex-basis: 62%; gap: 8px; }
-  .neuro-columnas__lateral { flex-basis: 30%; gap: 8px; }
-  .neuro-cronologia, .tabla-neuro, .neuro-lista, .neuro-no-sabemos { font-size: 9pt; }
-  .neuro-pie { font-size: 8.5pt; }
+  .neuro { padding: 0; background: #FFFFFF; min-height: 0; }
+  .inf-hoja { border: 0; padding: 0; max-width: none; }
+  .inf-grid { grid-template-columns: minmax(0, 1fr) 62mm; gap: 8mm; margin-top: 14px; }
+  .inf-enc h1 { font-size: 18pt; }
+  .inf-minuto { font-size: 10.5pt; line-height: 1.5; }
+  .inf-tema { padding: 10px 0; break-inside: avoid; }
+  .inf-par { font-size: 9.5pt; line-height: 1.45; }
+  .inf-crono, .inf-preg, .inf-dc, .inf-l li, .inf-al { font-size: 8.5pt; }
+  .inf-lado section { padding: 10px 0; break-inside: avoid; }
+  .inf-barras { height: 70px; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
