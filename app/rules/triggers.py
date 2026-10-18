@@ -7,7 +7,7 @@ from statistics import median
 from app import config, db
 from app.config import TZ
 from app.models import Trigger
-from app.rules import episodes, games
+from app.rules import biometrics, episodes, games
 
 DAY_NAMES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 FAMILY = ("cuidador", "familiar")
@@ -154,7 +154,28 @@ def p_repite(patient_id: int, now: datetime) -> list[Trigger]:
             for r in family if r["symptom"] not in told_by_patient]
 
 
-RULES = (p_desvio, p_noches, p_silencio, p_juego, p_repite)
+def p_sueno(patient_id: int, now: datetime) -> list[Trigger]:
+    """La noche que pasó, según la pulsera (simulada): despertares o sueño fuera de lo normal (rules.biometrics).
+    A la mañana y para el paciente. No lleva relatos: nada reservado puede entrar."""
+    local = now.astimezone(TZ)
+    start, end = config.SLEEP_TRIGGER_HOURS
+    if not start <= local.hour < end:
+        return []
+    found = [a for a in biometrics.anomalies(patient_id, local.date()) if a["kind"] in config.SLEEP_TRIGGER_KINDS]
+    if not found:
+        return []
+    with db.connect() as conn:
+        patient = _person(conn, patient_id, "paciente")
+    if patient is None:
+        return []
+    found.sort(key=lambda a: config.SLEEP_TRIGGER_KINDS.index(a["kind"]))   # primero los despertares
+    facts = {"night_of": local.date().isoformat(), "source": "simulado",
+             "anomalies": [{k: a[k] for k in ("kind", "value", "baseline_median", "baseline_n", "z")} for a in found]}
+    return [Trigger(rule_id="P-SUENO", patient_id=patient_id, to_person_id=patient, facts=facts,
+                    why=" ".join(a["why"] for a in found))]
+
+
+RULES = (p_desvio, p_noches, p_silencio, p_juego, p_repite, p_sueno)
 
 
 def evaluate(patient_id: int, now: datetime) -> list[Trigger]:
