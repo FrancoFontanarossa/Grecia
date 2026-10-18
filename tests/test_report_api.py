@@ -83,6 +83,41 @@ def test_sync_sin_muestras_cuenta_como_dia_con_datos(base):
     assert rep.coverage(1, START, END, NOW)["pasos"]["dias_con_datos"] == 27
 
 
+def test_la_ventana_de_la_pulsera_no_cuenta_como_dia_con_pasos(base):
+    """franco/pulsera: biometric_syncs.scope = 'pulsera' no es una sincronización de pasos."""
+    with db.connect() as conn:
+        if "scope" not in {r[1] for r in conn.execute("PRAGMA table_info(biometric_syncs)")}:
+            conn.execute("ALTER TABLE biometric_syncs ADD COLUMN scope TEXT")
+        conn.execute("INSERT INTO biometric_syncs (patient_id, window_start, window_end, received_at, n_samples, scope) "
+                     "VALUES (1, ?, ?, ?, 0, 'pulsera')", (at(day(0), 0), at(day(27), 23), at(day(27), 23)))
+    assert rep.coverage(1, START, END, NOW)["pasos"]["dias_con_datos"] == 26
+
+
+def test_series_de_la_pulsera_en_la_vista_tecnica(base):
+    with db.connect() as conn:
+        for i, (mins, awk) in enumerate([(400, 2), (210, 7)]):          # noches que terminan el 16 y el 17
+            d = day(26 + i)
+            for kind, v in (("sleep_minutes", mins), ("sleep_awakenings", awk)):
+                conn.execute('INSERT INTO biometrics (patient_id, kind, value, start, "end", source) VALUES (1, ?, ?, ?, ?, ?)',
+                             (kind, v, at(d - dt.timedelta(days=1), 23), at(d, 7), "seed"))
+        for h, tremor in ((16, 28), (17, 30), (10, 2)):
+            conn.execute('INSERT INTO biometrics (patient_id, kind, value, start, "end", source) VALUES (1, ?, ?, ?, ?, ?)',
+                         ("tremor_minutes", tremor, at(day(26), h), at(day(26), h, 59), "seed"))
+    s = rep.wearable_series(1, START, END, NOW)
+    assert [(n["date"], n["sleep_minutes"], n["sleep_awakenings"]) for n in s["noches"]] == \
+        [("2026-10-16", 400, 2), ("2026-10-17", 210, 7)]
+    assert s["mediciones"] == {"sleep_minutes": 2, "sleep_awakenings": 2, "tremor_minutes": 3}
+    perfil = {p["hour"]: p.get("tremor_minutes") for p in s["perfil_hora"]}
+    assert perfil[16] == 28 and perfil[17] == 30 and perfil[10] == 2 and perfil[3] is None
+    assert s["etiquetas"]["sleep_awakenings"] == {"texto": "Despertares", "unidad": "veces"}
+    assert s["fuentes"] == ["seed"] and s["simulado"] is False
+
+
+def test_sin_pulsera_las_series_quedan_vacias(base):
+    s = rep.wearable_series(1, START, END, NOW)
+    assert s["noches"] == [] and s["por_hora"] == [] and s["perfil_hora"] == [] and s["mediciones"] == {}
+
+
 # ---------------------------------------------------------------- desde el cambio
 
 def test_desde_el_cambio_compara_medianas_y_tasas(base):

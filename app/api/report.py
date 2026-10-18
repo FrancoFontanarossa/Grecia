@@ -224,8 +224,11 @@ def _symptom_text(symptom: str) -> str:
 def _days_with_steps(conn, patient_id: int, days: list[dt.date], now: dt.datetime) -> set[dt.date]:
     """Días con pasos: los cubre una ventana de biometric_syncs (hasta ahora si es hoy) o tienen muestras."""
     db = _db()
+    # Solo las ventanas de pasos (Atajo e importación): las de la pulsera tienen scope y no cuentan (§7.3).
+    has_scope = "scope" in {r[1] for r in conn.execute("PRAGMA table_info(biometric_syncs)")}
+    only_steps = " AND scope IS NULL" if has_scope else ""
     syncs = [(db.from_db(r["window_start"]), db.from_db(r["window_end"])) for r in conn.execute(
-        "SELECT window_start, window_end FROM biometric_syncs WHERE patient_id = ?", (patient_id,))]
+        "SELECT window_start, window_end FROM biometric_syncs WHERE patient_id = ?" + only_steps, (patient_id,))]
     with_samples = {dt.date.fromisoformat(r[0]) for r in conn.execute(
         "SELECT DISTINCT substr(start, 1, 10) FROM biometrics WHERE patient_id = ? AND kind = 'steps'", (patient_id,))}
     out = set()
@@ -495,7 +498,70 @@ def build_technical(patient_id: int) -> dict:
         "episodes": [{"dose_time": e["dose_time"], "status": e["status"], "deviation": e.get("deviation")} for e in eps],
         "tests": tests,
         "sources": store.biometric_sources(patient_id) if real else {"ejemplo": len(hourly)},
+        "pulsera": wearable_series(patient_id, start, end, now) if real else None,
         "simulated": not real,
+    }
+
+
+# ================================================================ pulsera (vista técnica)
+# Métricas de data/mock_wearable.py (franco/pulsera). Las noches van de las 23 del día anterior a las 7: cada una
+# se identifica por el día en que termina. Si no hay muestras, las listas quedan vacías.
+
+WEARABLE_NIGHTLY = ("sleep_minutes", "sleep_awakenings", "heart_rate_rest", "hrv_ms", "spo2_pct", "resp_rate")
+WEARABLE_DAILY = ("active_minutes",)
+WEARABLE_HOURLY = ("tremor_minutes", "dyskinesia_minutes")
+WEARABLE_LABELS = {
+    "sleep_minutes": ("Sueño", "min"), "sleep_awakenings": ("Despertares", "veces"),
+    "heart_rate_rest": ("Frecuencia cardíaca en reposo", "lpm"), "hrv_ms": ("Variabilidad cardíaca (HRV)", "ms"),
+    "spo2_pct": ("Saturación de oxígeno", "%"), "resp_rate": ("Respiración", "rpm"),
+    "active_minutes": ("Minutos activos", "min"), "tremor_minutes": ("Minutos con temblor", "min/h"),
+    "dyskinesia_minutes": ("Minutos con discinesia", "min/h"),
+}
+
+
+def wearable_series(patient_id: int, start: dt.date, end: dt.date, now: dt.datetime) -> dict:
+    """Series de la pulsera para la vista técnica: por noche, por día y por hora, con su fuente y cantidad."""
+    db = _db()
+    lo, _ = _day_bounds(start - dt.timedelta(days=1), now.tzinfo)     # la primera noche empieza el día anterior
+    _, hi = _day_bounds(end, now.tzinfo)
+    kinds = WEARABLE_NIGHTLY + WEARABLE_DAILY + WEARABLE_HOURLY
+    marks = ",".join("?" * len(kinds))
+    with db.connect() as conn:
+        rows = conn.execute(
+            f'SELECT kind, value, start, "end", source FROM biometrics WHERE patient_id = ? AND kind IN ({marks}) '
+            f"AND start >= ? AND start < ? AND start <= ? ORDER BY start", (patient_id, *kinds, lo, hi, db.to_db(now))).fetchall()
+    nights: dict[str, dict] = {}
+    days: dict[str, dict] = {}
+    hours: dict[str, dict] = {}
+    count: dict[str, int] = {}
+    sources: set[str] = set()
+    for r in rows:
+        k, v = r["kind"], r["value"]
+        count[k] = count.get(k, 0) + 1
+        sources.add(r["source"])
+        if k in WEARABLE_NIGHTLY:
+            night = r["end"][:10]
+            if start.isoformat() <= night <= end.isoformat():
+                nights.setdefault(night, {"date": night})[k] = v
+        elif k in WEARABLE_DAILY:
+            days.setdefault(r["start"][:10], {"date": r["start"][:10]})[k] = v
+        else:
+            hours.setdefault(r["start"][:13], {"hour": r["start"][:13]})[k] = v
+    # Perfil por hora del día (promedio del período): donde se ve el temblor de 16 a 18 h.
+    profile = []
+    for h in range(24):
+        hh = [x for key, x in hours.items() if key[11:13] == f"{h:02d}"]
+        profile.append({"hour": h, **{k: round(statistics.fmean([x[k] for x in hh if k in x]), 1)
+                                      for k in WEARABLE_HOURLY if any(k in x for x in hh)}})
+    return {
+        "fuentes": sorted(sources),
+        "simulado": "simulado" in sources,
+        "mediciones": count,
+        "etiquetas": {k: {"texto": t, "unidad": u} for k, (t, u) in WEARABLE_LABELS.items()},
+        "noches": [nights[k] for k in sorted(nights)],
+        "dias": [days[k] for k in sorted(days)],
+        "por_hora": [hours[k] for k in sorted(hours)],
+        "perfil_hora": profile if hours else [],
     }
 
 
