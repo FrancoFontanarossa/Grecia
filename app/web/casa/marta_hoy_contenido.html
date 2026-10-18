@@ -2,7 +2,8 @@
    rojos ni ámbar (el ámbar es prioridad en el informe; el rojo solo se muestra a quien escribe el relato). #}
 {% set en_meta = hoy.week_steps | selectattr("achieved") | list | length %}
 {% set con_datos = hoy.week_steps | selectattr("value") | list %}
-<div class="top"><span class="marca">entrecasa<i>.</i></span></div>
+{% from "casa/_nav.html" import permisos %}
+<div class="top"><span class="marca">entrecasa<i>.</i></span>{{ permisos() }}</div>
 <h1 class="lt" style="margin-top: 12px">Hola, {{ hoy.person.name }}.<span class="tenue">Así viene la semana de {{ hoy.patient.name }}.</span></h1>
 
 {# La pregunta de hoy (datos raros de pasos, pulsera o juego), aunque la push no haya llegado. #}

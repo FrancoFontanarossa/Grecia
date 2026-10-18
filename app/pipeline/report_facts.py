@@ -5,7 +5,7 @@ import datetime as dt
 import json
 import statistics
 
-from app import db, taxonomy
+from app import config, db, taxonomy
 from app.pipeline.when import part_of
 from app.rules.triggers import fmt_dec, fmt_int
 
@@ -59,6 +59,8 @@ def collect(patient_id: int, now: dt.datetime, period: str | None = None) -> dic
             " FROM events ev JOIN entries e ON e.id = ev.entry_id JOIN people p ON p.id = e.speaker_id"
             " WHERE ev.patient_id = ? AND e.created_at >= ? AND e.created_at < ? ORDER BY e.created_at",
             (patient_id, since, until)).fetchall()
+        notes = conn.execute("SELECT date, text, follow_up FROM daily_notes WHERE patient_id = ? AND date >= ? "
+                             "AND date <= ? ORDER BY date", (patient_id, start.isoformat(), end.isoformat())).fetchall()
 
     target = goal["target"] if goal else None
     daily = [{"date": r["day"], "steps": round(r["total"])} for r in steps]
@@ -120,6 +122,8 @@ def collect(patient_id: int, now: dt.datetime, period: str | None = None) -> dic
                     "quote": e["quote"], "plain": e["plain"], "is_new": bool(e["is_new"]), "reserved": bool(e["reserved"]),
                     "days_since_med_change": days_since_change(e)}
                    for e in events],
+        "daily_notes": [{"date": n["date"], "text": n["text"], "follow_up": json.loads(n["follow_up"] or "[]")}
+                        for n in notes if n["text"]] if config.BITACORA_ENABLED else [],
     }
 
 
@@ -263,7 +267,25 @@ def present(raw: dict) -> dict:
         "alerts": [{"rule_id": a["rule_id"], "lane": a["lane"], "date": _ddmm(a.get("date")), "text": a["text"],
                     "reserved": a["reserved"]} for a in raw.get("alerts", [])],
         "events": out_events,
+        "bitacora": _bitacora(raw.get("daily_notes") or []),
     }
+
+
+BITACORA_USE = ("Notas de la revisión diaria (redactadas por IA y verificadas por el código), una por noche. Son el "
+                "hilo conductor del período: qué se fue anotando y retomando. No son evidencia ni fuente de cifras: "
+                "las cifras y las citas salen del resto de facts.")
+
+
+def _bitacora(notes: list[dict]) -> dict | None:
+    """Las notas del período, sin los refs del digest (otro espacio de ids). Sus cifras no cuentan como facts."""
+    if not notes:
+        return None
+    from app.rules.note import REF
+
+    def clean(text: str) -> str:
+        return " ".join(REF.sub("", text).split()).replace(" .", ".").replace(" ,", ",")
+    return {"uso": BITACORA_USE, "notas": [{"fecha": _ddmm(n["date"]), "texto": clean(n["text"]),
+                                           "seguir_mirando": n["follow_up"]} for n in notes]}
 
 
 def _pct(value: float) -> float:

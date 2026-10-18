@@ -70,6 +70,8 @@
       <div style="font-size: 13px; color: var(--color-tinta-suave)">{{ t.tests | length }} sesiones. Comparado solo contra su propio historial. No es un diagnóstico.</div>
       {% else %}<div style="font-size: 15px; color: var(--color-tinta-suave)">Todavía no hay juegos.</div>{% endif %}
     </div>
+
+    {% include "neuro/_bitacora.html" %}
   </div>
 </div>
 <script id="datos-tecnica" type="application/json">{{ t | tojson }}</script>

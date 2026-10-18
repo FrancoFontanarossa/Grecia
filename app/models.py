@@ -272,9 +272,21 @@ class PlannedAction(BaseModel):
     evidence_ids: list[str]                 # refs del digest: "relato:<id>", "episodio:<id>", "juego:<id>", "dia:<AAAA-MM-DD>"
 
 
-class DailyPlan(BaseModel):
+class NotePoint(BaseModel):
+    text: str
+    evidence_ids: list[str]                 # refs del digest ("relato:<id>", "episodio:<id>", "dia:<fecha>", "nota:<fecha>")
+
+
+class DailyNote(BaseModel):                 # bitácora de la revisión diaria: solo para el equipo médico
+    text: str                               # 3 a 5 líneas de prosa clínica sobria, con refs entre corchetes
+    points: list[NotePoint] = Field(default_factory=list)
+    follow_up: list[str] = Field(default_factory=list)      # "seguir mirando"
+
+
+class DailyPlan(BaseModel):                 # salida de la revisión diaria (pipeline.daily_plan)
     hypotheses: list[Hypothesis] = Field(default_factory=list, max_length=3)
     actions: list[PlannedAction] = Field(default_factory=list, max_length=2)
+    note: DailyNote | None = None
 
 
 class PatternCandidate(BaseModel):          # P1: salida de pipeline.daily_review (sección 7.3 bis)

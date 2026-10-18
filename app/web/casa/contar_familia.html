@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "casa/_nav.html" import volver %}
 {% block title %}Contar algo · Entrecasa{% endblock %}
 {% block content %}
 {# v3.1 · 8 Contar algo (familia) (design/v3/pantallas-v31.html): cuándo, lo dicho, lo entendido y la privacidad.
@@ -7,9 +8,8 @@
       x-data="contar({ personId: {{ person.id }}, questionId: {{ question_id or 'null' }}, correctId: {{ correct_id or 'null' }}, startMode: '{{ start_mode }}', family: true, backUrl: '/casa' })">
   <div class="cont">
     <div class="top">
-      <a href="/casa" class="circ" aria-label="Volver"><svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="#0E1A2B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3L3 10l6 7"/></svg></a>
-      <span class="chip">Contar algo de {{ patient.name }}</span>
-      <span style="width: 46px"></span>
+      {{ volver(click="_cleanup()") }}
+      <span class="chip" x-text="(phase === 'escribir' || (phase === 'procesando' && writing)) ? 'Escribir' : 'Contar algo de {{ patient.name }}'">Contar algo de {{ patient.name }}</span>
     </div>
 
     {# ---------- ¿cuándo pasó? (OccurredHint del contrato) ---------- #}
@@ -55,7 +55,7 @@
     <template x-if="phase === 'escribir'">
       <div style="margin-top: 12px">
         <label for="texto-familia" class="sr-only">Contalo con tus palabras</label>
-        <textarea id="texto-familia" class="caja-texto vidrio" style="font-size: 17px; line-height: 24px; min-height: 150px" x-model="text" placeholder="Por ejemplo: anoche se levantó dos veces medio confundido."></textarea>
+        <textarea id="texto-familia" class="caja-texto vidrio" style="font-size: 17px; line-height: 24px; min-height: 150px" x-model="text" placeholder="Por ejemplo: hoy a la tarde me costó levantarme del sillón" x-init="$nextTick(() => $el.focus())"></textarea>
         <div x-show="error" x-text="error" class="cap" style="margin-top: 6px"></div>
       </div>
     </template>
@@ -75,7 +75,7 @@
     <template x-if="phase === 'resultado'">
       <div>
         <div class="rot">Lo que entendimos</div>
-        <template x-for="(u, i) in (result.understood || [])" :key="i">
+        <template x-for="(u, i) in (result?.understood || [])" :key="i">
           <div class="fila" style="align-items: flex-start; padding-top: 14px; padding-bottom: 16px">
             <div class="tx">
               <span class="pil pil--chica" x-text="(u.when ? u.when.charAt(0).toUpperCase() + u.when.slice(1) + ' · ' : '') + (u.domain_label || 'Otro')"></span>
@@ -83,8 +83,8 @@
             </div>
           </div>
         </template>
-        <div class="fila" x-show="!(result.understood || []).length"><div class="tx cuerpo" style="color: var(--tinta2)">No encontramos algo para anotar. Lo guardamos tal cual para la {{ doctor }}.</div></div>
-        <div x-show="result.simulated" class="cap" style="font-size: 13px; padding: 0 20px">Simulado: la IA todavía no está conectada.</div>
+        <div class="fila" x-show="!(result?.understood || []).length"><div class="tx cuerpo" style="color: var(--tinta2)">No encontramos algo para anotar. Lo guardamos tal cual para la {{ doctor }}.</div></div>
+        <div x-show="result?.simulated" class="cap" style="font-size: 13px; padding: 0 20px">Simulado: la IA todavía no está conectada.</div>
       </div>
     </template>
 
@@ -108,10 +108,10 @@
           <button type="button" class="btn r" @click="terminar()" :disabled="phase !== 'grabando'"><span style="width: 18px; height: 18px; border-radius: 5px; background: #FFFFFF" aria-hidden="true"></span>Terminar</button>
         </div>
       </template>
-      <template x-if="phase === 'escribir'">
+      <template x-if="phase === 'escribir' || (phase === 'procesando' && writing)">
         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px">
-          <button type="button" class="btn s" @click="empezar()">Grabar</button>
-          <button type="button" class="btn p" @click="enviarTexto()" :disabled="!text.trim()">Guardar</button>
+          <button type="button" class="btn s" @click="empezar()" :disabled="phase === 'procesando'">Grabar</button>
+          <button type="button" class="btn p" @click="enviarTexto()" :disabled="phase === 'procesando' || !text.trim()">Guardar</button>
         </div>
       </template>
       <template x-if="phase === 'error'">
@@ -122,7 +122,7 @@
       </template>
       <template x-if="phase === 'resultado'">
         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px">
-          <button type="button" class="btn s" @click="regrabar()">Regrabar</button>
+          <button type="button" class="btn s" @click="writing ? corregir() : regrabar()" x-text="writing ? 'Corregir' : 'Regrabar'">Corregir</button>
           <button type="button" class="btn p" @click="guardar()">Guardar</button>
         </div>
       </template>
