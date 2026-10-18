@@ -86,9 +86,9 @@ html:has(.pantalla--roja) { background: var(--color-rojo-fondo); }
 .grilla-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
 
 .quick-reply {
-  display: flex; align-items: center; min-height: 64px; padding: 0 20px; border-radius: 18px;
-  border: 2px solid var(--color-pino); background: var(--color-superficie); color: var(--color-tinta);
-  font-size: 21px; text-align: left; width: 100%;
+  display: flex; align-items: center; min-height: 64px; padding: 0 20px; border-radius: var(--radius-boton);
+  border: 1px solid var(--color-linea); background: var(--color-superficie); color: var(--color-tinta);
+  font-size: 20px; font-weight: 500; text-align: left; width: 100%; touch-action: manipulation;
 }
 .quick-reply[aria-pressed="true"] { background: var(--color-pino); color: #FFFFFF; }
 
@@ -250,3 +250,5 @@ html:has(.pantalla--roja) { background: var(--color-rojo-fondo); }
 .botones-v2 a { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 60px; border-radius: var(--radius-boton); font-weight: 600; font-size: 18px; text-decoration: none; }
 .botones-v2__pri { background: var(--color-pino); color: #FFFFFF; }
 .botones-v2__sec { background: #FFFFFF; color: var(--color-tinta); border: 1px solid var(--color-linea); }
+/* Pregunta v2: salida grande y siempre al pie */
+.btn-salida { display: flex; align-items: center; justify-content: center; min-height: 64px; border-radius: var(--radius-boton); background: #FFFFFF; border: 1px solid var(--color-linea); color: var(--color-tinta); font-size: 20px; font-weight: 600; text-decoration: none; touch-action: manipulation; }
