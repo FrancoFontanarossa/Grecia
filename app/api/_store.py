@@ -20,7 +20,7 @@ JUAN_PATIENT_ID = 1
 TEST_PATIENT_ID = 5          # data/seed.py: Paciente de prueba = 5, Familiar de prueba = 6
 DOSE_TIMES = ["08:00", "12:00", "16:00", "20:00"]
 GOAL_STEPS = 4000
-PRAMIPEXOL_CHANGED = dt.date(2026, 9, 22)
+PRAMIPEXOL_CHANGED = dt.date(2026, 10, 3)
 NEXT_VISIT = dt.date(2026, 10, 28)
 DOCTOR = "Dra. Pereira"
 
@@ -204,7 +204,7 @@ def medications(patient_id: int) -> list[dict]:
     if patient_id != JUAN_PATIENT_ID:
         return []
     return [{"drug": "levodopa/carbidopa", "times": DOSE_TIMES, "changed_at": None, "change_note": None},
-            {"drug": "pramipexol", "times": [], "changed_at": "2026-09-22T09:00:00-03:00", "change_note": "subido"}]
+            {"drug": "pramipexol", "times": [], "changed_at": "2026-10-03T09:00:00-03:00", "change_note": "subido"}]
 
 
 # ================================================================ pasos
