@@ -135,3 +135,13 @@ def test_sin_key_es_error_claro_y_no_typeerror(monkeypatch):
 def test_atribucion_sin_comillas(raw, clean, monkeypatch):
     monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([ev(foreign_attribution=raw)])))
     assert run(entry())[0].foreign_attribution == clean
+
+
+def test_atribucion_de_otra_persona_no_puede_decir_vos_pensas(monkeypatch):
+    mal = ev(foreign_attribution="no es nada", attribution_by="otra_persona", plain="Juan se tambaleó. Vos pensás que no es nada.",
+             quote="se tambaleó en la vereda", domain="caidas", symptom="casi_caida")
+    bien = {**mal, "plain": "Juan se tambaleó. Tu mamá piensa que no es nada."}
+    fake = FakeModel(tool_response([mal]), tool_response([bien]))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    [e] = run(entry(text="Mamá me contó que se tambaleó en la vereda, pero dice que no es nada.", role="familiar"))
+    assert "Tu mamá piensa" in e.plain and len(fake.calls) == 2

@@ -80,8 +80,7 @@ def test_explicado_no_molesta(at_1805, pushes, monkeypatch):
                     question_id=None, occurred_hint=None, reserved_requested=False, source="app")
     monkeypatch.setattr(llm, "_create", FakeSonnet({"explained": True, "by": ["fui al dentista"], "reasoning": "x"}))
     assert run_tick(monkeypatch, trigger()) == []
-    [q] = rows("SELECT * FROM questions")
-    assert q["status"] == "descartada" and rows("SELECT status FROM episodes") == [{"status": "explicado"}]
+    assert rows("SELECT * FROM questions") == [] and rows("SELECT status FROM episodes") == [{"status": "explicado"}]
     assert pushes == [] and rows("SELECT * FROM notifications") == []
     assert run_tick(monkeypatch, trigger()) == []          # tampoco lo vuelve a evaluar
 
@@ -139,15 +138,6 @@ def test_respuesta_de_otra_persona_no_cierra_la_pregunta(at_1805, pushes, monkey
     assert rows("SELECT status FROM questions") == [{"status": "enviada"}]
 
 
-def test_stub_de_disparadores_y_budget_temporal():
-    from app import _tmp_rules
-    now = dt.datetime(2026, 10, 17, 12, 0, tzinfo=TZ)
-    assert _tmp_rules.triggers_evaluate(1, now) == []
-    assert _tmp_rules.budget_allow("pregunta", now, 0) and not _tmp_rules.budget_allow("pregunta", now, 1)
-    assert not _tmp_rules.budget_allow("pregunta", now.replace(hour=7), 0)
-    assert _tmp_rules.budget_allow("rojo", now.replace(hour=3), 5)
-
-
 def test_el_middleware_pide_tick_al_mover_el_reloj(tmp_data_dir, monkeypatch):
     from app.main import app
     kicks = []
@@ -175,3 +165,107 @@ def test_tick_now_es_idempotente(at_1805, pushes, monkeypatch):
         return await asyncio.gather(scheduler.tick_now(), scheduler.tick_now())
     first, second = asyncio.run(twice())
     assert sorted([len(first), len(second)]) == [0, 1] and len(rows("SELECT * FROM questions")) == 1
+
+
+
+def test_desvio_sin_presupuesto_igual_guarda_el_episodio(at_1805, pushes, monkeypatch):
+    """Si otra pregunta ya gastó el presupuesto del día, el desvío queda como episodio (cuenta para A3 e informe)."""
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    otro = trigger(rule_id="P-REPITE", facts={}, why="x")
+    run_tick(monkeypatch, otro)                                     # gasta la pregunta de Juan
+    monkeypatch.setattr(llm, "_create", FakeSonnet({"explained": False, "by": [], "reasoning": "x"}))
+    assert run_tick(monkeypatch, trigger()) == []
+    assert rows("SELECT status, question_id FROM episodes") == [{"status": "sin_pregunta", "question_id": None}]
+
+
+def test_disparador_de_texto_no_se_repite_en_7_dias(tmp_data_dir, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    repite = trigger(rule_id="P-REPITE", facts={}, why="x")
+    clock.set("2026-10-14T09:00:00")
+    assert len(run_tick(monkeypatch, repite)) == 1
+    for day in ("15", "16", "17"):
+        clock.set(f"2026-10-{day}T09:00:00")
+        assert run_tick(monkeypatch, repite) == []
+    clock.set("2026-10-21T09:05:00")
+    assert len(run_tick(monkeypatch, repite)) == 1
+
+
+def test_el_desvio_va_primero_en_el_tick(at_1805, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    sent = run_tick(monkeypatch, trigger(rule_id="P-REPITE", facts={}, why="x"), trigger())
+    [q] = rows("SELECT rule_id FROM questions WHERE id = %d" % sent[0])
+    assert q["rule_id"] == "P-DESVIO" and len(sent) == 1           # la única pregunta del día es la del desvío
+
+
+
+def test_las_preguntas_de_dias_anteriores_vencen(tmp_data_dir, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    clock.set("2026-10-16T18:05:00")
+    viernes = trigger(facts={**trigger().facts, "dose_time": "2026-10-16T16:00:00-03:00"})
+    [qid] = run_tick(monkeypatch, viernes)
+    clock.set("2026-10-17T10:00:00")
+    run_tick(monkeypatch)
+    assert rows(f"SELECT status FROM questions WHERE id = {qid}") == [{"status": "descartada"}]
+
+
+def test_respuesta_tardia_se_guarda_como_relato(tmp_data_dir, pushes, monkeypatch):
+    from app.main import app
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    clock.set("2026-10-16T18:05:00")
+    [qid] = run_tick(monkeypatch, trigger(facts={**trigger().facts, "dose_time": "2026-10-16T16:00:00-03:00"}))
+    clock.set("2026-10-17T10:00:00")
+    run_tick(monkeypatch)
+    r = TestClient(app).post("/api/entries", data={"person_id": 1, "question_id": qid, "quick_reply": "Estaba duro"})
+    assert r.status_code == 200
+    [e] = rows("SELECT question_id, raw_text FROM entries")
+    assert e == {"question_id": None, "raw_text": "Estaba duro"}
+    assert rows(f"SELECT status FROM questions WHERE id = {qid}") == [{"status": "descartada"}]
+
+
+def test_una_vencida_no_bloquea_la_caida_en_vivo_del_sabado(tmp_data_dir, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    clock.set("2026-10-16T18:05:00")
+    run_tick(monkeypatch, trigger(facts={**trigger().facts, "dose_time": "2026-10-16T16:00:00-03:00"}))
+    clock.set("2026-10-17T18:05:00")
+    [qid] = run_tick(monkeypatch, trigger())                      # la caída del sábado 16:00
+    q = rows(f"SELECT status, sent_at FROM questions WHERE id = {qid}")[0]
+    assert q["status"] == "enviada" and q["sent_at"].startswith("2026-10-17")
+
+
+def test_el_episodio_tiene_el_deviation_completo_antes_de_la_push(at_1805, monkeypatch):
+    """Con los facts como los pone rules.triggers.p_desvio (el Deviation directo), y antes de que salga la push."""
+    from app import notify
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    seen = {}
+    real_send = notify.send
+
+    async def spy(person_id, kind, title, body, url, **kw):
+        seen["episodes"] = rows("SELECT deviation, question_id FROM episodes")
+        return await real_send(person_id, kind, title, body, url, **kw)
+    monkeypatch.setattr(notify, "send", spy)
+    p_desvio = Trigger(rule_id="P-DESVIO", patient_id=1, to_person_id=1, facts=DEV.model_dump(mode="json"),
+                       why="Otras tardes de semana ≈ 1.300 pasos de 16 a 18 h; hoy 420.")
+    [qid] = run_tick(monkeypatch, p_desvio)
+    [ep] = seen["episodes"]
+    assert ep["question_id"] == qid
+    dev = json.loads(ep["deviation"])
+    assert {k: dev[k] for k in ("window", "observed", "median", "z", "pct_change", "baseline", "baseline_n")} == {
+        "window": "16:00-18:00", "observed": 420, "median": 1300.0, "z": -4.1, "pct_change": -0.68,
+        "baseline": "estrato", "baseline_n": 8}
+    assert dev["dose_time"].startswith("2026-10-17T16:00") and dev["baseline_label"] == "otras tardes entre semana"
+
+
+def test_si_evaluate_falla_para_un_paciente_siguen_los_demas(tmp_data_dir, pushes, monkeypatch, caplog):
+    from app import db as base_db
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    with base_db.connect() as conn:
+        conn.execute("INSERT INTO people (id, patient_id, role, name, relation) VALUES (5, 5, 'paciente', 'Prueba', 'paciente')")
+    clock.set("2026-10-17T18:05:00")
+
+    def evaluate(pid, now):
+        if pid == 1:
+            raise RuntimeError("datos raros con texto de un relato")
+        return [trigger(patient_id=5, to_person_id=5)]
+    monkeypatch.setattr(scheduler, "evaluate", evaluate)
+    assert len(asyncio.run(scheduler.tick())) == 1                 # el paciente 5 igual recibe su pregunta
+    assert "paciente 1 (RuntimeError)" in caplog.text and "datos raros" not in caplog.text

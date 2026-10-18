@@ -52,11 +52,18 @@ COMPARISON_WORDS = re.compile(r"\b(lunes|martes|miercoles|jueves|viernes|sabados
 
 
 def baseline_label(trigger: Trigger) -> str:
-    return str((trigger.facts or {}).get("baseline_label") or DEFAULT_BASELINE_LABEL)
+    """La base contra la que comparó el código: facts["baseline_label"], o lo que rules.triggers puso antes de "≈"
+    en el why ("Otras tardes de semana ≈ 1.300 pasos…" → "otras tardes de semana"), o "otras tardes"."""
+    label = (trigger.facts or {}).get("baseline_label")
+    if not label and "≈" in (trigger.why or ""):
+        label = trigger.why.split("≈", 1)[0].strip()
+    label = str(label or DEFAULT_BASELINE_LABEL).lower()
+    return re.sub(r"\b(tardes|mañanas|noches|días) de semana\b", r"\1 entre semana", label)
 
 
 def _facts_text(trigger: Trigger) -> str:
-    return _fold(" ".join(str(v) for v in (trigger.facts or {}).values() if isinstance(v, str)))
+    values = [str(v) for v in (trigger.facts or {}).values() if isinstance(v, str)]
+    return _fold(" ".join([*values, baseline_label(trigger)]))
 
 
 def check(out: _Output, trigger: Trigger | None = None) -> None:
@@ -88,7 +95,7 @@ async def ask(trigger: Trigger, context: PromptContext) -> QuestionText:
         out = await llm.call_tool(prompt(), TOOL, user_message(trigger, context), _Output,
                                   check=lambda o: check(o, trigger), max_tokens=2048)
     except llm.LLMError as exc:
-        log.error("ask falló; pregunta fija del banco para %s: %s", trigger.rule_id, exc)
+        log.error("ask falló; pregunta fija del banco para %s (%s)", trigger.rule_id, type(exc).__name__)
         return question_bank.proactive(trigger.rule_id, context.patient_name, context.recipient_role,
                                        baseline_label=baseline_label(trigger))
     return QuestionText(question=out.question.strip(), options=[o.strip() for o in out.options])

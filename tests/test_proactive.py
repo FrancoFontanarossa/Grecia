@@ -181,3 +181,19 @@ def test_pregunta_fija_usa_la_etiqueta(monkeypatch):
     t = TRIGGER.model_copy(update={"facts": {"baseline_label": "otros días hábiles"}})
     assert "otros días hábiles" in asyncio.run(ask.ask(t, ctx())).question
     assert "otras tardes" in asyncio.run(ask.ask(TRIGGER, ctx())).question
+
+
+def test_etiqueta_desde_el_why_de_rules_triggers(monkeypatch):
+    fake = FakeSonnet(GOOD)
+    monkeypatch.setattr(llm, "_create", fake)
+    t = Trigger(rule_id="P-DESVIO", patient_id=1, to_person_id=1, facts=DEV.model_dump(mode="json"),
+                why="Otras tardes de semana ≈ 1.300 pasos de 16 a 18 h; hoy 420.")
+    assert ask.baseline_label(t) == "otras tardes entre semana"
+    asyncio.run(ask.ask(t, ctx()))
+    assert '"otras tardes entre semana"' in fake.calls[0]["messages"][0]["content"]
+
+
+def test_contexto_acepta_el_deviation_directo_en_facts():
+    t = Trigger(rule_id="P-DESVIO", patient_id=1, to_person_id=1, facts=DEV.model_dump(mode="json"), why="x")
+    assert context.deviation_from(t) == DEV
+    assert context.deviation_from(t.model_copy(update={"facts": {}})) is None

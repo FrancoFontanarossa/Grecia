@@ -111,3 +111,14 @@ def test_vapid_public_key_faltante_da_503(monkeypatch):
     from app.main import app
     monkeypatch.delenv("VAPID_PUBLIC_KEY", raising=False)
     assert TestClient(app).get("/api/push/vapid-public-key").status_code == 503
+
+
+def test_el_endpoint_se_loguea_solo_con_8_caracteres(tmp_data_dir, monkeypatch, caplog):
+    import logging
+    caplog.set_level(logging.INFO)
+    def gone(**kw):
+        raise WebPushException("gone", response=SimpleNamespace(status_code=410, text=""))
+    monkeypatch.setattr(push, "webpush", gone)
+    _subscribe(1, "https://web.push.apple.com/SECRETO-LARGO-abcd1234")
+    asyncio.run(notify.send(1, "resumen", "x", "x", "/casa"))
+    assert "abcd1234" in caplog.text and "SECRETO-LARGO" not in caplog.text

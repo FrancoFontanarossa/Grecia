@@ -45,6 +45,48 @@ def set_entry_text(entry_id: int, raw_text: str) -> None:
         conn.execute("UPDATE entries SET raw_text = ? WHERE id = ?", (raw_text, entry_id))
 
 
+def reset_for_correction(entry_id: int, *, raw_text: str, modality: str, audio_path: str | None,
+                         alert_label) -> tuple[int, int]:
+    """Antes de reprocesar una corrección: texto nuevo y corrected=1, se borran los eventos de la entrada y los
+    avisos A1/A2 que dejaron (los que nombran su síntoma, desde que se cargó la entrada). Los rojos no se tocan.
+    `alert_label` es la etiqueta de síntoma que usa rules.lanes en sus textos. Devuelve (eventos, avisos) borrados."""
+    with db.connect() as conn:
+        entry = conn.execute("SELECT patient_id, created_at FROM entries WHERE id = ?", (entry_id,)).fetchone()
+        symptoms = [r["symptom"] for r in conn.execute("SELECT symptom FROM events WHERE entry_id = ?", (entry_id,))]
+        n_events = conn.execute("DELETE FROM events WHERE entry_id = ?", (entry_id,)).rowcount
+        n_alerts = 0
+        for symptom in set(symptoms):
+            n_alerts += conn.execute(
+                "DELETE FROM alerts WHERE patient_id = ? AND lane != 'rojo' AND rule_id IN ('A1', 'A2')"
+                " AND created_at >= ? AND text LIKE ?",
+                (entry["patient_id"], entry["created_at"], f"%{alert_label(symptom)}%")).rowcount
+        sets, args = ["raw_text = ?", "corrected = 1", "modality = ?"], [raw_text, modality]
+        if audio_path:
+            sets.append("audio_path = ?")
+            args.append(audio_path)
+        conn.execute(f"UPDATE entries SET {', '.join(sets)} WHERE id = ?", (*args, entry_id))
+    return n_events, n_alerts
+
+
+def entry_view(entry_id: int, window_seconds: int = 120) -> dict | None:
+    """Entrada, sus eventos y los avisos que dejó (los del paciente creados mientras se procesaba)."""
+    import json
+    from app.models import Alert
+    with db.connect() as conn:
+        entry = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
+        if entry is None:
+            return None
+        events = [dict(r) for r in conn.execute("SELECT * FROM events WHERE entry_id = ? ORDER BY id", (entry_id,))]
+        start = db.from_db(entry["created_at"])
+        rows = conn.execute("SELECT * FROM alerts WHERE patient_id = ? AND created_at >= ? AND created_at <= ? ORDER BY id",
+                            (entry["patient_id"], entry["created_at"],
+                             db.to_db(start + dt.timedelta(seconds=window_seconds)))).fetchall()
+    alerts = [Alert.model_validate({**dict(r), "recipients": json.loads(r["recipients"] or "[]"),
+                                    "created_at": db.from_db(r["created_at"]),
+                                    "acked_at": db.from_db(r["acked_at"]) if r["acked_at"] else None}) for r in rows]
+    return {"entry": dict(entry), "events": events, "alerts": alerts}
+
+
 def get_entry(entry_id: int) -> dict | None:
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
@@ -57,14 +99,6 @@ def mentioned_symptoms(patient_id: int) -> set[str]:
         rows = conn.execute("SELECT DISTINCT symptom FROM events WHERE patient_id = ? AND negated = 0",
                             (patient_id,)).fetchall()
     return {r["symptom"] for r in rows}
-
-
-def canal_reservado_active(patient_id: int) -> bool:
-    """Activo si algún destinatario lo tiene habilitado. Sin filas se asume activo: lo reservado no llega al paciente."""
-    with db.connect() as conn:
-        row = conn.execute("SELECT MAX(enabled) AS on_ FROM consents WHERE patient_id = ? AND kind = 'canal_reservado'",
-                           (patient_id,)).fetchone()
-    return bool(row["on_"]) if row and row["on_"] is not None else True
 
 
 _EVENT_COLUMNS = ("domain", "symptom", "severity", "negated", "occurred_at", "time_vague", "speaker_role",
@@ -130,13 +164,6 @@ def delete_subscription(endpoint: str) -> None:
         conn.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
 
 
-def patient_meds(patient_id: int) -> list[str]:
-    """Fármacos del esquema del paciente (med_schedule), para los criterios de los rojos."""
-    with db.connect() as conn:
-        rows = conn.execute("SELECT drug FROM med_schedule WHERE patient_id = ? ORDER BY drug", (patient_id,)).fetchall()
-    return [r["drug"] for r in rows]
-
-
 # ── Proactividad (scheduler) ───────────────────────────────────────────────────────────────────────────
 
 def patients() -> list[dict]:
@@ -176,6 +203,12 @@ def questions_on_day(to_person_id: int, day: dt.date, *, rule_id: str | None = N
         return conn.execute(sql, args).fetchone()[0]
 
 
+def questions_since(to_person_id: int, rule_id: str, since: dt.datetime) -> int:
+    with db.connect() as conn:
+        return conn.execute("SELECT count(*) FROM questions WHERE to_person_id = ? AND rule_id = ? AND sent_at >= ?",
+                            (to_person_id, rule_id, db.to_db(since))).fetchone()[0]
+
+
 def episode_for_dose(patient_id: int, dose_time: dt.datetime) -> dict | None:
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM episodes WHERE patient_id = ? AND dose_time = ?",
@@ -208,6 +241,20 @@ def insert_episode(*, patient_id: int, dose_time: dt.datetime, deviation: dict |
             (patient_id, db.to_db(dose_time), json.dumps(deviation, ensure_ascii=False, default=str) if deviation else None,
              json.dumps(explanation, ensure_ascii=False), question_id, status))
         return cur.lastrowid
+
+
+def expire_questions(today: dt.date) -> int:
+    """Las preguntas vencen: las 'enviada' o 'pendiente' de un día anterior pasan a 'descartada'."""
+    with db.connect() as conn:
+        return conn.execute("UPDATE questions SET status = 'descartada' WHERE status IN ('enviada', 'pendiente')"
+                            " AND substr(sent_at, 1, 10) < ?", (today.isoformat(),)).rowcount
+
+
+def answerable_question(question_id: int, person_id: int) -> bool:
+    """¿Esta persona puede responder esta pregunta ahora? (es suya y no venció ni se respondió)."""
+    with db.connect() as conn:
+        q = conn.execute("SELECT to_person_id, status FROM questions WHERE id = ?", (question_id,)).fetchone()
+    return bool(q) and q["to_person_id"] == person_id and q["status"] in ("enviada", "pendiente")
 
 
 def answer_question(question_id: int, person_id: int, entry_id: int) -> bool:

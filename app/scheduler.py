@@ -4,29 +4,23 @@
 import asyncio
 import datetime as dt
 import logging
+import sys
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
-from app import _tmp_rules, clock, notify
+from app import clock, notify
 from app.models import Explanation, Trigger
 from app.pipeline import ask as ask_pipeline
 from app.pipeline import context as context_builder
 from app.pipeline import explain as explain_pipeline
 
-try:                                   # las reglas son de Franco; mientras no estén, los TEMPORAL
-    from app.rules import triggers as _triggers  # type: ignore
-    evaluate = _triggers.evaluate
-except ImportError:
-    evaluate = _tmp_rules.triggers_evaluate
+from app.rules import budget, lanes
+from app.rules.triggers import evaluate
+from app.notify import dispatch
 
-try:
-    from app.rules import budget as _budget  # type: ignore
 
-    def budget_allow(person_id: int, kind: str, now: dt.datetime) -> bool:
-        return _budget.allow(person_id, kind, now)
-except ImportError:
-    def budget_allow(person_id: int, kind: str, now: dt.datetime) -> bool:
-        sent = db.questions_on_day(person_id, now.date(), statuses=("pendiente", "enviada", "respondida"))
-        return _tmp_rules.budget_allow(kind, now, sent)
+def budget_allow(person_id: int, kind: str, now: dt.datetime) -> bool:
+    return budget.allow(person_id, kind, now)
+
 
 log = logging.getLogger("entrecasa.scheduler")
 
@@ -45,52 +39,72 @@ def _dose_time(trigger: Trigger) -> dt.datetime | None:
     return raw if isinstance(raw, dt.datetime) else dt.datetime.fromisoformat(str(raw))
 
 
+REPEAT_DAYS = 7   # un disparador de texto no vuelve a preguntarle lo mismo a la misma persona antes de esto
+
+
 def _already_handled(trigger: Trigger, now: dt.datetime) -> bool:
     dose = _dose_time(trigger)
-    if dose is not None and db.episode_for_dose(trigger.patient_id, dose):
-        return True
-    return db.questions_on_day(trigger.to_person_id, now.date(), rule_id=trigger.rule_id) > 0
+    if dose is not None:
+        return db.episode_for_dose(trigger.patient_id, dose) is not None
+    since = now - dt.timedelta(days=REPEAT_DAYS)
+    return db.questions_since(trigger.to_person_id, trigger.rule_id, since) > 0
 
 
 async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
-    """Procesa un disparador. Devuelve el id de la pregunta enviada, o None si no se preguntó."""
+    """Procesa un disparador. Devuelve el id de la pregunta enviada, o None si no se preguntó.
+    Desvío (con toma): siempre se explica y se guarda el episodio; el presupuesto solo decide si se pregunta.
+    Disparadores de texto: como mucho uno por regla y persona cada REPEAT_DAYS, y sin gastar IA si no hay presupuesto."""
     if await asyncio.to_thread(db.person_role, trigger.to_person_id) is None:
         log.warning("%s para una persona que no existe (%s): se ignora", trigger.rule_id, trigger.to_person_id)
         return None
     if await asyncio.to_thread(_already_handled, trigger, now):
         return None
-    # El presupuesto se mira antes de explain para no gastar una llamada a la IA si igual no se va a preguntar.
-    if not await asyncio.to_thread(budget_allow, trigger.to_person_id, "pregunta", now):
+    dose = _dose_time(trigger)
+    if dose is None and not await asyncio.to_thread(budget_allow, trigger.to_person_id, "pregunta", now):
         log.info("presupuesto: no se pregunta %s a %s", trigger.rule_id, trigger.to_person_id)
         return None
 
     ctx = await context_builder.build(trigger, now)
     explanation: Explanation = await explain_pipeline.explain(trigger, ctx)
-    dose = _dose_time(trigger)
-    deviation = ctx.deviation.model_dump(mode="json") if ctx.deviation else None
+    deviation = ({**ctx.deviation.model_dump(mode="json"), "baseline_label": ask_pipeline.baseline_label(trigger)}
+                 if ctx.deviation else None)
 
-    if explanation.explained:
-        await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id, to_person_id=trigger.to_person_id,
-                                rule_id=trigger.rule_id, question="", why=trigger.why, options=[],
-                                status="descartada", sent_at=now)
+    async def save_episode(status: str, question_id: int | None) -> None:
         if dose is not None:
             await asyncio.to_thread(db.insert_episode, patient_id=trigger.patient_id, dose_time=dose,
-                                    deviation=deviation, explanation=explanation.model_dump(), question_id=None,
-                                    status="explicado")
-        log.info("%s explicado por lo que ya contaron: %s", trigger.rule_id, explanation.reasoning)
+                                    deviation=deviation, explanation=explanation.model_dump(),
+                                    question_id=question_id, status=status)
+            await _episode_alerts(trigger.patient_id)
+
+    if explanation.explained:
+        if dose is None:   # marca para no volver a evaluarlo (los desvíos se marcan con el episodio)
+            await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id,
+                                    to_person_id=trigger.to_person_id, rule_id=trigger.rule_id, question="",
+                                    why=trigger.why, options=[], status="descartada", sent_at=now)
+        log.info("%s explicado por lo que ya contaron (persona %s)", trigger.rule_id, trigger.to_person_id)
+        await save_episode("explicado", None)
+        return None
+
+    if dose is not None and not await asyncio.to_thread(budget_allow, trigger.to_person_id, "pregunta", now):
+        log.info("presupuesto: desvío de las %s sin pregunta para %s", f"{dose:%H:%M}", trigger.to_person_id)
+        await save_episode("sin_pregunta", None)
         return None
 
     text = await ask_pipeline.ask(trigger, ctx)
     qid = await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id,
                                   to_person_id=trigger.to_person_id, rule_id=trigger.rule_id, question=text.question,
                                   why=trigger.why, options=text.options, status="enviada", sent_at=now)
-    if dose is not None:
-        await asyncio.to_thread(db.insert_episode, patient_id=trigger.patient_id, dose_time=dose, deviation=deviation,
-                                explanation=explanation.model_dump(), question_id=qid, status="preguntado")
+    await save_episode("preguntado", qid)   # antes de la push: la pantalla del "por qué" lee episodes.deviation
     title = f"{ctx.patient_name}, una pregunta de hoy" if ctx.recipient_role == "paciente" else "Una pregunta de hoy"
     await notify.send(trigger.to_person_id, "pregunta", title, text.question, f"/casa/pregunta/{qid}")
     log.info("pregunta %s (%s) enviada a %s", qid, trigger.rule_id, trigger.to_person_id)
     return qid
+
+
+async def _episode_alerts(patient_id: int) -> None:
+    """Con un episodio nuevo, rules.lanes ve si se cumple A3 (3 en 7 días en el mismo tramo) y se reparte."""
+    alerts = await asyncio.to_thread(lanes.evaluate, patient_id, [])
+    await dispatch.dispatch(alerts)
 
 
 async def tick() -> list[int]:
@@ -98,13 +112,21 @@ async def tick() -> list[int]:
     sent: list[int] = []
     async with _lock:
         now = await asyncio.to_thread(clock.now)
+        expired = await asyncio.to_thread(db.expire_questions, now.date())
+        if expired:
+            log.info("%s preguntas de días anteriores vencieron", expired)
         for patient in await asyncio.to_thread(db.patients):
-            triggers = await asyncio.to_thread(evaluate, patient["id"], now)
-            for trigger in triggers:
+            try:
+                triggers = await asyncio.to_thread(evaluate, patient["id"], now)
+            except Exception as exc:   # un paciente con datos raros no frena a los demás
+                log.error("falló rules.triggers.evaluate para el paciente %s (%s)", patient["id"], type(exc).__name__)
+                continue
+            # Primero los desvíos: si hay pregunta del día, es para lo que midió el teléfono.
+            for trigger in sorted(triggers, key=lambda t: _dose_time(t) is None):
                 try:
                     qid = await handle(trigger, now)
                 except Exception:
-                    log.exception("falló el disparador %s", trigger.rule_id)
+                    log.error("falló el disparador %s (%s)", trigger.rule_id, type(sys.exc_info()[1]).__name__)
                     continue
                 if qid:
                     sent.append(qid)
@@ -128,7 +150,7 @@ async def _loop() -> None:
         try:
             await tick()
         except Exception:
-            log.exception("falló el tick")
+            log.error("falló el tick (%s)", type(sys.exc_info()[1]).__name__)
 
 
 def start() -> None:

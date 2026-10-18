@@ -18,7 +18,9 @@ def for_recipient(rows: list[dict], recipient_role: str) -> list[ContextEntry]:
 
 
 def deviation_from(trigger: Trigger) -> Deviation | None:
-    raw = trigger.facts.get("deviation") if trigger.facts else None
+    """rules.triggers.p_desvio pone el Deviation directo en facts; también se acepta facts["deviation"]."""
+    facts = trigger.facts or {}
+    raw = facts.get("deviation") or (facts if {"dose_time", "observed", "median"} <= facts.keys() else None)
     return Deviation.model_validate(raw) if raw else None
 
 

@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import re
 import uuid
 from pathlib import Path
 
@@ -25,7 +26,26 @@ PROMPT = ("Relato en español rioplatense sobre la vida diaria de una persona co
 
 
 class TranscriptionError(Exception):
-    """No se pudo pasar el audio a texto (sin key, la API falló o no se entendió nada)."""
+    """No se pudo pasar el audio a texto (sin key o la API falló)."""
+
+
+class NotHeard(TranscriptionError):
+    """El audio está vacío o no se entiende: la app muestra "No te escuché bien. ¿Probamos de nuevo?"."""
+
+
+# Lo que Whisper suele "inventar" sobre silencio o ruido.
+_SILENCE_HALLUCINATIONS = ("subtitulos realizados", "amara.org", "gracias por ver", "suscribete", "subtitulado por")
+
+
+_FILLERS = re.compile(r"^(?:\s*(?:m+|h+m+|e+h*|a+h*|o+h*|u+h*m*)\s*)*$")
+
+
+def unintelligible(text: str) -> bool:
+    """Vacío, solo muletillas ("mmm", "eh") o lo que Whisper inventa sobre silencio."""
+    from app.taxonomy import _fold
+    folded = _fold(text)
+    return (sum(ch.isalnum() for ch in folded) < 3 or bool(_FILLERS.match(folded))
+            or any(h in folded for h in _SILENCE_HALLUCINATIONS))
 
 
 class UnsupportedAudio(ValueError):
@@ -48,7 +68,7 @@ def save_audio(data: bytes, content_type: str | None) -> Path:
     """Guarda el audio en DATA_DIR/audios/ con la extensión correcta. Sync: llamar con asyncio.to_thread."""
     ext = extension_for(content_type)
     if not data:
-        raise UnsupportedAudio("El audio está vacío")
+        raise NotHeard("El audio está vacío")
     if len(data) > MAX_BYTES:
         raise UnsupportedAudio("El audio es demasiado largo")
     folder = audios_dir()
@@ -67,7 +87,7 @@ async def transcribe(audio_path: str | Path) -> str:
     if not os.environ.get("OPENAI_API_KEY"):
         raise TranscriptionError("Falta OPENAI_API_KEY")
     if _client is None:
-        _client = openai.AsyncOpenAI()
+        _client = openai.AsyncOpenAI(timeout=30.0, max_retries=1)
     data = await asyncio.to_thread(path.read_bytes)
     try:
         result = await _client.audio.transcriptions.create(
@@ -79,6 +99,6 @@ async def transcribe(audio_path: str | Path) -> str:
     except openai.OpenAIError as exc:
         raise TranscriptionError(f"Falló la transcripción: {exc}") from exc
     text = (result.text or "").strip()
-    if not text:
-        raise TranscriptionError("No se entendió nada en el audio")
+    if unintelligible(text):
+        raise NotHeard(f"No se entendió el audio ({text!r})")
     return text

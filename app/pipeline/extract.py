@@ -20,6 +20,7 @@ PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "extract.md"
 TOOL_NAME = "registrar_eventos"
 MAX_ATTEMPTS = 2   # 1 intento + 1 reintento
 MAX_TOKENS = 4096
+MAX_TEXT_CHARS = 3000   # un relato más largo se guarda entero, pero a la IA le llega recortado
 
 HINT_LABEL = {"ahora": "ahora", "esta_manana": "esta mañana", "esta_tarde": "esta tarde",
               "anoche": "anoche", "ayer": "ayer"}
@@ -35,6 +36,7 @@ class ExtractedEvent(BaseModel):          # lo que devuelve el modelo; el códig
     symptom: str
     negated: bool
     foreign_attribution: str | None
+    attribution_by: str | None = None        # quién dijo la atribución: quien_cuenta | paciente | otra_persona
     severity: int | None = Field(ge=0, le=4)
     time_said: TimeSaid
     quote: str = Field(min_length=1)
@@ -59,11 +61,12 @@ def tool_schema() -> dict:
             "symptom": {"type": "string", "enum": list(taxonomy.SYMPTOMS)},
             "negated": {"type": "boolean"},
             "foreign_attribution": _nullable({"type": "string"}),
+            "attribution_by": _nullable({"type": "string", "enum": ["quien_cuenta", "paciente", "otra_persona"]}),
             "severity": _nullable({"type": "integer", "enum": [0, 1, 2, 3, 4]}),
             "time_said": {
                 "type": "object",
                 "properties": {
-                    "day": {"type": "string", "enum": ["hoy", "ayer", "anteayer", "dia_semana", "no_dice"]},
+                    "day": {"type": "string", "enum": ["hoy", "ayer", "anteayer", "dia_semana", "no_dice", "habitual"]},
                     "weekday": _nullable({"type": "string", "enum": when.WEEKDAYS}),
                     "part": _nullable({"type": "string", "enum": list(when.PART_TIME)}),
                     "clock": _nullable({"type": "string", "description": "HH:MM, solo si el relato dice la hora"}),
@@ -75,7 +78,7 @@ def tool_schema() -> dict:
             "plain": {"type": "string"},
             "confidence": {"type": "number"},
         },
-        "required": ["domain", "symptom", "negated", "foreign_attribution", "severity", "time_said",
+        "required": ["domain", "symptom", "negated", "foreign_attribution", "attribution_by", "severity", "time_said",
                      "quote", "plain", "confidence"],
         "additionalProperties": False,
     }
@@ -121,7 +124,9 @@ def user_message(entry: Entry, *, patient_name: str, speaker_name: str | None) -
     created = entry.created_at.astimezone(TZ)
     who = f"{speaker_name} ({entry.speaker_role})" if speaker_name else entry.speaker_role
     hint = HINT_LABEL[entry.occurred_hint] if entry.occurred_hint else "no lo eligió"
-    text = entry.raw_text.replace("</relato>", "</ relato>")   # el relato no puede cerrar la etiqueta
+    text = entry.raw_text[:MAX_TEXT_CHARS].replace("</relato>", "</ relato>")   # el relato no puede cerrar la etiqueta
+    if len(entry.raw_text) > MAX_TEXT_CHARS:
+        text += "\n[… el relato sigue; se recortó para leerlo]"
     return (
         "<contexto>\n"
         f"Paciente: {patient_name}\n"
@@ -142,6 +147,7 @@ async def _call_model(system: list[dict], content: str):
         # Una key que no está atada a un workspace necesita el header anthropic-workspace-id.
         workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID")
         _client = anthropic.AsyncAnthropic(
+            timeout=30.0, max_retries=1,
             default_headers={"anthropic-workspace-id": workspace} if workspace else None)
     # Haiku 5.5: sin temperature (cualquier valor distinto del default da 400). La consistencia sale del tool
     # forzado + schema strict + enums, y effort bajo. Con tool forzado el modelo no piensa antes de llamar.
@@ -166,6 +172,9 @@ def _parse(response, raw_text: str) -> ExtractionOutput:
     for ev in output.events:
         if ev.quote not in raw_text:
             raise ValueError(f"La cita no está literal en el relato: {ev.quote!r}")
+        if ev.foreign_attribution and ev.attribution_by in ("paciente", "otra_persona") and "vos pens" in ev.plain.lower():
+            raise ValueError(f"La atribución «{ev.foreign_attribution}» la dijo otra persona, pero plain dice "
+                             f"'Vos pensás': nombrá a quien la dijo ({ev.plain!r})")
     return output
 
 
@@ -197,15 +206,19 @@ async def extract(entry: Entry, *, patient_name: str = "el paciente",
     content = user_message(entry, patient_name=patient_name, speaker_name=speaker_name)
     last_error: Exception | None = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
+        message = content if last_error is None else (
+            f"{content}\n<correccion>Tu respuesta anterior fue rechazada por el código: {last_error}. "
+            f"Respondé de nuevo con {TOOL_NAME}, corrigiendo eso.</correccion>")
         try:
-            response = await _call_model(_system_blocks(), content)
+            response = await _call_model(_system_blocks(), message)
         except anthropic.AnthropicError as exc:               # sin key, o el SDK ya reintentó 429/5xx/conexión
             raise ExtractionError(f"Falló la llamada a Claude: {exc}") from exc
         try:
             output = _parse(response, entry.raw_text)
         except (ValidationError, ValueError) as exc:
             last_error = exc
-            log.warning("Extracción inválida (intento %s/%s, entrada %s): %s", attempt, MAX_ATTEMPTS, entry.id, exc)
+            log.warning("extracción inválida (intento %s/%s, entrada %s, %s)", attempt, MAX_ATTEMPTS, entry.id,
+                        type(exc).__name__)
             continue
         return [to_event(ev, entry) for ev in output.events]
     raise ExtractionError(f"La extracción no validó después de {MAX_ATTEMPTS} intentos: {last_error}")

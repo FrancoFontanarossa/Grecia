@@ -1,15 +1,18 @@
-# POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio)
-# corre los rojos (reglas + respaldo con IA que solo sube) y extrae los eventos. Sin avisos todavía.
+# POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio),
+# corre los rojos (rules.red + respaldo con IA que solo sube), extrae los eventos y pasa a los avisos
+# (rules.lanes → destinatarios de rules.consent → push con notify.dispatch).
 import asyncio
 import logging
 import time
 from typing import Literal, get_args
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, File, Form, HTTPException, UploadFile
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
-from app import _tmp_rules as rules  # TEMPORAL: app.rules de Franco
 from app import notify
+from app.notify import dispatch
+from app.rules import consent, lanes
+from app.rules import red as red_rules
 from app.models import Entry, Event, OccurredHint
 from app.pipeline import extract as extraction
 from app.pipeline import red_backup, report
@@ -25,6 +28,8 @@ OCCURRED_HINTS = get_args(OccurredHint)
 EntrySource = Literal["app", "precorrer"]
 
 AI_ERROR = "No pude entenderlo esta vez. Lo guardé tal cual para tu neuróloga."
+NOT_HEARD = "No te escuché bien. ¿Probamos de nuevo?"
+ANALYZE_TIMEOUT = 75.0   # la app espera 120 s; si la IA tarda más, el relato queda guardado crudo
 
 
 @router.post("/api/entries")
@@ -37,6 +42,18 @@ async def create_entry(
     quick_reply: str | None = Form(None),
     reserved_requested: bool = Form(False),
 ):
+    data = await audio.read() if audio is not None else None
+    return await process_entry(person_id=person_id, text=text, audio=data,
+                               audio_type=audio.content_type if audio is not None else None,
+                               occurred_hint=occurred_hint, question_id=question_id, quick_reply=quick_reply,
+                               reserved_requested=reserved_requested, source="app")
+
+
+async def process_entry(*, person_id: int, text: str | None = None, audio: bytes | None = None,
+                        audio_type: str | None = None, occurred_hint: str | None = None,
+                        question_id: int | None = None, quick_reply: str | None = None,
+                        reserved_requested: bool = False, source: EntrySource = "app") -> dict:
+    """Todo el recorrido de un relato (CLAUDE.md §5.2). Lo usan la API y scripts/precorrer_semana.py."""
     t0 = time.perf_counter()
     timing: dict[str, float] = {}
     if occurred_hint is not None and occurred_hint not in OCCURRED_HINTS:
@@ -53,9 +70,10 @@ async def create_entry(
 
     audio_path = None
     if audio is not None:
-        data = await audio.read()
         try:
-            audio_path = await asyncio.to_thread(transcription.save_audio, data, audio.content_type)
+            audio_path = await asyncio.to_thread(transcription.save_audio, audio, audio_type)
+        except transcription.NotHeard as exc:
+            raise HTTPException(422, {"code": "no_se_escucho", "message": NOT_HEARD, "transcript": ""}) from exc
         except transcription.UnsupportedAudio as exc:
             raise HTTPException(415, str(exc)) from exc
         raw_text = ""   # se completa con la transcripción; si falla queda "" y el audio guardado
@@ -63,7 +81,10 @@ async def create_entry(
     else:
         modality = "toque" if quick_reply and not text else "texto"
 
-    source: EntrySource = "app"
+    if question_id is not None and not await asyncio.to_thread(db.answerable_question, question_id, person_id):
+        # Respuesta tardía (pregunta vencida, ya respondida o de otra persona): se guarda como relato común.
+        log.info("pregunta %s no está abierta para %s: el relato se guarda sin question_id", question_id, person_id)
+        question_id = None
     entry_id = await asyncio.to_thread(
         db.insert_entry, patient_id=person["patient_id"], speaker_id=person_id, modality=modality,
         raw_text=raw_text, question_id=question_id, occurred_hint=occurred_hint,
@@ -74,12 +95,35 @@ async def create_entry(
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
     if question_id is not None:   # respuesta a una pregunta proactiva: queda respondida y entra al episodio
         await asyncio.to_thread(db.answer_question, question_id, person_id, entry_id)
+    raw_text = await _safe_analyze(entry_id, person, raw_text, audio_path, response, timing)
+
+    timing["total"] = time.perf_counter() - t0
+    log.info("entrada %s (%s): %s", entry_id, modality, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
+    return response
+
+
+async def _safe_analyze(entry_id: int, person: dict, raw_text: str, audio_path, response: dict, timing: dict) -> str:
+    """_analyze con tope de tiempo y sin 500: ante cualquier falla, el relato ya está guardado crudo."""
+    try:
+        return await asyncio.wait_for(_analyze(entry_id, person, raw_text, audio_path, response, timing),
+                                      ANALYZE_TIMEOUT)
+    except Exception as exc:   # incluye TimeoutError
+        log.error("falló el análisis de la entrada %s (%s): queda guardada cruda", entry_id, type(exc).__name__)
+        response.setdefault("error", AI_ERROR)
+        response.setdefault("error_code", "ia")
+        return raw_text
+
+
+async def _analyze(entry_id: int, person: dict, raw_text: str, audio_path, response: dict, timing: dict) -> str:
+    """Transcribe (si es audio), corre los rojos, extrae, guarda eventos y reparte los avisos. Completa `response`."""
     if audio_path is not None:
         t = time.perf_counter()
         try:
             raw_text = await transcription.transcribe(audio_path)
+        except transcription.NotHeard:
+            response["error"], response["error_code"] = NOT_HEARD, "no_se_escucho"   # el audio quedó guardado
         except transcription.TranscriptionError:
-            response["error"] = AI_ERROR   # el audio quedó guardado para la neuróloga
+            response["error"], response["error_code"] = AI_ERROR, "ia"   # el audio quedó guardado para la neuróloga
         else:
             await asyncio.to_thread(db.set_entry_text, entry_id, raw_text)
             response["transcript"] = raw_text
@@ -88,10 +132,10 @@ async def create_entry(
     if raw_text:
         row = await asyncio.to_thread(db.get_entry, entry_id)
         entry = Entry.model_validate({**row, "speaker_role": person["role"]})
-        meds = await asyncio.to_thread(db.patient_meds, entry.patient_id)
+        meds = await asyncio.to_thread(red_rules.patient_meds, entry.patient_id)
 
         # Rojos: primero las reglas (código); el respaldo con IA solo puede subir. ARQUITECTURA §3.1
-        red = rules.red_check(raw_text, meds)
+        red = red_rules.evaluate(raw_text, meds)
         is_red = red is not None and red.missing_criterion is None
         events: list[Event] | None = None
         t = time.perf_counter()
@@ -103,26 +147,25 @@ async def create_entry(
                 red_backup.red_backup(raw_text, red, meds=meds),
             )
             if red is None and verdict.escalate:
-                red, is_red = rules.red_from_backup(verdict.suspected_rule), True
+                red, is_red = red_rules.from_backup(verdict.suspected_rule), True
             elif isinstance(extracted, extraction.ExtractionError):
-                response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
+                response["error"], response["error_code"] = AI_ERROR, "ia"   # el relato crudo ya quedó guardado
             else:
                 events = extracted
         timing["rojos_y_extraccion"] = time.perf_counter() - t
-        if red is not None:
-            response["red"] = red.model_dump()
-            # TODO: alerta roja con rules.lanes + rules.consent de Franco → notify.send(..., "rojo", ...)
+        event_ids: list[int] = []
         if events is not None:
-            await _save_events(entry, events)
+            event_ids = await _save_events(entry, events)
             if events:
                 report.request_regeneration(entry.patient_id)   # en segundo plano, como mucho cada 30 s
             response["understood"] = extraction.understood(events, await asyncio.to_thread(db.now))
-            # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
+        if red is not None:
+            response["red"] = red.model_dump()
+        alerts = await asyncio.to_thread(lanes.evaluate, entry.patient_id, event_ids, red=red, speaker_id=entry.speaker_id)
+        await dispatch.dispatch(alerts)
+        response["alerts"] = [a.model_dump(mode="json") for a in alerts if _visible_to(a, person)]
 
-    await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
-    timing["total"] = time.perf_counter() - t0
-    log.info("entrada %s (%s): %s", entry_id, modality, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
-    return response
+    return raw_text
 
 
 async def _extract_or_error(entry: Entry, person: dict) -> list[Event] | extraction.ExtractionError:
@@ -138,10 +181,88 @@ async def _save_events(entry: Entry, events: list[Event]) -> list[int]:
     if not events:
         return []
     mentioned = await asyncio.to_thread(db.mentioned_symptoms, entry.patient_id)
-    consent = await asyncio.to_thread(db.canal_reservado_active, entry.patient_id)
+    active = await asyncio.to_thread(consent.canal_reservado_active, entry.patient_id, entry.speaker_id)
     rows = [{**e.model_dump(), "minutes_since_dose": None,   # TODO: con med_schedule y doses de Franco
              "is_new": new,
-             "reserved": rules.is_reserved(e, reserved_requested=entry.reserved_requested,
-                                           canal_reservado_active=consent)}
-            for e, new in zip(events, rules.mark_new(events, mentioned))]
+             "reserved": consent.is_reserved(e, reserved_requested=entry.reserved_requested,
+                                             canal_reservado_active=active)}
+            for e, new in zip(events, consent.mark_new(events, mentioned))]
     return await asyncio.to_thread(db.insert_events, entry.id, entry.patient_id, rows)
+
+
+def _visible_to(alert, person: dict) -> bool:
+    """La respuesta va a quien contó: el paciente nunca ve un aviso reservado (§6.4)."""
+    return person["role"] != "paciente" or consent.patient_can_see(reserved=alert.reserved, lane=alert.lane)
+
+
+@router.post("/api/entries/{entry_id}/confirm")
+async def confirm_entry(entry_id: int):
+    """"Sí, está bien": no vuelve a procesar nada (§11)."""
+    if await asyncio.to_thread(db.get_entry, entry_id) is None:
+        raise HTTPException(404, f"No existe la entrada {entry_id}")
+    return {"ok": True}
+
+
+@router.post("/api/entries/{entry_id}/correct")
+async def correct_entry(entry_id: int, text: str | None = Form(None), audio: UploadFile | None = File(None)):
+    """Corrige un relato con texto o audio: reemplaza el texto, borra sus eventos y los avisos A1/A2 que dejaron
+    (nunca un rojo), vuelve a pasar por rojos, extracción y reglas, y marca corrected=1. Responde como POST /api/entries."""
+    t0 = time.perf_counter()
+    timing: dict[str, float] = {}
+    row = await asyncio.to_thread(db.get_entry, entry_id)
+    if row is None:
+        raise HTTPException(404, f"No existe la entrada {entry_id}")
+    raw_text = (text or "").strip()
+    if audio is None and not raw_text:
+        raise HTTPException(422, "Falta el texto o el audio")
+    person = await asyncio.to_thread(db.person_info, row["speaker_id"])
+    audio_path = None
+    if audio is not None:
+        try:
+            audio_path = await asyncio.to_thread(transcription.save_audio, await audio.read(), audio.content_type)
+        except transcription.NotHeard as exc:
+            raise HTTPException(422, {"code": "no_se_escucho", "message": NOT_HEARD, "transcript": ""}) from exc
+        except transcription.UnsupportedAudio as exc:
+            raise HTTPException(415, str(exc)) from exc
+        raw_text = ""
+    removed = await asyncio.to_thread(
+        db.reset_for_correction, entry_id, raw_text=raw_text, modality="audio" if audio_path else "texto",
+        audio_path=str(audio_path.relative_to(db.data_dir())) if audio_path else None,
+        alert_label=lanes._label)
+    log.info("entrada %s corregida: %s eventos y %s avisos borrados", entry_id, *removed)
+    response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
+    await _safe_analyze(entry_id, person, raw_text, audio_path, response, timing)
+    timing["total"] = time.perf_counter() - t0
+    log.info("corrección %s: %s", entry_id, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
+    return response
+
+
+@router.get("/api/entries/{entry_id}")
+async def get_entry(entry_id: int, person_id: int | None = None, ec_person: str | None = Cookie(default=None)):
+    """Lo mismo que devolvió POST /api/entries, armado con lo guardado y sin llamar a la IA. Solo lo ve quien lo
+    contó o el equipo; para cualquier otra persona (por ejemplo Juan ante un relato reservado de Marta) es 404."""
+    viewer_id = person_id if person_id is not None else (int(ec_person) if ec_person and ec_person.isdigit() else None)
+    data = await asyncio.to_thread(db.entry_view, entry_id)
+    viewer = await asyncio.to_thread(db.person_info, viewer_id) if viewer_id is not None else None
+    if (data is None or viewer is None or viewer["patient_id"] != data["entry"]["patient_id"]
+            or (viewer_id != data["entry"]["speaker_id"] and viewer["role"] != "neurologo")):
+        raise HTTPException(404, "No encontramos ese relato.")
+    entry = data["entry"]
+    now = await asyncio.to_thread(db.now)
+    events = [Event.model_validate({**e, "occurred_at": db.from_db(e["occurred_at"]) if e["occurred_at"] else None})
+              for e in data["events"]]
+    understood = [{**u, "reserved": bool(e["reserved"])}
+                  for u, e in zip(extraction.understood(events, now), data["events"])]
+    red = red_rules.evaluate(entry["raw_text"], await asyncio.to_thread(red_rules.patient_meds, entry["patient_id"])) \
+        if entry["raw_text"] else None
+    alerts = [a for a in data["alerts"] if _visible_to(a, viewer)]
+    if red is None:
+        red_alert = next((a for a in alerts if a.lane == "rojo"), None)
+        if red_alert:
+            from app.models import RedResult
+            red = RedResult(rule_id=red_alert.rule_id, missing_criterion=None, text=red_alert.text)
+    response = {"entry_id": entry_id, "transcript": entry["raw_text"], "understood": understood,
+                "red": red.model_dump() if red else None, "alerts": [a.model_dump(mode="json") for a in alerts]}
+    if not entry["raw_text"]:   # audio que no se pudo pasar a texto (no hay columna de estado: ver PR #8)
+        response["error"], response["error_code"] = AI_ERROR, "ia"
+    return response

@@ -32,7 +32,7 @@ def test_guarda_en_data_dir_audios_con_extension(tmp_data_dir):
 
 
 def test_audio_vacio_o_enorme(tmp_data_dir, monkeypatch):
-    with pytest.raises(t.UnsupportedAudio):
+    with pytest.raises(t.NotHeard):
         t.save_audio(b"", "audio/mp4")
     monkeypatch.setattr(t, "MAX_BYTES", 4)
     with pytest.raises(t.UnsupportedAudio):

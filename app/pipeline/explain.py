@@ -39,13 +39,17 @@ def prompt() -> str:
     return knowledge.strip_comment(PROMPT_PATH.read_text(encoding="utf-8"))
 
 
+def trigger_id(context: PromptContext) -> str:
+    return f"{context.trigger.rule_id}/paciente {context.trigger.patient_id}"
+
+
 def verify(out: _Output, context: PromptContext) -> Explanation:
     """Explicado solo con citas literales de los relatos del contexto. Ante la duda, no explicado."""
     texts = [e.text for e in context.recent_entries]
     quotes = [q.strip() for q in out.by if q.strip()]
     literal = bool(quotes) and all(any(q in t for t in texts) for q in quotes)
     if out.explained and not literal:
-        log.info("explain dijo explicado sin citas literales; se pregunta igual: %s", out.by)
+        log.info("explain dijo explicado sin citas literales (%s); se pregunta igual", trigger_id(context))
         return Explanation(explained=False, by=[], reasoning=f"Sin cita literal que lo respalde. {out.reasoning}")
     return Explanation(explained=out.explained, by=quotes if out.explained else [], reasoning=out.reasoning)
 
@@ -56,6 +60,6 @@ async def explain(trigger: Trigger, context: PromptContext) -> Explanation:
     try:
         out = await llm.call_tool(prompt(), TOOL, llm.render_context(context), _Output, max_tokens=2048)
     except llm.LLMError as exc:
-        log.error("explain falló; se pregunta igual: %s", exc)
+        log.error("explain falló; se pregunta igual (%s)", type(exc).__name__)
         return Explanation(explained=False, by=[], reasoning=f"No se pudo evaluar: {exc}")
     return verify(out, context)
