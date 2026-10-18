@@ -94,7 +94,8 @@ def build_report(patient_id: int) -> dict:
         generated_at = rep["created_at"]
         ids = sorted({i for t in report.topics for i in t.evidence_ids})
         evidence = {i: {"name": r["name"], "role": r["role"], "at": r["occurred_at"] or r["created_at"],
-                        "quote": r["quote"], "reserved": bool(r["reserved"])}
+                        "quote": r["quote"], "reserved": bool(r["reserved"]),
+                        "vague": bool(r["occurred_at"] and r["time_vague"])}   # hora vaga: solo la fecha
                     for i, r in store.evidence(ids).items()}
         report_simulated = False
         report_status = "listo"
