@@ -45,6 +45,29 @@ def set_entry_text(entry_id: int, raw_text: str) -> None:
         conn.execute("UPDATE entries SET raw_text = ? WHERE id = ?", (raw_text, entry_id))
 
 
+def reset_for_correction(entry_id: int, *, raw_text: str, modality: str, audio_path: str | None,
+                         alert_label) -> tuple[int, int]:
+    """Antes de reprocesar una corrección: texto nuevo y corrected=1, se borran los eventos de la entrada y los
+    avisos A1/A2 que dejaron (los que nombran su síntoma, desde que se cargó la entrada). Los rojos no se tocan.
+    `alert_label` es la etiqueta de síntoma que usa rules.lanes en sus textos. Devuelve (eventos, avisos) borrados."""
+    with db.connect() as conn:
+        entry = conn.execute("SELECT patient_id, created_at FROM entries WHERE id = ?", (entry_id,)).fetchone()
+        symptoms = [r["symptom"] for r in conn.execute("SELECT symptom FROM events WHERE entry_id = ?", (entry_id,))]
+        n_events = conn.execute("DELETE FROM events WHERE entry_id = ?", (entry_id,)).rowcount
+        n_alerts = 0
+        for symptom in set(symptoms):
+            n_alerts += conn.execute(
+                "DELETE FROM alerts WHERE patient_id = ? AND lane != 'rojo' AND rule_id IN ('A1', 'A2')"
+                " AND created_at >= ? AND text LIKE ?",
+                (entry["patient_id"], entry["created_at"], f"%{alert_label(symptom)}%")).rowcount
+        sets, args = ["raw_text = ?", "corrected = 1", "modality = ?"], [raw_text, modality]
+        if audio_path:
+            sets.append("audio_path = ?")
+            args.append(audio_path)
+        conn.execute(f"UPDATE entries SET {', '.join(sets)} WHERE id = ?", (*args, entry_id))
+    return n_events, n_alerts
+
+
 def get_entry(entry_id: int) -> dict | None:
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
