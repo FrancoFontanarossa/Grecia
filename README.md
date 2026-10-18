@@ -19,6 +19,9 @@ set -a; source .env; set +a
 .venv/bin/python -m data.seed                                               # personas, tomas, meta, golpeteo, caídas
 .venv/bin/python -m scripts.precorrer_semana                                # relatos de la semana por el pipeline real
 
+# Pulsera (manda por HTTP: con la app levantada)
+.venv/bin/python -m scripts.simular_pulsera                # o --archivo pulsera.jsonl con datos reales
+
 # App
 .venv/bin/uvicorn app.main:app --reload       # http://localhost:8000
 
@@ -43,4 +46,5 @@ En Railway corre un solo proceso (`railway.toml`); la base se carga con `POST /a
 | Reloj | **Acelerado** en la demo |
 | Roles sin login | **Mecanismo de demo** |
 | Emergencias | **Nadie llama**; se muestra el texto fijo |
+| Pulsera | **La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados simulado** (sueño, despertares, FC en reposo y minutos activos; temblor y discinesia no se simulan ni se muestran) |
 | Todo lo de P1 y P2 que no se construyó | **Pendiente**, se dice si preguntan |

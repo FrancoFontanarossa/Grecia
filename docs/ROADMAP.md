@@ -45,7 +45,7 @@
 **Que lo crítico no falle, que se pueda demostrar y que todo esté arriba.**
 - Infra: repo, Railway, Tenki Reviewer, CI con Tenki Runner, `railway.toml`, `app/main.py`.
 - Base y reloj: `app/db.py`, `app/clock.py` (offset en `clock_state`).
-- Datos: prueba del Atajo de iOS (que lea pasos y haga POST) y `POST /api/biometrics/atajo`; exportación de Salud → `data/import_health.py`; `data/seed.py` (personas, consentimientos, esquema de tomas, cambio de pramipexol del 22/09, meta de 4.000 pasos, historial de golpeteo, tres caídas inyectadas). Revisar la franja de 16 a 18 h antes de fijar el escenario.
+- Datos: prueba del Atajo de iOS (que lea pasos y haga POST) y `POST /api/biometrics/atajo`; exportación de Salud → `data/import_health.py`; `data/seed.py` (personas, consentimientos, esquema de tomas, cambio de pramipexol del 03/10, meta de 4.000 pasos, historial de golpeteo, tres caídas inyectadas). Revisar la franja de 16 a 18 h antes de fijar el escenario.
 - Lógica del admin: `clock/advance`, `clock/set`, `inject_drop`, `restore`.
 - Todas las reglas con tests: R1–R4, A1–A3, consentimiento, canal reservado, presupuesto y silencio, metas y pausa, **desvío de pasos**, **disparadores proactivos**, **puntaje del golpeteo**, verificador.
 - Eval: 30 relatos + primera etiqueta, línea de base léxica, sets de rojos y cebos, canal reservado, fidelidad del informe, `eval/run.py` y `results.md` (la diapositiva sale de esa tabla).
@@ -76,7 +76,7 @@
 | Hora | Qué |
 |---|---|
 | 7:30 | Smoke test en Railway: la app abre en los tres iPhone, llega una push, el reloj está en el lunes, créditos de Railway y de Claude |
-| 7:45 | En este orden: `data/seed.py` → `scripts/precorrer_semana.py` → `POST /admin/snapshot` (justo antes de la caída en vivo) |
+| 7:45 | En este orden: `data/seed.py` → `scripts/simular_pulsera.py` → `scripts/precorrer_semana.py` → reloj (`POST /admin/clock/set`) → `POST /admin/snapshot` (justo antes de la caída en vivo) |
 | 8:00–8:45 | Pitch entre los tres; ensayo cronometrado tres veces, con las preguntas de `docs/PRODUCTO.md` en voz alta y `POST /admin/restore` entre ensayos |
 | **8:45** | **Nadie pushea a `main`** |
 | ¿9:00–11:00? | Presentación (**confirmar el horario con la organización**) |

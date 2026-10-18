@@ -60,9 +60,18 @@ def test_med_schedule_and_pramipexol_change(env):
     meds = {r["drug"]: r for r in rows("SELECT * FROM med_schedule WHERE patient_id = 1")}
     assert json.loads(meds["levodopa/carbidopa"]["times"]) == ["08:00", "12:00", "16:00", "20:00"]
     changed = db.from_db(meds["pramipexol"]["changed_at"])
-    assert changed.date() == dt.date(2026, 9, 22)
-    assert (dt.date(2026, 10, 14) - changed.date()).days == 22   # CLAUDE.md §3
+    assert changed.date() == dt.date(2026, 10, 3)
+    assert (dt.date(2026, 10, 14) - changed.date()).days == 11   # CLAUDE.md §3
 
+
+def test_rerun_moves_an_old_pramipexol_change(data_dir):
+    seed.run()
+    with db.connect() as conn:
+        conn.execute("UPDATE med_schedule SET changed_at = '2026-09-22T00:00:00-03:00' WHERE drug = 'pramipexol'")
+    seed.run()
+    [row] = rows("SELECT changed_at FROM med_schedule WHERE drug = 'pramipexol'")
+    assert db.from_db(row["changed_at"]).date() == dt.date(2026, 10, 3)
+    assert len(rows("SELECT * FROM med_schedule")) == 2
 
 def test_doses_cover_the_period(env):
     seed.run()

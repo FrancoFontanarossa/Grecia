@@ -135,7 +135,7 @@ La neuróloga abre `/neuro/informe/{patient}` → el código calcula las cifras 
 **Páginas (HTML)**
 - App de la casa: `/` (¿Quién sos?), `/casa`, `/casa/contar`, `/casa/anote/{entry_id}`, `/casa/pregunta/{id}`, `/casa/golpeteo`, `/casa/permisos`, `/casa/emergencia/{alert_id}`, `/prueba`
 - Neuróloga: `/neuro/informe/{patient_id}`, `/neuro/tecnica/{patient_id}`
-- Admin: `/admin/clock` (panel HTML), `GET /admin/clock/state` (JSON: `{now, offset_seconds}`), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/snapshot`, `POST /admin/restore`, `POST /admin/seed` (corre `data/seed.py`), `POST /admin/import_steps` (CSV `start,steps` por hora de `import_health --export-csv`, para cargar la base de Railway) (con `ADMIN_TOKEN`)
+- Admin: `/admin/clock` (panel HTML), `GET /admin/clock/state` (JSON: `{now, offset_seconds}`), `POST /admin/clock/advance`, `POST /admin/clock/set`, `POST /admin/inject_drop`, `POST /admin/snapshot`, `POST /admin/restore`, `POST /admin/seed` (corre `data/seed.py`), `POST /admin/precorrer` (corre `scripts/precorrer_semana.py` en el servidor, en segundo plano y con el scheduler en vivo en pausa; 409 si ya corre) y `GET /admin/precorrer/status`, `POST /admin/import_steps` (CSV `start,steps` por hora de `import_health --export-csv`, para cargar la base de Railway) (con `ADMIN_TOKEN`)
 - Infra: `GET /health`, `GET /manifest.webmanifest`, `GET /sw.js` (servido desde la raíz para que controle toda la app)
 
 ---
