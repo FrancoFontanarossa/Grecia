@@ -7,7 +7,7 @@ from app import clock, db, scheduler
 from app.config import TZ
 from app.pipeline import llm
 from app.rules import triggers
-from data import mock_wearable as mw
+from scripts import simular_pulsera as sim
 from tests.conftest import FakeSonnet
 from tests.rules.conftest import add_entry, add_event
 
@@ -19,15 +19,10 @@ def at(day, hour, minute=0):
     return dt.datetime(2026, 10, day, hour, minute, tzinfo=TZ)
 
 
-@pytest.fixture
-def wearable(seeded):
-    mw.run()
-    return seeded
-
 
 def test_bad_night_fires_in_the_morning_for_juan(wearable):
     [t] = triggers.p_sueno(1, at(6, 9))
-    v = mw.nightly(dt.date(2026, 10, 6))["sleep_awakenings"]
+    v = sim.nightly(dt.date(2026, 10, 6))["sleep_awakenings"]
     assert t.rule_id == "P-SUENO" and t.to_person_id == JUAN
     assert t.why.startswith(f"Anoche te despertaste {v} veces; lo habitual son 2. Anoche dormiste ")
     assert [a["kind"] for a in t.facts["anomalies"]] == ["sleep_awakenings", "sleep_minutes"]
@@ -40,9 +35,15 @@ def test_only_in_the_morning(wearable, hour):
     assert triggers.p_sueno(1, at(6, hour)) == []
 
 
-@pytest.mark.parametrize("day", [3, 11, 12, 13, 14, 15, 16])
+@pytest.mark.parametrize("day", [3, 11, 12, 13, 15, 16])
 def test_normal_night_does_not_fire(wearable, day):
     assert triggers.p_sueno(1, at(day, 9)) == []
+
+
+def test_night_13_to_14_fires_with_the_sleep_in_numbers(wearable):
+    [t] = triggers.p_sueno(1, at(14, 9))
+    assert [a["kind"] for a in t.facts["anomalies"]] == ["sleep_minutes"]
+    assert t.why.startswith("Anoche dormiste 3 h") and "lo habitual son 6 h" in t.why
 
 
 def test_night_16_to_17_of_the_mock_does_not_fire(wearable):

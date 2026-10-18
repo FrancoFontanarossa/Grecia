@@ -108,13 +108,6 @@ def post_seed():
     return {"ok": True, "people": people, **result}
 
 
-@router.post("/seed_wearable")
-def post_seed_wearable():
-    """Pulsera simulada (data/mock_wearable.py), separada de /admin/seed. Idempotente."""
-    from data import mock_wearable
-    return {"ok": True, **mock_wearable.run()}
-
-
 @router.post("/import_steps")
 async def import_steps(request: Request, patient_id: int = 1):
     """Cuerpo: CSV `start,steps` por hora, ya corrido (python -m data.import_health … --export-csv)."""
