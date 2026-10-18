@@ -70,7 +70,7 @@ Lo que la consigna exige y nos cambia cosas:
 
 ## 3. Personajes y calendario de la demo (ficticios)
 
-- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el sábado 03/10/2026**. **iPhone, sin reloj.** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
+- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el sábado 03/10/2026**. **Juan: iPhone y una pulsera común que le regaló Laura (datos de la pulsera simulados y rotulados).** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
 - **Marta**, su esposa, vive con él. Segunda voz, principal para lo nocturno.
 - **Laura**, su hija, vive en Salto. Recibe logros, rojos y un resumen tranquilo. También puede contar algo.
 - **Dra. Pereira**, la neuróloga: lee el informe en la computadora. Consulta del miércoles 28/10.
@@ -142,7 +142,7 @@ Diagnóstico, estadio, probabilidad de Parkinson, estado on/off inferido, opcion
 3. Extracción: alucinación · cuidadora · atribución ajena "cansancio" · primera mención · anoche.
 4. "Lo que entendimos" en la pantalla de Marta, con el interruptor "Solo para el equipo médico" activado.
 5. Código: alucinación nueva + 11 días del cambio de pramipexol → **ámbar** al equipo (informe y bandeja de la neuróloga) y a Marta con qué hacer.
-6. Canal reservado: **Juan no ve nada de esto** (ni notificación ni detalle).
+6. Canal reservado: **Juan no recibe nada de lo reservado: ni notificación ni detalle; lo acepta como consentimiento al configurar la app.**
 
 ### 5.3 Rojo
 "Se cayó, se golpeó la cabeza y toma apixabán" → regla → pantalla roja fija con qué hacer y el número de la emergencia móvil, push a Marta y Laura. Si falta un criterio, se pregunta solo ese. La meta de pasos queda en pausa.
@@ -316,9 +316,10 @@ Temblor y discinesia: la ingesta los acepta, pero no se simulan ni se muestran; 
 El lienzo original ("Entrecasa — Diseño de app", claude.ai) es para que lo miren las personas; Claude Code trabaja con `design/`. Lo que sigue es el resumen.
 
 ### 9.1 Sistema visual
-- **Tipografía:** Atkinson Hyperlegible (Google Fonts), una sola familia. Juan: título 32–34, cuerpo 21–22. Familia: 18–19. Neuróloga: 15–16.
-- **Colores:** fondo `#F2F4F1` · superficie `#FFFFFF` · tinta `#17201B` · tinta suave `#4A5650` · pino (primario) `#1E5B4F` · pino claro `#DCEBE6` · pino oscuro (grabando) `#123A32` · biometría `#2F5FA8` / claro `#E1EAF7` · ámbar `#B45309` / fondo `#FCEFD9` / texto `#8A3F06` · rojo `#B42318` / fondo `#FDE4E1`.
-- **Radios:** tarjetas 20, botones 18–22, chips 10–14. Sin degradados ni sombras salvo la notificación.
+Los valores salen de `app/web/static/css/tokens.css` (tokens v3.1: cielo, vidrio y marino); si cambian ahí, se cambian acá.
+- **Tipografía:** pila del sistema, SF Pro en iPhone: `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif`. Una sola familia, cifras tabulares. Juan: título 32–34, cuerpo 21–22. Familia: 18–19. Neuróloga: 15–16.
+- **Colores:** fondo `#F3F6FA` · cielo `#9FBFEE` / `#C7DAF5` / `#E6EEF9` · vidrio `rgba(255,255,255,.62)` · superficie `#FFFFFF` · separador `#E7EBF1` · tinta `#0E1A2B` · tinta suave `#46536A` · tinta tenue `#56657E` / `#5F6D84` · **marino (acción principal)** `#0F1D33` · azul (biometría) `#2F6FD6` / oscuro `#1E4FA3` / claro `#E3EDFB` · ámbar `#B45309` / fondo `#FFF4E5` / texto `#8A3F06` · rojo `#C4291C` / fondo `#FDECEA` · ok `#1E7A45`. Ámbar y rojo, solo para avisos.
+- **Radios:** tarjetas 24; botones y chips en píldora (999). Degradado de cielo arriba de las pantallas del teléfono (rosado en la emergencia) y una sombra suave en las tarjetas (`--sombra`); nada más.
 - Iconos de trazo (lucide o equivalente), nunca emoji.
 
 ### 9.2 Principios
@@ -558,7 +559,7 @@ Mide la promesa: entender relatos de varias voces en rioplatense. **Franco escri
 En pantalla: el iPhone de Juan y el de Marta espejados, y la web de la neuróloga. Antes de subir, `scripts/precorrer_semana.py` pasa por el pipeline real, con el reloj, los relatos de lunes a viernes; en pantalla dice "procesado hoy a las HH:MM por el sistema".
 
 1. **0:00–0:20 · Problema.** "La neuróloga ve a Juan cada seis a doce meses. El 65% de quienes tienen delirios no se lo cuenta a su médico, y los cuidadores los reportan cuatro veces más que los pacientes."
-2. **0:20–0:55 · Proactividad, en vivo.** Inyectamos una caída de pasos (rotulada) → el iPhone de Juan vibra: "A la tarde caminaste menos que otros sábados. ¿Pasó algo?" → tocamos → "Por qué te pregunto" → Juan responde con la voz → "Anoté esto".
+2. **0:20–0:55 · Proactividad, en vivo.** Inyectamos una caída de pasos (rotulada) → el iPhone de Juan vibra: "A la tarde caminaste menos que otras tardes. ¿Pasó algo?" → tocamos → "Por qué te pregunto" → Juan responde con la voz → "Anoté esto".
 3. **0:55–1:35 · Segunda voz, con el jurado.** Un jurado graba como Marta desde el teléfono de Marta (le damos una tarjeta con una frase sugerida, "o algo parecido") → "Lo que entendimos" → ámbar en la web de la neuróloga. **El teléfono de Juan no muestra nada.** Recuadro: la búsqueda por palabras no la encuentra. **Regla:** si no responde en 20 s, se pasa a la pantalla ya procesada y se sigue hablando.
 4. **1:35–1:55 · Juego y familia.** El resultado del juego de Juan contra sus últimas veces, y el teléfono de Laura con el logro del jueves.
 5. **1:55–2:30 · Informe.** Resumen redactado, tres temas con las dos voces y lo que cargó el jurado ya adentro. Un clic lleva a la cita; la pestaña técnica muestra pasos contra tomas con los desvíos.
@@ -667,3 +668,9 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 01:15 | Pulsera: centrales (sueño, despertares, FC en reposo, minutos activos; las manda el simulador) y opcionales (se aceptan y guardan si llegan); temblor y discinesia no se simulan ni se muestran (requieren algoritmos validados); `describe` muestra solo lo presente con su source | Juanpe y Franco |
 | 01:15 | El cambio de pramipexol pasa al sábado 03/10 (el miércoles 14 queda a 11 días): la base del escenario queda antes del cambio y A2 marca solo lo nuevo; volver a correr el seed mueve la fecha si ya estaba | Juanpe y Franco |
 | 01:30 | `POST /admin/precorrer` y `GET /admin/precorrer/status`: el precorrido corre en el servidor de Railway (mismo `run` del script, sin cambios), con el scheduler en vivo en pausa mientras dura | Franco |
+| dom | §9.1 con la tipografía (pila del sistema, SF Pro) y la paleta marino reales de `app/web/static/css/tokens.css` | Juanpe |
+| dom | §14: la pregunta de la demo dice "otras tardes" en lugar de "otros sábados" | Juanpe |
+| dom | §5.2: Juan no recibe nada de lo reservado (ni notificación ni detalle) y lo acepta como consentimiento al configurar la app; el interruptor dice "Solo lo ve el equipo médico. Juan no recibe nada de esto." (app y `design/`) | Juanpe |
+| dom | §3: Juan tiene iPhone y una pulsera común que le regaló Laura (datos simulados y rotulados) | Juanpe |
+| dom | `eval/results.md`: filas del informe con la corrida v2 (5 de 5, 0 frases borradas) y nota del set chico etiquetado por una persona | Juanpe |
+| dom | `/neuro/tecnica`: series de la pulsera (sueño, despertares, FC en reposo, minutos activos) rotuladas "pulsera · simulado", debajo de los pasos | Juanpe |
