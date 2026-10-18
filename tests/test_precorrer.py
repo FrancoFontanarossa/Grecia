@@ -93,3 +93,29 @@ def test_el_presupuesto_del_sabado_queda_libre_para_la_caida_en_vivo(semana):
     assert juan_questions("2026-10-17") == []
     assert rows("SELECT * FROM notifications WHERE person_id = 1 AND kind = 'pregunta' "
                 "AND substr(created_at, 1, 10) = '2026-10-17'") == []
+
+
+
+def test_precorrer_termina_con_el_informe_guardado(semana, monkeypatch):
+    from app.models import Report
+    from app.pipeline import report
+    calls = []
+
+    async def fake_report(patient_id, period=None):
+        calls.append(patient_id)
+        rep = Report(summary="x", topics=[], removed_count=0)
+        report._store(patient_id, "2026-09-19/2026-10-16", rep)
+        return rep
+    monkeypatch.setattr(report, "report", fake_report)
+    result = asyncio.run(pre.run())
+    assert calls == [1] and result["informe"]["ok"] is True          # una sola vez, al final
+    assert len(rows("SELECT * FROM reports WHERE patient_id = 1")) == 1
+
+
+def test_si_el_informe_final_falla_el_script_lo_dice(semana, monkeypatch):
+    from app.pipeline import report
+
+    async def boom(patient_id, period=None):
+        raise RuntimeError("x")
+    monkeypatch.setattr(report, "report", boom)
+    assert asyncio.run(pre.run())["informe"] == {"ok": False}

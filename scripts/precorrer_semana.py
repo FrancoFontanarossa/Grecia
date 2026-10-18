@@ -81,14 +81,16 @@ def timeline() -> list[tuple[dt.datetime, Relato | None]]:
 async def run() -> dict:
     from app.api.entries import process_entry
     from app.notify import inbox as push   # inbox llama a send_push; se apaga ahí
+    from app.pipeline import report
 
     loaded = skipped = 0
     questions: list[int] = []
-    real_send = push.send_push
+    real_send, real_regen = push.send_push, report.request_regeneration
 
     async def silent(subscription, title, body, url):   # se guarda la notificación, no suena el teléfono
         return False
     push.send_push = silent
+    report.request_regeneration = lambda patient_id: None   # el informe se genera una sola vez, al final
     try:
         for at, relato in timeline():
             await asyncio.to_thread(clock.set, at.isoformat())
@@ -101,9 +103,17 @@ async def run() -> dict:
                     loaded += 1
             questions += await scheduler.tick()
         await asyncio.to_thread(clock.set, END.isoformat())
+        # El informe final, sincrónico: el script no termina hasta que queda guardado en `reports`.
+        try:
+            rep = await report.report(JUAN)
+            informe = {"ok": True, "temas": len(rep.topics), "borradas": rep.removed_count}
+        except Exception as exc:
+            log.error("no se pudo generar el informe final (%s)", type(exc).__name__)
+            informe = {"ok": False}
     finally:
-        push.send_push = real_send
-    return {"cargados": loaded, "ya_estaban": skipped, "preguntas": questions, "reloj": END.isoformat()}
+        push.send_push, report.request_regeneration = real_send, real_regen
+    return {"cargados": loaded, "ya_estaban": skipped, "preguntas": questions, "reloj": END.isoformat(),
+            "informe": informe}
 
 
 def main() -> None:
@@ -115,6 +125,10 @@ def main() -> None:
     print(f"Relatos cargados: {result['cargados']} · ya estaban: {result['ya_estaban']}")
     print(f"Preguntas enviadas: {result['preguntas']}")
     print(f"Reloj en: {result['reloj']}")
+    if not result["informe"]["ok"]:
+        print("ERROR: el informe final no se pudo generar; volver a correr el script.")
+        sys.exit(1)
+    print(f"Informe guardado: {result['informe']['temas']} temas · {result['informe']['borradas']} frases borradas")
 
 
 if __name__ == "__main__":
