@@ -556,7 +556,7 @@ def evidence(event_ids: list[int]) -> dict[int, dict]:
         return {}
     marks = ",".join("?" * len(event_ids))
     with _conn() as c:
-        rows = c.execute(f"SELECT ev.id, ev.quote, ev.occurred_at, ev.reserved, en.created_at, en.raw_text, p.name, p.role "
+        rows = c.execute(f"SELECT ev.id, ev.quote, ev.occurred_at, ev.time_vague, ev.reserved, en.created_at, en.raw_text, p.name, p.role "
                          f"FROM events ev JOIN entries en ON en.id = ev.entry_id JOIN people p ON p.id = en.speaker_id "
                          f"WHERE ev.id IN ({marks})", event_ids).fetchall()
     return {r["id"]: dict(r) for r in rows}

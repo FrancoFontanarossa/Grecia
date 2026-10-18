@@ -103,3 +103,4 @@
   .inf-barras { height: 70px; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+.inf-barra__logo { width: 22px; height: 22px; border-radius: 6px; flex: none; }

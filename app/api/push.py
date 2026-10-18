@@ -34,7 +34,7 @@ async def push_test(person_id: int, url: str = "/casa"):
     if not person:
         raise HTTPException(404, "No encontramos a esa persona.")
     title = f"{person['name']}, esto es una prueba"
-    body = "Si ves esto, los avisos de Entrecasa funcionan."
+    body = "Si ves esto, los avisos de Neuro funcionan."
     try:
         from app import notify  # type: ignore
 

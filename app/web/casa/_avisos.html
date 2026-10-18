@@ -13,7 +13,7 @@
   <template x-if="state === 'instalar'">
     <div style="display: flex; gap: 12px; align-items: flex-start">
       <span style="color: var(--azul-osc); flex-shrink: 0; margin-top: 2px">{{ icon("compartir", 24) }}</span>
-      <div>Para recibir avisos, agregá Entrecasa a tu pantalla de inicio: tocá Compartir y después "Agregar a inicio".{% if not compact %} Después abrila desde el ícono.{% endif %}</div>
+      <div>Para recibir avisos, agregá Neuro a tu pantalla de inicio: tocá Compartir y después "Agregar a inicio".{% if not compact %} Después abrila desde el ícono.{% endif %}</div>
     </div>
   </template>
   <template x-if="state === 'pendiente'">
@@ -26,7 +26,7 @@
     </div>
   </template>
   <template x-if="state === 'bloqueado'">
-    <div>Los avisos están bloqueados. Abrí Ajustes › Notificaciones › Entrecasa y activalos.</div>
+    <div>Los avisos están bloqueados. Abrí Ajustes › Notificaciones › Neuro y activalos.</div>
   </template>
   <template x-if="state === 'activo' && justEnabled">
     <div style="display: flex; gap: 10px; align-items: center">{{ icon("check", 24, "var(--ok)") }}<span>Listo, los avisos están activados.</span></div>

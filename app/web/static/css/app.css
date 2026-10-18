@@ -362,3 +362,6 @@ a.fila:active, button.fila:active { background: var(--suave); }
 .juego-barra__v { font-size: 17px; color: var(--tinta2); }
 .juego-barra__dia { display: flex; flex-direction: column; align-items: center; font-size: 17px; line-height: 20px; color: var(--tinta2); }
 .juego-barra--hoy { font-weight: 700; color: var(--tinta); }
+.marca { display: inline-flex; align-items: center; gap: 8px; }
+.marca__logo { width: 24px; height: 24px; border-radius: 7px; flex: none; }
+.pie-demo { margin: 18px auto 10px; max-width: 520px; padding: 0 16px; text-align: center; font-size: 12px; color: var(--tinta3, #56657E); }

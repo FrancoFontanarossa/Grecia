@@ -250,7 +250,7 @@
         return this.state === "instalar" || this.state === "pendiente" || this.state === "bloqueado";
       },
       get shortText() {
-        if (this.state === "instalar") return "Agregá Entrecasa a tu inicio.";
+        if (this.state === "instalar") return "Agregá Neuro a tu inicio.";
         if (this.state === "bloqueado") return "Avisos bloqueados en Ajustes.";
         if (this.state === "activo") return "Listo, avisos activados.";
         return "Activá los avisos";

@@ -15,7 +15,7 @@ async def lifespan(app: FastAPI):
     await scheduler.stop()
 
 
-app = FastAPI(title="Entrecasa", lifespan=lifespan)
+app = FastAPI(title="Neuro", lifespan=lifespan)
 app.middleware("http")(scheduler.kick_after_clock_change)
 app.include_router(biometrics.router)
 app.include_router(admin.router)

@@ -1,8 +1,10 @@
 {% from "_icons.html" import icon %}
+{% from "casa/_nav.html" import volver %}
 {% set m = r.meta %}
 <div class="fila-entre" style="flex-wrap: wrap; gap: 16px">
   <div style="display: flex; align-items: center; gap: 14px">
-    <a href="/" class="logo__marca" aria-label="Entrecasa" style="text-decoration: none">{{ icon("casa", 26) }}</a>
+    {% if tab != "informe" %}<span class="no-imprimir">{{ volver(href="/neuro/informe/" ~ m.patient.id) }}</span>{% endif %}
+    <a href="/" class="logo__marca" aria-label="Neuro" style="text-decoration: none">{{ icon("casa", 26) }}</a>
     <div style="display: flex; flex-direction: column">
       <div style="font-size: 24px; font-weight: 700">{{ m.patient.name }}</div>
       <div style="font-size: 15px; color: var(--color-tinta-suave)">Período {{ m.period.start | ddmm }} – {{ m.period.end | ddmm }}/{{ m.period.end[:4] }} · consulta del {{ m.visit.date | dia_largo }} {{ m.visit.date | ddmm }} · {{ m.visit.doctor }}</div>
@@ -12,8 +14,6 @@
     {% if tab == "informe" %}
     <a href="/neuro/tecnica/{{ m.patient.id }}" class="btn-neuro btn-neuro--sec">Vista técnica</a>
     <button type="button" class="btn-neuro btn-neuro--pri" onclick="window.print()">Imprimir</button>
-    {% else %}
-    <a href="/neuro/informe/{{ m.patient.id }}" class="btn-neuro btn-neuro--pri">Volver al informe</a>
     {% endif %}
   </div>
 </div>
