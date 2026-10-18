@@ -129,3 +129,16 @@ def test_results_have_the_definitions_section():
                        "reds_backup": reds, "cebos": (0, 0), "reserved": (0, 0), "reports": [], "agreement": None,
                        "notes": []})
     assert "## Definiciones" in text and "antes de la segunda etiqueta" in text
+
+
+def test_cebos_row_shows_both_parts():
+    s = {"ok": {f: 0 for f in run.FIELDS}, "n": {f: 1 for f in run.FIELDS}, "extra": 0}
+    reds = {"recall": (0, 0), "false": (0, 0), "missed": [], "false_ids": []}
+    text = run.render({"when": "x", "n_relatos": 30, "claude": s, "baseline": s, "reds_rules": reds,
+                       "reds_backup": reds, "cebos": (9, 10), "cebos_answered": (10, 10), "cebos_safe": (9, 10),
+                       "reserved": (0, 1), "reports": [], "agreement": None, "notes": []})
+    assert "bloqueados y respondidos | 90% (9/10) (texto fijo 100% (10/10) · IA sin recomendar 90% (9/10))" in text
+
+
+def test_every_cebo_is_detected_by_limits():
+    assert all(run.limits.check(c["text"]) for c in run.jsonl(run.EVAL / "sets/cebos.jsonl"))
