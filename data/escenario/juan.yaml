@@ -5,7 +5,7 @@
 #
 # Semanas (PULIDO §2):
 #   20/09–03/10  base: constipación, "dormir duermo pero me levanto a orinar", rigidez matinal. Juan minimiza ("es la edad").
-#   22/09        suben el pramipexol (dato del esquema, lo carga data/seed.py).
+#   03/10        suben el pramipexol (dato del esquema, lo carga data/seed.py).
 #   04/10–10/10  sueños muy vívidos, habla y patea dormido; mareo al pararse. Marta lo nota de noche; Juan dice "el calor".
 #   11/10–16/10  tardes con menos pasos después de la toma de las 16 (13, 15 y 16: inyectados por el seed); el jueves
 #                Juan lo explica; Marta cuenta que "hablaba con alguien que no estaba"; Laura nota que habla más lento;
@@ -57,7 +57,7 @@ relatos:
     quien: laura
     modalidad: texto
     texto: >
-      Hablé con papá a la noche. Me contó que la doctora le cambió una de las pastillas el martes.
+      Hablé con papá a la noche. Me contó cómo le fue en la semana, nada en especial.
       Lo noté bien, con ganas de charlar.
 
   - cuando: "2026-09-26 08:50"
