@@ -1,54 +1,76 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
 {% block title %}Una pregunta de hoy · Entrecasa{% endblock %}
 {% block content %}
-<main class="pantalla" style="gap: 18px; padding-top: max(56px, calc(env(safe-area-inset-top) + 12px))"
-      x-data="pregunta({{ q.id }}, {{ person.id }})">
-  <div class="fila-entre">
-    <div class="pildora">Una pregunta de hoy</div>
-    <a href="/casa" class="enlace-suave">Ahora no</a>
-  </div>
-
-  <h1 style="font-size: 30px; line-height: 1.2; font-weight: 700">{{ q.question }}</h1>
-
-  {% if q.chart %}
-  <div class="card" style="padding: 16px 18px; gap: 12px">
-    <div style="font-size: 16px; color: var(--color-tinta-suave)">Por qué te pregunto</div>
-    <div class="compare">
-      <div class="compare__fila"><span>{{ q.chart.usual.label }}</span><span>{% if q.chart.usual.approx %}≈ {% endif %}{{ q.chart.usual.value | miles }} pasos</span></div>
-      <div class="compare__pista"><div class="compare__barra" style="width: {{ q.chart.usual.pct }}%; background: var(--color-bio-medio)"></div></div>
+{# v3.1 · 5 Pregunta (design/v3/pantallas-v31.html). "Por qué te pregunto": una línea con el punto de hoy y la
+   franja de lo habitual de Juan, con las cifras del código (q.deviation). Franja: P25–P75 si vienen; si no,
+   la mediana ±15%. Respuestas: pregunta() en static/js/components.js. #}
+<main class="app cielo" x-data="pregunta({{ q.id }}, {{ person.id }})">
+  <div class="cont">
+    <div class="top">
+      <a href="/casa" class="circ" aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+      <span class="chip">Una pregunta de hoy</span>
+      <span style="width: 46px"></span>
     </div>
-    <div class="compare">
-      <div class="compare__fila"><span>{{ q.chart.today.label }}</span><span>{{ q.chart.today.value | miles }} pasos</span></div>
-      <div class="compare__pista"><div class="compare__barra" style="width: {{ q.chart.today.pct }}%; background: var(--color-bio)"></div></div>
-    </div>
-    <div style="font-size: 14px; color: var(--color-tinta-suave)">Medido por tu teléfono. No es un diagnóstico.</div>
-  </div>
-  {% elif q.why %}
-  <div class="card" style="padding: 16px 18px; gap: 8px">
-    <div style="font-size: 16px; color: var(--color-tinta-suave)">Por qué te pregunto</div>
-    <div style="font-size: 18px; line-height: 1.4">{{ q.why }}</div>
-  </div>
-  {% endif %}
+    <h1 class="lt lt--29" style="margin-top: 18px">{{ q.question }}</h1>
 
-  <div style="display: flex; flex-direction: column; gap: 10px">
+    {% set d = q.deviation %}
+    {% if d and d.observed is not none and d.median %}
+    {% set lo = d.p25 if d.p25 is defined and d.p25 is not none else ((d.median * 0.85 / 10) | round | int) * 10 %}
+    {% set hi = d.p75 if d.p75 is defined and d.p75 is not none else ((d.median * 1.15 / 10) | round | int) * 10 %}
+    {% set tope = [hi * 1.25, d.observed * 1.15, 1] | max %}
+    {% set xo = (6 + d.observed / tope * 302) | round(1) %}
+    {% set xl = (6 + lo / tope * 302) | round(1) %}
+    {% set xh = (6 + hi / tope * 302) | round(1) %}
+    {% set et_hoy = "Hoy " ~ (d.observed | miles) %}
+    {% set w_hoy = 24 + (et_hoy | length) * 7.4 %}
+    {% set x_hoy = [[xo - w_hoy / 2, 2] | max, 312 - w_hoy] | min %}
+    {% set et_hab = "Lo habitual " ~ (lo | miles) ~ " a " ~ (hi | miles) %}
+    {% set w_hab = (et_hab | length) * 7 %}
+    {% set c_hab = [[(xl + xh) / 2, w_hab / 2 + 2] | max, 312 - w_hab / 2] | min %}
+    <div class="vidrio" style="margin-top: 16px; padding: 16px 18px">
+      <div class="etq" style="font-size: 14px">Por qué te pregunto{% if d.window %} · de {{ d.window | replace(":00", "") | replace("–", " a ") }} h{% endif %}</div>
+      <svg width="100%" height="74" viewBox="0 0 314 74" style="display: block; margin-top: 6px" role="img"
+           aria-label="Hoy {{ d.observed | miles }} pasos. Lo habitual, {{ lo | miles }} a {{ hi | miles }}.">
+        <line x1="6" y1="48" x2="308" y2="48" stroke="#C9D6E8" stroke-width="2" stroke-linecap="round"/>
+        <line x1="{{ xl }}" y1="48" x2="{{ xh }}" y2="48" stroke="#2F6FD6" stroke-opacity=".35" stroke-width="10" stroke-linecap="round"/>
+        <line x1="{{ xo }}" y1="20" x2="{{ xo }}" y2="48" stroke="#0E1A2B" stroke-width="1.5"/>
+        <circle cx="{{ xo }}" cy="48" r="8" fill="#fff" stroke="#0E1A2B" stroke-width="2"/>
+        <rect x="{{ x_hoy | round(1) }}" y="2" width="{{ w_hoy | round(1) }}" height="22" rx="11" fill="#0E1A2B"/>
+        <text x="{{ (x_hoy + w_hoy / 2) | round(1) }}" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif" font-size="13" font-weight="600" fill="#fff">{{ et_hoy }}</text>
+        <text x="{{ c_hab | round(1) }}" y="72" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif" font-size="13" fill="#46536A">{{ et_hab }}</text>
+      </svg>
+      <p class="cap" style="font-size: 14px; margin-top: 4px; color: var(--tinta3)">Pasos medidos por tu teléfono. No es un diagnóstico.</p>
+    </div>
+    {% elif q.why %}
+    <div class="vidrio" style="margin-top: 16px; padding: 16px 18px">
+      <div class="etq" style="font-size: 14px">Por qué te pregunto</div>
+      <p class="cuerpo-j" style="margin-top: 6px">{{ q.why }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="hoja">
+    <div class="asa"></div>
     {% for opt in q.options %}
-    <button type="button" class="quick-reply" :aria-pressed="elegida === {{ loop.index0 }} ? 'true' : 'false'"
-            :disabled="enviando" @click="responder({{ loop.index0 }}, {{ opt | tojson | forceescape }})">{{ opt }}</button>
+    <button type="button" class="fila" :aria-pressed="elegida === {{ loop.index0 }} ? 'true' : 'false'"
+            :disabled="enviando" @click="responder({{ loop.index0 }}, {{ opt | tojson | forceescape }})">
+      <span class="tx"><span class="a">{{ opt }}</span></span>
+      <span class="punto-v3" x-show="elegida === {{ loop.index0 }}" x-cloak style="color: var(--azul); width: 10px; height: 10px" aria-hidden="true"></span>
+    </button>
     {% endfor %}
+
+    <div x-show="enviando" x-cloak role="status" class="fila" style="gap: 12px">
+      <div class="indicador indicador--pino" style="width: 24px; height: 24px; border-width: 3px"></div>
+      <span class="cuerpo-j" x-text="slow ? 'Está tardando un poco más. No cierres la app.' : 'Entendiendo lo que contaste…'"></span>
+    </div>
+    <div x-show="error" x-cloak x-text="error" role="alert" class="cuerpo-j" style="padding: 8px 20px; color: var(--rojo)"></div>
+
+    <div class="dock dock--fija" style="padding-top: 6px">
+      <a href="/casa/contar?question_id={{ q.id }}" class="btn p j" onclick="EC.mic.acquire()">
+        <span class="mic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>Contalo con tu voz
+      </a>
+      <a href="/casa" class="txtbtn" style="min-height: 64px; display: flex; align-items: center; justify-content: center; padding: 0">Ahora no</a>
+    </div>
   </div>
-
-  <div x-show="enviando" x-cloak style="display: flex; align-items: center; gap: 12px; font-size: 19px" role="status">
-    <div class="indicador indicador--pino" style="width: 28px; height: 28px; border-width: 4px"></div>
-    <span x-text="slow ? 'Está tardando un poco más. No cierres la app.' : 'Entendiendo lo que contaste…'"></span>
-  </div>
-  <div x-show="error" x-cloak x-text="error" role="alert" style="font-size: 18px; color: var(--color-rojo)"></div>
-
-  <div class="espaciador"></div>
-
-  <a href="/casa/contar?question_id={{ q.id }}" class="btn btn--primario btn--grande" onclick="EC.mic.acquire()">
-    {{ icon("mic", 30) }}
-    Contalo con tu voz
-  </a>
 </main>
 {% endblock %}

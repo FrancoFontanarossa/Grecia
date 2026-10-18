@@ -1,42 +1,43 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
 {% block title %}Anoté esto · Entrecasa{% endblock %}
 {% block content %}
-<main class="pantalla" style="gap: 20px" x-data='anote({{ entry_id }}, {{ domain_labels | tojson }})'>
-  <div class="check-grande">{{ icon("check", 34, width=2.4) }}</div>
+{# v3.1 · 4 Anoté esto (design/v3/pantallas-v31.html): confirmar es lo principal; corregir, lo secundario.
+   Los ítems salen de GET /api/entries/{id} (anote() en static/js/contar.js). #}
+<main class="app cielo" x-data='anote({{ entry_id }}, {{ domain_labels | tojson }})'>
+  <div class="cont">
+    <div class="top">
+      <span class="check-v3" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+    </div>
+    <h1 class="lt" style="margin-top: 18px">Anoté esto.<span class="tenue" style="font-size: 22px; line-height: 29px; margin-top: 6px">Lo va a ver la {{ doctor }} en tu consulta del {{ visit_label }}.</span></h1>
+  </div>
 
-  <h1 style="font-size: 32px; line-height: 1.15; font-weight: 700">Gracias, {{ person.name }}. Anoté esto:</h1>
-
-  <div style="display: flex; flex-direction: column; gap: 12px">
+  <div class="hoja" style="margin-top: 24px">
+    <div class="asa"></div>
+    <div class="rot" x-show="items.length" x-text="items.length === 1 ? '1 cosa que entendí' : items.length + ' cosas que entendí'"></div>
     <template x-if="loading">
-      <div class="entendido" style="align-items: center"><div class="indicador indicador--pino"></div></div>
+      <div class="fila" style="justify-content: center"><div class="indicador indicador--pino"></div></div>
     </template>
     <template x-for="(u, i) in items" :key="i">
-      <div class="entendido">
-        <div class="entendido__meta" x-text="u.when + ' · ' + (u.domain_label || labels[u.domain] || 'Otro')"></div>
-        <div class="entendido__texto" x-text="u.plain"></div>
+      <div class="fila" style="align-items: flex-start; padding-top: 18px; padding-bottom: 18px">
+        <div class="tx">
+          <span class="pil pil--chica" x-text="(u.when ? u.when.charAt(0).toUpperCase() + u.when.slice(1) + ' · ' : '') + (u.domain_label || labels[u.domain] || 'Otro')"></span>
+          <div class="cuerpo-j" style="margin-top: 10px" x-text="u.plain"></div>
+        </div>
       </div>
     </template>
     <template x-if="!loading && !items.length">
-      <div class="entendido">
-        <div class="entendido__meta">Lo guardé tal cual</div>
-        <div class="entendido__texto" x-text="data && data.transcript ? '«' + data.transcript + '»' : 'Lo guardé para tu neuróloga.'"></div>
+      <div class="fila" style="align-items: flex-start; padding-top: 18px; padding-bottom: 18px">
+        <div class="tx">
+          <span class="pil pil--chica">Lo guardé tal cual</span>
+          <div class="cuerpo-j" style="margin-top: 10px" x-text="data && data.transcript ? '«' + data.transcript + '»' : 'Lo guardé para tu neuróloga.'"></div>
+        </div>
       </div>
     </template>
-    <div x-show="data && data.simulated" x-cloak style="font-size: 13px; color: var(--color-tinta-suave)">Simulado: la IA todavía no está conectada.</div>
-  </div>
-
-  <div class="nota nota--chica">
-    {{ icon("nota", 20, "var(--color-tinta-suave)") }}
-    <div>Lo va a ver la {{ doctor }} en el resumen para tu consulta del {{ visit_label }}.</div>
-  </div>
-
-  <div class="espaciador"></div>
-
-  <div style="font-size: 20px; font-weight: 700; text-align: center">¿Está bien así?</div>
-  <div class="grilla-2">
-    <a href="/casa/contar?corregir={{ entry_id }}" class="btn btn--secundario" onclick="EC.mic.acquire()">Corregir</a>
-    <button type="button" class="btn btn--primario" @click="confirmar()">Sí, está bien</button>
+    <div x-show="data && data.simulated" x-cloak class="cap" style="text-align: center; font-size: 14px">Simulado: la IA todavía no está conectada.</div>
+    <div class="dock dock--fija">
+      <button type="button" class="btn p j" @click="confirmar()">Está bien así</button>
+      <a href="/casa/contar?corregir={{ entry_id }}" class="btn s" style="margin-top: 10px; min-height: 64px; font-size: 19px" onclick="EC.mic.acquire()">Corregir</a>
+    </div>
   </div>
 </main>
 {% endblock %}

@@ -1,102 +1,73 @@
-/* Entrecasa — tokens de diseño (CSS plano, sin build)
- * Copiar a app/web/static/css/tokens.css y cargar en la plantilla base:
- *   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
- *   <link rel="stylesheet" href="/static/css/tokens.css">
- * Uso: background: var(--color-pino); border-radius: var(--radius-card); etc.
- * Si algún día se usa Tailwind v4, este bloque se pega tal cual dentro de @theme { }.
+/* Entrecasa — tokens v3.1 (design/v3/pantallas-v31.html). CSS plano, sin build.
+ * Cielo, vidrio y marino. La acción principal es --marino; ámbar y rojo, solo para avisos.
+ * Los nombres viejos (--color-*) quedan como alias para las pantallas que todavía no pasaron a v3
+ * (permisos, vista técnica): apuntan a los valores nuevos.
  */
 
 :root {
-  /* Base */
-  --color-fondo: #F2F4F1;
-  --color-superficie: #FFFFFF;
-  --color-superficie-suave: #E8ECE9;
-  --color-linea: #D5DBD6;
-  --color-linea-suave: #E3E8E4;
-  --color-borde-chip: #C9D1CB;
-  --color-tinta: #17201B;
-  --color-tinta-suave: #4A5650;
+  /* v3.1: cielo, vidrio y marino */
+  --cielo-a: #9FBFEE; --cielo-b: #C7DAF5; --cielo-c: #E6EEF9; --fondo: #F3F6FA;
+  --vidrio: rgba(255,255,255,.62); --vidrio-borde: rgba(255,255,255,.8);
+  --sup: #FFFFFF; --sep: #E7EBF1; --suave: #EEF3FA;
+  --tinta: #0E1A2B; --tinta2: #46536A; --tenue: #56657E;
+  --tinta3: #5F6D84;   /* el mockup usa #6E7C93 (4,2:1 sobre blanco); oscurecido para AA (5,3:1) */
+  --marino: #0F1D33; --azul: #2F6FD6; --azul-osc: #1E4FA3; --azul-t: #E3EDFB;
+  --ambar: #B45309; --ambar-t: #FFF4E5; --rojo: #C4291C; --rojo-t: #FDECEA; --ok: #1E7A45;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
+  --sombra: 0 1px 2px rgba(20,40,80,.04), 0 10px 30px rgba(20,40,80,.07);
 
-  /* Acción */
-  --color-pino: #1E5B4F;
-  --color-pino-claro: #DCEBE6;
-  --color-pino-oscuro: #123A32;
-  --color-pino-texto-claro: #B9D3CB;
-  --color-onda: #7FB5A6;
-
-  /* Datos del teléfono */
-  --color-bio: #2F5FA8;
-  --color-bio-medio: #9DB6DD;
-  --color-bio-suave: #C9D7EC;
-  --color-bio-claro: #E1EAF7;
-  --color-bio-texto: #1D3F73;
-
-  /* Carriles */
-  --color-ambar: #B45309;
-  --color-ambar-fondo: #FCEFD9;
+  /* Alias de los nombres anteriores (no usar en pantallas nuevas) */
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--sup);
+  --color-superficie-suave: var(--suave);
+  --color-linea: var(--sep);
+  --color-linea-suave: var(--sep);
+  --color-borde-chip: #D6DCE5;
+  --color-tinta: var(--tinta);
+  --color-tinta-suave: var(--tinta2);
+  --color-pino: var(--marino);
+  --color-pino-claro: var(--azul-t);
+  --color-pino-oscuro: var(--marino);
+  --color-pino-texto-claro: #C7DAF5;
+  --color-onda: var(--azul);
+  --color-bio: var(--azul);
+  --color-bio-medio: #A9C4EE;
+  --color-bio-suave: #C7DAF5;
+  --color-bio-claro: var(--azul-t);
+  --color-bio-texto: var(--azul-osc);
+  --color-ambar: var(--ambar);
+  --color-ambar-fondo: var(--ambar-t);
   --color-ambar-texto: #8A3F06;
-  --color-rojo: #B42318;
-  --color-rojo-fondo: #FDE4E1;
-
-  /* Tipografía */
-  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
-
-  --text-juan-titulo: 34px;
-  --text-juan-titulo--line-height: 1.15;
-  --text-juan: 22px;
-  --text-juan--line-height: 1.35;
-  --text-familia-titulo: 28px;
-  --text-familia: 18px;
-  --text-familia--line-height: 1.45;
-  --text-medico: 16px;
-  --text-medico--line-height: 1.6;
-  --text-etiqueta: 14px;
-
-  /* Radios */
-  --radius-chip: 10px;
-  --radius-boton: 18px;
-  --radius-card: 20px;
-  --radius-boton-grande: 22px;
-
-  /* Tamaños táctiles */
+  --color-rojo: var(--rojo);
+  --color-rojo-fondo: var(--rojo-t);
+  --font-sans: var(--font);
+  --radius-chip: 999px;
+  --radius-boton: 999px;
+  --radius-card: 24px;
+  --radius-boton-grande: 999px;
   --spacing-toque-juan: 64px;
   --spacing-toque-juan-principal: 76px;
-  --spacing-toque-familia: 56px;
-  --spacing-boton-voz: 188px;
+  --spacing-toque-familia: 48px;
 }
 
 /* Base global */
 html, body {
-  background: var(--color-fondo);
-  color: var(--color-tinta);
-  font-family: var(--font-sans);
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
+.num, .cifra, td { font-variant-numeric: tabular-nums; }
 
-/* Respetar el notch en modo app */
-.pantalla-telefono {
-  min-height: 100dvh;
-  box-sizing: border-box;
-  padding: max(56px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* Halo del botón de voz */
-.halo-voz { box-shadow: 0 0 0 14px var(--color-pino-claro); }
-.halo-grabando { box-shadow: 0 0 0 16px rgba(255,255,255,0.14), 0 0 0 34px rgba(255,255,255,0.06); }
-
-/* Etiqueta de sección */
+/* Etiqueta de sección (informe y vistas viejas) */
 .etiqueta-seccion {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--color-tinta-suave);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--tinta2);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

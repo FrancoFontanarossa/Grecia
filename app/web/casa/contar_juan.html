@@ -1,94 +1,99 @@
 ﻿{% extends "base.html" %}
-{% from "_icons.html" import icon %}
 {% block title %}Te escucho · Entrecasa{% endblock %}
 {% block content %}
-<main class="pantalla pantalla--oscura"
+{# v3.1 · 3 Grabando (design/v3/pantallas-v31.html). Tocar para empezar y tocar para terminar, nunca mantener
+   apretado. Toda la zona del botón y su texto es tocable. Fases y métodos: contar() en static/js/contar.js. #}
+<main class="app cielo cielo--grabando"
       x-data="contar({ personId: {{ person.id }}, questionId: {{ question_id or 'null' }}, correctId: {{ correct_id or 'null' }}, startMode: '{{ start_mode }}', family: false, backUrl: '{{ back_url }}' })">
 
-  <div class="grabando__cabecera">
-    <div class="grabando__te-escucho">{% if correct_id %}Corregir{% else %}Te escucho{% endif %}</div>
-    <div class="grabando__consigna" x-show="phase !== 'escribir'">Contá con tus palabras. Si pasó otro día, decí cuándo.</div>
-    <div class="grabando__consigna" x-show="phase === 'escribir'" x-cloak>Escribilo con tus palabras. Si pasó otro día, decí cuándo.</div>
+  <div class="cont" style="flex: 1; display: flex; flex-direction: column">
+    <div class="top">
+      <button type="button" class="circ" aria-label="Cancelar" x-show="phase !== 'procesando' && !(phase === 'error' && errorKind === 'ia')" @click="cancelar()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <span x-show="phase === 'procesando' || (phase === 'error' && errorKind === 'ia')" style="width: 46px"></span>
+      <span class="chip">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E4FA3" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>{% if correct_id %}Corregir{% else %}Te escucho{% endif %}
+      </span>
+      <span style="width: 46px"></span>
+    </div>
+
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center">
+      {# ---------- esfera (grabando, listo y procesando) ---------- #}
+      <div class="esfera" x-show="phase !== 'escribir' && phase !== 'error'" :class="phase === 'grabando' && 'esfera--viva'" aria-hidden="true">
+        <div class="esfera__halo"></div>
+        <svg class="esfera__borde" width="230" height="230" viewBox="0 0 230 230"><path fill="none" stroke="#9CC4B8" stroke-width="1.6" d="M115 22 C130 22 134 30 147 33 C160 36 168 32 178 41 C188 50 184 59 191 70 C198 81 207 86 207 101 C207 115 199 120 199 134 C199 148 207 154 200 167 C193 180 183 177 173 187 C163 197 164 206 150 210 C136 214 129 207 115 207 C101 207 94 214 80 210 C66 206 67 197 57 187 C47 177 37 180 30 167 C23 154 31 148 31 134 C31 120 23 115 23 101 C23 86 32 81 39 70 C46 59 42 50 52 41 C62 32 70 36 83 33 C96 30 100 22 115 22Z"/></svg>
+        <div class="esfera__bola"></div>
+      </div>
+
+      {# ---------- grabando ---------- #}
+      <template x-if="phase === 'grabando' || phase === 'pidiendo'">
+        <div style="display: flex; flex-direction: column; align-items: center">
+          <div class="liviano" style="font-size: 46px; margin-top: 22px" x-text="mmss" role="timer">0:00</div>
+          <p class="cuerpo-j" style="text-align: center; margin-top: 14px; color: var(--tinta2)">Contá con tus palabras.<br>Si pasó otro día, decí cuándo.</p>
+        </div>
+      </template>
+
+      {# ---------- listo: iOS pidió un toque ---------- #}
+      <template x-if="phase === 'listo'">
+        <p class="cuerpo-j" style="text-align: center; margin-top: 22px; color: var(--tinta2)">Contá con tus palabras.<br>Si pasó otro día, decí cuándo.</p>
+      </template>
+
+      {# ---------- procesando ---------- #}
+      <template x-if="phase === 'procesando'">
+        <div role="status" aria-live="polite" style="display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 22px">
+          <div class="cuerpo-j" style="font-weight: 600; text-align: center" x-text="progress"></div>
+          <div class="cuerpo-j" x-show="slow" style="text-align: center; color: var(--tinta2)">Está tardando un poco más. No cierres la app.</div>
+        </div>
+      </template>
+
+      {# ---------- error ---------- #}
+      <template x-if="phase === 'error'">
+        <div role="alert" style="align-self: stretch; display: flex; flex-direction: column; gap: 14px">
+          <div class="lt lt--29" x-text="error"></div>
+          <div x-show="transcript" class="vidrio" style="padding: 16px 18px">
+            <div class="etq" style="font-size: 14px">Lo que guardamos</div>
+            <p class="cuerpo-j" style="margin-top: 6px" x-text="'«' + transcript + '»'"></p>
+          </div>
+        </div>
+      </template>
+
+      {# ---------- escribir ---------- #}
+      <template x-if="phase === 'escribir'">
+        <div style="align-self: stretch; display: flex; flex-direction: column; gap: 12px">
+          <h1 class="lt lt--29">Escribilo con tus palabras.<span class="tenue">Si pasó otro día, decí cuándo.</span></h1>
+          <label for="texto-juan" class="sr-only">Lo que querés contar</label>
+          <textarea id="texto-juan" class="caja-texto vidrio" x-model="text" placeholder="Por ejemplo: hoy a la tarde me sentí trabado." autofocus></textarea>
+          <div x-show="error" x-text="error" class="cuerpo-j" style="color: var(--rojo)"></div>
+        </div>
+      </template>
+    </div>
   </div>
 
-  <div class="espaciador"></div>
-
-  {# ---------- grabando ---------- #}
-  <template x-if="phase === 'grabando' || phase === 'pidiendo'">
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 24px">
-      <div class="grabando__contador" x-text="mmss">0:00</div>
-      <div class="onda" aria-hidden="true">
-        <template x-for="(h, i) in bars" :key="i"><div class="onda__barra" :style="'height:' + h + 'px'"></div></template>
-      </div>
-    </div>
-  </template>
-
-  {# ---------- listo: iOS pidió un toque ---------- #}
-  <template x-if="phase === 'listo'">
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 18px">
-      <button type="button" class="voz__boton" style="box-shadow: 0 0 0 14px rgba(255,255,255,0.14)" @click="empezar()" aria-label="Tocá para empezar">
-        {{ icon("mic", 72, width=1.7) }}
-      </button>
-      <div class="grabando__terminar">Tocá para empezar</div>
-    </div>
-  </template>
-
-  {# ---------- procesando ---------- #}
-  <template x-if="phase === 'procesando'">
-    <div class="estado" role="status" aria-live="polite">
-      <div class="onda" aria-hidden="true" style="height: 40px">
-        <template x-for="(h, i) in bars" :key="i"><div class="onda__barra" style="height: 10px"></div></template>
-      </div>
-      <div class="indicador"></div>
-      <div class="estado__texto" x-text="progress"></div>
-      <div class="estado__sub" x-show="slow" style="color: var(--color-pino-texto-claro)">Está tardando un poco más. No cierres la app.</div>
-    </div>
-  </template>
-
-  {# ---------- error ---------- #}
-  <template x-if="phase === 'error'">
-    <div class="estado" role="alert" style="align-self: stretch">
-      <div class="estado__texto" x-text="error"></div>
-      <div x-show="transcript" class="card" style="color: var(--color-tinta); align-self: stretch; text-align: left">
-        <div style="font-size: 15px; color: var(--color-tinta-suave)">Lo que guardamos</div>
-        <div style="font-size: 19px; line-height: 1.4" x-text="'«' + transcript + '»'"></div>
-      </div>
-    </div>
-  </template>
-
-  {# ---------- escribir ---------- #}
-  <template x-if="phase === 'escribir'">
-    <div style="align-self: stretch; display: flex; flex-direction: column; gap: 14px">
-      <label for="texto-juan" class="sr-only">Lo que querés contar</label>
-      <textarea id="texto-juan" class="caja-texto" x-model="text" placeholder="Por ejemplo: hoy a la tarde me sentí trabado." autofocus></textarea>
-      <div x-show="error" x-text="error" style="font-size: 18px; color: var(--color-pino-texto-claro)"></div>
-    </div>
-  </template>
-
-  <div class="espaciador"></div>
-
   {# ---------- botones de abajo ---------- #}
-  <template x-if="phase === 'grabando' || phase === 'pidiendo'">
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 0">
-      <button type="button" class="detener" @click="terminar()" aria-label="Terminar y enviar" :disabled="phase !== 'grabando'">
-        <div class="detener__cuadrado"></div>
+  <div class="dock" style="margin-top: 0">
+    <template x-if="phase === 'grabando' || phase === 'pidiendo'">
+      <button type="button" class="toque-redondo" @pointerdown="tocar('terminar', $event)" @click="tocar('terminar', $event)" :disabled="phase !== 'grabando'" aria-label="Terminar y enviar">
+        <span class="toque-redondo__circ"><span style="width: 32px; height: 32px; border-radius: 8px; background: var(--rojo)"></span></span>
+        <span class="toque-redondo__texto">Tocá para terminar</span>
       </button>
-      <div class="grabando__terminar">Tocá para terminar</div>
-    </div>
-  </template>
-  <template x-if="phase === 'error'">
-    <div style="align-self: stretch; display: flex; flex-direction: column; gap: 12px">
-      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 700" @click="reintentar()"
-              x-text="errorKind === 'sin-permiso' ? 'Escribir en vez de hablar' : (errorKind === 'ia' ? 'Volver al inicio' : 'Probar de nuevo')"></button>
-      <button type="button" x-show="errorKind !== 'sin-permiso'" class="btn btn--claro" style="align-self: center" @click="escribir()">Escribir en vez de hablar</button>
-    </div>
-  </template>
-  <template x-if="phase === 'escribir'">
-    <div style="align-self: stretch">
-      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 700" @click="enviarTexto()" :disabled="!text.trim()">Listo</button>
-    </div>
-  </template>
-
-  <button type="button" class="btn btn--claro" x-show="phase !== 'procesando' && !(phase === 'error' && errorKind === 'ia')" @click="cancelar()">Cancelar</button>
+    </template>
+    <template x-if="phase === 'listo'">
+      <button type="button" class="toque-redondo" @pointerdown="tocar('empezar', $event)" @click="tocar('empezar', $event)" aria-label="Tocá para empezar">
+        <span class="toque-redondo__circ"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0F1D33" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+        <span class="toque-redondo__texto">Tocá para empezar</span>
+      </button>
+    </template>
+    <template x-if="phase === 'error'">
+      <div>
+        <button type="button" class="btn p j" @click="reintentar()"
+                x-text="errorKind === 'sin-permiso' ? 'Escribir en vez de hablar' : (errorKind === 'ia' ? 'Volver al inicio' : 'Probar de nuevo')"></button>
+        <button type="button" x-show="errorKind !== 'sin-permiso'" class="txtbtn" @click="escribir()">Escribir en vez de hablar</button>
+      </div>
+    </template>
+    <template x-if="phase === 'escribir'">
+      <button type="button" class="btn p j" @click="enviarTexto()" :disabled="!text.trim()">Listo</button>
+    </template>
+  </div>
 </main>
 {% endblock %}
