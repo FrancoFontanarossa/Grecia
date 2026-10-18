@@ -2,6 +2,9 @@
 Gasta tokens de la key compartida (Haiku, poco). Necesita ANTHROPIC_API_KEY en el entorno o en .env.
 
     .venv/bin/python scripts/try_extract.py
+    .venv/bin/python scripts/try_extract.py "texto del relato" [Juan|Marta|Laura] [hint]   # un relato propio
+
+En consola (no en los logs) muestra, intento por intento, qué regla del validador rechazó la salida.
 """
 import asyncio
 import datetime as dt
@@ -33,7 +36,22 @@ CASES = [
 ]
 
 
+ROLES = {"Juan": "paciente", "Marta": "cuidador", "Laura": "familiar"}
+
+
 async def main() -> None:
+    if len(sys.argv) > 1:
+        name = sys.argv[2] if len(sys.argv) > 2 else "Juan"
+        CASES[:] = [(name, ROLES.get(name, "paciente"), sys.argv[3] if len(sys.argv) > 3 else None, sys.argv[1])]
+    real_parse = extract._parse
+
+    def parse_spy(response, raw_text, *rest):             # qué regla rechaza, solo en consola
+        try:
+            return real_parse(response, raw_text, *rest)
+        except Exception as exc:
+            print(f"    RECHAZO: {type(exc).__name__}: {exc}")
+            raise
+    extract._parse = parse_spy
     usage_seen = []
     real_call = extract._call_model
 

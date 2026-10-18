@@ -145,3 +145,31 @@ def test_atribucion_de_otra_persona_no_puede_decir_vos_pensas(monkeypatch):
     monkeypatch.setattr(extract, "_call_model", fake)
     [e] = run(entry(text="Mamá me contó que se tambaleó en la vereda, pero dice que no es nada.", role="familiar"))
     assert "Tu mamá piensa" in e.plain and len(fake.calls) == 2
+
+
+JUAN_SUENOS = ("Duermo bastante bien, me levanto un par de veces al baño nomás. A veces sueño cosas raras, pero "
+               "nada, no pasa nada.")
+
+
+def test_el_paciente_que_minimiza_puede_decir_vos_pensas(monkeypatch):
+    # Relato del escenario que fallaba dos veces: Juan cuenta y minimiza él; "Vos pensás" está bien.
+    suenos = ev(domain="sueno", symptom="actua_suenos", negated=False, foreign_attribution="no pasa nada",
+                attribution_by="paciente", quote="A veces sueño cosas raras, pero nada, no pasa nada.",
+                time_said={"day": "habitual", "weekday": None, "part": None, "clock": None},
+                plain="A veces soñás cosas raras. Vos pensás que no pasa nada.")
+    fake = FakeModel(tool_response([suenos]))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    [e] = asyncio.run(extract.extract(entry(text=JUAN_SUENOS, role="paciente", hint=None), patient_name="Juan",
+                                      speaker_name="Juan"))
+    assert len(fake.calls) == 1
+    assert e.negated is False and e.foreign_attribution == "no pasa nada" and "Vos pensás" in e.plain
+
+
+def test_si_cuenta_un_familiar_lo_del_paciente_no_es_vos_pensas(monkeypatch):
+    mal = ev(foreign_attribution="es la edad", attribution_by="paciente", quote="se tambaleó en la vereda",
+             domain="caidas", symptom="casi_caida", plain="Juan se tambaleó. Vos pensás que es la edad.")
+    bien = {**mal, "plain": "Juan se tambaleó. Él piensa que es la edad."}
+    fake = FakeModel(tool_response([mal]), tool_response([bien]))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    [e] = run(entry(text="Papá se tambaleó en la vereda y dice que es la edad.", role="familiar"))
+    assert "Él piensa" in e.plain and len(fake.calls) == 2

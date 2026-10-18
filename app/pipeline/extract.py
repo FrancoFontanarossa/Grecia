@@ -162,7 +162,7 @@ async def _call_model(system: list[dict], content: str):
     )
 
 
-def _parse(response, raw_text: str) -> ExtractionOutput:
+def _parse(response, raw_text: str, speaker_role: str | None = None) -> ExtractionOutput:
     if response.stop_reason == "refusal":
         raise ExtractionError("El modelo se negó a procesar el relato")
     block = next((b for b in response.content if b.type == "tool_use" and b.name == TOOL_NAME), None)
@@ -172,6 +172,8 @@ def _parse(response, raw_text: str) -> ExtractionOutput:
     for ev in output.events:
         if ev.quote not in raw_text:
             raise ValueError(f"La cita no está literal en el relato: {ev.quote!r}")
+        if speaker_role == "paciente" and ev.attribution_by == "paciente":
+            ev.attribution_by = "quien_cuenta"     # si cuenta el paciente, su propia minimización es de quien cuenta
         if ev.foreign_attribution and ev.attribution_by in ("paciente", "otra_persona") and "vos pens" in ev.plain.lower():
             raise ValueError(f"La atribución «{ev.foreign_attribution}» la dijo otra persona, pero plain dice "
                              f"'Vos pensás': nombrá a quien la dijo ({ev.plain!r})")
@@ -214,7 +216,7 @@ async def extract(entry: Entry, *, patient_name: str = "el paciente",
         except anthropic.AnthropicError as exc:               # sin key, o el SDK ya reintentó 429/5xx/conexión
             raise ExtractionError(f"Falló la llamada a Claude: {exc}") from exc
         try:
-            output = _parse(response, entry.raw_text)
+            output = _parse(response, entry.raw_text, entry.speaker_role)
         except (ValidationError, ValueError) as exc:
             last_error = exc
             log.warning("extracción inválida (intento %s/%s, entrada %s, %s)", attempt, MAX_ATTEMPTS, entry.id,
