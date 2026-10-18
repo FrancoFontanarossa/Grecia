@@ -55,5 +55,11 @@ def create_test(body: TestIn):
     result, simulated = _score(patient_id, body.taps)
     store.save_test({"patient_id": patient_id, "taken_at": result.taken_at.isoformat(), "metrics": result.metrics,
                      "raw": [t.model_dump() for t in body.taps], "source": "app"})
-    return {**result.model_dump(mode="json"), "simulated": simulated,
+    episode_id = None
+    if store.has_db():   # modo 2: si el juego vino de una invitación del plan basada en un desvío, va a ese episodio
+        from app import db, plan_jobs
+        with db.connect() as conn:
+            test_id = conn.execute("SELECT max(id) FROM tests WHERE patient_id = ?", (patient_id,)).fetchone()[0]
+        episode_id = plan_jobs.link_test(patient_id, test_id, store.now()) if test_id else None
+    return {**result.model_dump(mode="json"), "simulated": simulated, "episode_id": episode_id,
             "history": [{"taken_at": h["taken_at"], "taps_per_s": h["metrics"]["taps_per_s"]} for h in previous]}

@@ -214,6 +214,37 @@ CREATE TABLE IF NOT EXISTS patterns (
     question_id INTEGER,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS planned_actions (
+    id INTEGER PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    plan_date TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('golpeteo','pregunta','seguimiento')),
+    at TEXT NOT NULL,
+    to_person_id INTEGER,
+    reason TEXT NOT NULL,
+    why TEXT,
+    basis TEXT NOT NULL,
+    evidence_ids TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL CHECK (status IN ('agendada','ejecutada','descartada')),
+    discard_reason TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS hypotheses (
+    id INTEGER PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    plan_date TEXT NOT NULL,
+    condition TEXT NOT NULL,
+    metric TEXT NOT NULL,
+    lag_days INTEGER NOT NULL,
+    direction TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    passed INTEGER NOT NULL,
+    mediana_con REAL,
+    n_con INTEGER NOT NULL,
+    mediana_sin REAL,
+    n_sin INTEGER NOT NULL,
+    discard_reason TEXT
+);
 CREATE INDEX IF NOT EXISTS ix_people_patient ON people (patient_id);
 CREATE INDEX IF NOT EXISTS ix_notifications_person ON notifications (person_id, created_at);
 CREATE INDEX IF NOT EXISTS ix_entries_patient ON entries (patient_id, created_at);

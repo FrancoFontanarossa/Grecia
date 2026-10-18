@@ -56,4 +56,12 @@ def tecnica(request: Request, patient_id: int):
 def admin_clock(request: Request):
     people = [p for pid in (store.JUAN_PATIENT_ID, store.test_patient_id()) for p in store.people(pid)
               if p["role"] != "neurologo"]
-    return templates.TemplateResponse(request, "admin/clock.html", {"people": people})
+    return templates.TemplateResponse(request, "admin/clock.html", {"people": people, "plan": _plan(store.JUAN_PATIENT_ID)})
+
+
+def _plan(patient_id: int) -> dict | None:
+    """Modo 2: el plan del paciente, o None si no hay base."""
+    if not store.has_db():
+        return None
+    from app.api.plan import build_plan
+    return build_plan(patient_id)

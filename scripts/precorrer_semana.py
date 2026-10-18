@@ -111,6 +111,9 @@ async def run(esc: Escenario = ESC) -> dict:
     loaded = skipped = 0
     questions: list[int] = []
     real_send, real_regen = push.send_push, report.request_regeneration
+    from app import config
+    real_plan = config.DAILY_PLAN_ENABLED
+    config.DAILY_PLAN_ENABLED = False      # el modo 2 no planifica dentro del escenario: solo en vivo
 
     async def silent(subscription, title, body, url):   # se guarda la notificación, no suena el teléfono
         return False
@@ -138,6 +141,7 @@ async def run(esc: Escenario = ESC) -> dict:
             informe = {"ok": False}
     finally:
         push.send_push, report.request_regeneration = real_send, real_regen
+        config.DAILY_PLAN_ENABLED = real_plan
     return {"cargados": loaded, "ya_estaban": skipped, "preguntas": questions, "reloj": esc.end.isoformat(),
             "informe": informe}
 

@@ -241,6 +241,42 @@ class UnderstoodItem(BaseModel):
     domain: Domain
 
 
+# Modo 2: plan diario (pipeline.daily_plan → rules.plan.validate → scheduler). La IA propone; el código prueba y decide.
+# condition: noche_mala | relato_dominio:<dominio> | relato_de:<paciente|cuidador|familiar> | desvio_franja:<HH-HH> |
+#            golpeteo_lento | fin_de_semana
+# metric:    pasos_dia | pasos_franja:<HH-HH> | golpeteo_tps | despertares | relatos_dominio:<dominio>
+class Hypothesis(BaseModel):
+    condition: str
+    metric: str
+    lag_days: Literal[0, 1]
+    direction: Literal["mas", "menos"]
+    reason: str
+
+
+class HypothesisResult(BaseModel):
+    hypothesis: Hypothesis
+    passed: bool
+    mediana_con: float | None
+    n_con: int
+    mediana_sin: float | None
+    n_sin: int
+    discard_reason: str | None = None
+
+
+class PlannedAction(BaseModel):
+    kind: Literal["golpeteo", "pregunta", "seguimiento", "nada"]
+    at: str                                 # "HH:MM" de mañana
+    to_role: Speaker
+    reason: str                             # motivo en rioplatense simple, sin cifras
+    basis: str                              # "desvio:<id de episodes>" | "hipotesis:<índice>"
+    evidence_ids: list[str]                 # refs del digest: "relato:<id>", "episodio:<id>", "juego:<id>", "dia:<AAAA-MM-DD>"
+
+
+class DailyPlan(BaseModel):
+    hypotheses: list[Hypothesis] = Field(default_factory=list, max_length=3)
+    actions: list[PlannedAction] = Field(default_factory=list, max_length=2)
+
+
 class PatternCandidate(BaseModel):          # P1: salida de pipeline.daily_review (sección 7.3 bis)
     kind: Literal["repeticion","coocurrencia","tras_medicacion","discrepancia_voces","otro"]
     title: str
