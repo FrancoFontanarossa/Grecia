@@ -230,3 +230,26 @@ def test_una_vencida_no_bloquea_la_caida_en_vivo_del_sabado(tmp_data_dir, pushes
     [qid] = run_tick(monkeypatch, trigger())                      # la caída del sábado 16:00
     q = rows(f"SELECT status, sent_at FROM questions WHERE id = {qid}")[0]
     assert q["status"] == "enviada" and q["sent_at"].startswith("2026-10-17")
+
+
+def test_el_episodio_tiene_el_deviation_completo_antes_de_la_push(at_1805, monkeypatch):
+    """Con los facts como los pone rules.triggers.p_desvio (el Deviation directo), y antes de que salga la push."""
+    from app import notify
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    seen = {}
+    real_send = notify.send
+
+    async def spy(person_id, kind, title, body, url, **kw):
+        seen["episodes"] = rows("SELECT deviation, question_id FROM episodes")
+        return await real_send(person_id, kind, title, body, url, **kw)
+    monkeypatch.setattr(notify, "send", spy)
+    p_desvio = Trigger(rule_id="P-DESVIO", patient_id=1, to_person_id=1, facts=DEV.model_dump(mode="json"),
+                       why="Otras tardes de semana ≈ 1.300 pasos de 16 a 18 h; hoy 420.")
+    [qid] = run_tick(monkeypatch, p_desvio)
+    [ep] = seen["episodes"]
+    assert ep["question_id"] == qid
+    dev = json.loads(ep["deviation"])
+    assert {k: dev[k] for k in ("window", "observed", "median", "z", "pct_change", "baseline", "baseline_n")} == {
+        "window": "16:00-18:00", "observed": 420, "median": 1300.0, "z": -4.1, "pct_change": -0.68,
+        "baseline": "estrato", "baseline_n": 8}
+    assert dev["dose_time"].startswith("2026-10-17T16:00") and dev["baseline_label"] == "otras tardes entre semana"

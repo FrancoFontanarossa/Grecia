@@ -65,7 +65,8 @@ async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
 
     ctx = await context_builder.build(trigger, now)
     explanation: Explanation = await explain_pipeline.explain(trigger, ctx)
-    deviation = ctx.deviation.model_dump(mode="json") if ctx.deviation else None
+    deviation = ({**ctx.deviation.model_dump(mode="json"), "baseline_label": ask_pipeline.baseline_label(trigger)}
+                 if ctx.deviation else None)
 
     async def save_episode(status: str, question_id: int | None) -> None:
         if dose is not None:
@@ -92,10 +93,10 @@ async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
     qid = await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id,
                                   to_person_id=trigger.to_person_id, rule_id=trigger.rule_id, question=text.question,
                                   why=trigger.why, options=text.options, status="enviada", sent_at=now)
+    await save_episode("preguntado", qid)   # antes de la push: la pantalla del "por qué" lee episodes.deviation
     title = f"{ctx.patient_name}, una pregunta de hoy" if ctx.recipient_role == "paciente" else "Una pregunta de hoy"
     await notify.send(trigger.to_person_id, "pregunta", title, text.question, f"/casa/pregunta/{qid}")
     log.info("pregunta %s (%s) enviada a %s", qid, trigger.rule_id, trigger.to_person_id)
-    await save_episode("preguntado", qid)
     return qid
 
 
