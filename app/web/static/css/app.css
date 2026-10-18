@@ -340,3 +340,5 @@ a.fila:active, button.fila:active { background: var(--suave); }
 .segm--envuelve { flex-wrap: wrap; justify-content: center; border-radius: 26px; gap: 2px; overflow: visible; }
 .segm--envuelve button { flex: 1 1 auto; }
 .fila--sep::before { content: ""; position: absolute; top: 0; left: 20px; right: 20px; height: 1px; background: var(--sep); }
+/* emergencia: pasos numerados */
+.paso-rojo { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--rojo-t); color: var(--rojo); display: grid; place-items: center; font-weight: 700; }
