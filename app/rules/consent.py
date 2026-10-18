@@ -6,15 +6,9 @@ from app.models import Alert, Event, Person
 RESERVED_DOMAINS = {"neuropsiquiatrico", "impulsos", "sexual"}
 FAMILY_ROLES = {"cuidador", "familiar"}
 
-# Quién recibe cada aviso (§6.3). "equipo" = neurólogo; R4 va a la persona que lo dijo.
-RED_ROLES = {
-    "R1": {"paciente", "cuidador", "familiar"},
-    "R2": {"cuidador", "familiar"},
-    "R3": {"paciente", "cuidador"},
-    "R": {"paciente", "cuidador", "familiar"},     # rojo genérico del respaldo con IA
-}
-AMBER_FAMILY_WITH_CONSENT = {"A1": {"cuidador"}}  # A1: Marta, si lo habilitó
-AMBER_PATIENT = {"A3-sugerencia"}                 # la sugerencia de A3 es para Juan
+# Quién recibe cada aviso (alcance de las 04:15). Ningún aviso notifica: el rojo no tiene destinatarios (solo
+# muestra el mensaje fijo a quien escribió, en la respuesta del relato, y queda marcado en el informe) y el ámbar
+# va solo al equipo, que lo ve como prioridad en el informe. La familia y el paciente no reciben ninguno.
 
 
 def is_reserved(event: Event, *, reserved_requested: bool, canal_reservado_active: bool) -> bool:
@@ -71,28 +65,8 @@ def _with_consent(patient_id: int, kind: str) -> set[int]:
 
 
 def recipients(alert: Alert, *, speaker_id: int | None = None) -> list[Person]:
-    """A quién va el aviso. `speaker_id` es quien contó lo que lo disparó: R4 va a esa persona, y lo
-    reservado va solo al equipo y a ella."""
-    people = _people(alert.patient_id)
-    rule = alert.rule_id.removesuffix("-IA")
-    if alert.lane == "verde":
+    """A quién va el aviso. Rojo y verde: a nadie. Ámbar (reservado o no): solo al equipo, en el informe.
+    `speaker_id` queda por contrato (§11); ya no cambia el resultado."""
+    if alert.lane != "ambar":
         return []
-    if alert.lane == "rojo":
-        if rule == "R4":
-            chosen = [p for p in people if p.id == speaker_id] or [p for p in people if p.role == "paciente"]
-        else:
-            chosen = [p for p in people if p.role in RED_ROLES.get(rule, RED_ROLES["R"])]
-        return chosen
-    # Ámbar
-    if rule in AMBER_PATIENT:
-        chosen = [p for p in people if p.role == "paciente"]
-    else:
-        consented = _with_consent(alert.patient_id, "avisos")
-        family_roles = AMBER_FAMILY_WITH_CONSENT.get(rule, set())
-        chosen = [p for p in people if p.role == "neurologo"
-                  or (p.role in family_roles and p.id in consented)]
-    if alert.reserved:
-        chosen = [p for p in chosen if p.role == "neurologo"]
-        chosen += [p for p in people if p.id == speaker_id and p.role != "paciente" and p not in chosen]
-    return sorted((p for p in chosen if p.role != "paciente" or patient_can_see(reserved=alert.reserved, lane=alert.lane)),
-                  key=lambda p: p.id)
+    return [p for p in _people(alert.patient_id) if p.role == "neurologo"]

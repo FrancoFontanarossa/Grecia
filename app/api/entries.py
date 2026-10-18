@@ -1,6 +1,6 @@
 # POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio),
 # corre los rojos (rules.red + respaldo con IA que solo sube), extrae los eventos y pasa a los avisos
-# (rules.lanes → destinatarios de rules.consent → push con notify.dispatch).
+# (rules.lanes → destinatarios de rules.consent; desde las 04:15 ningún aviso manda push: ver notify.dispatch).
 import asyncio
 import logging
 import time
@@ -11,7 +11,7 @@ from fastapi import APIRouter, Cookie, File, Form, HTTPException, UploadFile
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
 from app import notify
 from app.notify import dispatch
-from app.rules import consent, lanes
+from app.rules import consent, lanes, limits
 from app.rules import red as red_rules
 from app.models import Entry, Event, OccurredHint
 from app.pipeline import extract as extraction
@@ -139,20 +139,25 @@ async def _analyze(entry_id: int, person: dict, raw_text: str, audio_path, respo
         is_red = red is not None and red.missing_criterion is None
         events: list[Event] | None = None
         t = time.perf_counter()
-        if not is_red:   # con rojo por regla no se extrae
-            # El respaldo y la extracción corren en paralelo para no sumar latencia; si el respaldo sube a rojo,
-            # la extracción se descarta.
+        # El rojo ya no corta el recorrido (alcance de las 04:15): solo suma un mensaje fijo en la pantalla de quien
+        # escribió. Se extrae igual, así queda "Anoté esto" y el relato entra al informe. El respaldo con IA corre en
+        # paralelo con la extracción (para no sumar latencia) y solo si las reglas no encontraron un rojo completo.
+        if is_red:
+            extracted = await _extract_or_error(entry, person)
+        else:
             extracted, verdict = await asyncio.gather(
                 _extract_or_error(entry, person),
                 red_backup.red_backup(raw_text, red, meds=meds),
             )
             if red is None and verdict.escalate:
                 red, is_red = red_rules.from_backup(verdict.suspected_rule), True
-            elif isinstance(extracted, extraction.ExtractionError):
-                response["error"], response["error_code"] = AI_ERROR, "ia"   # el relato crudo ya quedó guardado
-            else:
-                events = extracted
+        if isinstance(extracted, extraction.ExtractionError):
+            response["error"], response["error_code"] = AI_ERROR, "ia"   # el relato crudo ya quedó guardado
+        else:
+            events = extracted
         timing["rojos_y_extraccion"] = time.perf_counter() - t
+        # Pedidos de medicación, dosis, estadio o diagnóstico (§7.6): texto fijo, nunca el modelo. Se anota igual.
+        response["limit"] = limits.check(raw_text)
         event_ids: list[int] = []
         if events is not None:
             event_ids = await _save_events(entry, events)
@@ -256,13 +261,13 @@ async def get_entry(entry_id: int, person_id: int | None = None, ec_person: str 
     red = red_rules.evaluate(entry["raw_text"], await asyncio.to_thread(red_rules.patient_meds, entry["patient_id"])) \
         if entry["raw_text"] else None
     alerts = [a for a in data["alerts"] if _visible_to(a, viewer)]
-    if red is None:
-        red_alert = next((a for a in alerts if a.lane == "rojo"), None)
+    if red is None:   # rojo que subió el respaldo con IA: el aviso guardado dice la regla; el texto es el fijo
+        red_alert = next((a for a in data["alerts"] if a.lane == "rojo"), None)
         if red_alert:
-            from app.models import RedResult
-            red = RedResult(rule_id=red_alert.rule_id, missing_criterion=None, text=red_alert.text)
+            red = red_rules.from_backup(red_alert.rule_id.removesuffix("-IA"))
     response = {"entry_id": entry_id, "transcript": entry["raw_text"], "understood": understood,
-                "red": red.model_dump() if red else None, "alerts": [a.model_dump(mode="json") for a in alerts]}
+                "red": red.model_dump() if red else None, "alerts": [a.model_dump(mode="json") for a in alerts],
+                "limit": limits.check(entry["raw_text"] or "")}
     if not entry["raw_text"]:   # audio que no se pudo pasar a texto (no hay columna de estado: ver PR #8)
         response["error"], response["error_code"] = AI_ERROR, "ia"
     return response

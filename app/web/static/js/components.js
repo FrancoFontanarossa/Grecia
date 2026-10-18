@@ -134,61 +134,6 @@
     };
   };
 
-  /* ---------------------------------------------------------- pantalla roja */
-  var CRITERIA = {
-    anticoagulante: "¿Toma algún anticoagulante (por ejemplo, apixabán o warfarina)?",
-    perdida_conocimiento: "¿Perdió el conocimiento, aunque sea un momento?",
-    vomito: "¿Vomitó después del golpe?",
-    cefalea: "¿Le duele la cabeza?",
-    fiebre: "¿Tiene fiebre de 38 o más?"
-  };
-  window.emergencia = function (alert, entryId, personId) {
-    var red = null;
-    try { red = JSON.parse(sessionStorage.getItem("ec_red_" + entryId) || "null"); } catch (e) {}
-    var src = red || alert || {};
-    return {
-      text: src.text || "Esto puede ser urgente.",
-      missing: src.missing_criterion || null,
-      answered: false, sending: false, demoNote: false,
-      get missingQuestion() {
-        var m = this.missing || "";
-        return CRITERIA[m] || ("¿" + m.replace(/_/g, " ") + "?");
-      },
-      answer: function (yes) {
-        var self = this;
-        self.sending = true;
-        var fd = new FormData();
-        fd.append("person_id", personId);
-        fd.append("text", (yes ? "Sí. " : "No. ") + self.missingQuestion);
-        fd.append("quick_reply", yes ? "Sí" : "No");
-        fetch("/api/entries", { method: "POST", body: fd })
-          .then(function (r) { return r.json(); })
-          .then(function (d) {
-            self.sending = false; self.answered = true;
-            if (d.red) { self.text = d.red.text; self.missing = d.red.missing_criterion; self.answered = !self.missing; }
-          })
-          .catch(function () { self.sending = false; EC.toast("No hay conexión. Probá de nuevo en un rato."); });
-      },
-      acking: false,
-      // "Estoy bien": POST /api/alerts/{id}/ack (la meta sale de pausa si no queda ningún rojo sin atender).
-      ack: function (alertId) {
-        var self = this;
-        self.acking = true;
-        fetch("/api/alerts/" + alertId + "/ack", { method: "POST" })
-          .then(function (r) {
-            if (!r.ok) throw new Error();
-            try { sessionStorage.setItem("ec_toast", "Anotado: estás bien."); } catch (e) {}
-            location.assign("/casa");
-          })
-          .catch(function () { self.acking = false; EC.toast("No hay conexión. Probá de nuevo en un rato."); });
-      },
-      llamar: function () {
-        if (EC.demo) { this.demoNote = true; return; }
-        location.href = "tel:" + (EC.emergencyNumber || "911");
-      }
-    };
-  };
-
   /* ---------------------------------------------------------- panel de la demo (/admin/clock) */
   window.adminPanel = function () {
     var tok = "";

@@ -7,17 +7,26 @@ from app import db
 from app.models import RedResult
 from app.rules.text import affirmed, fold, mentioned
 
-RED_TEXTS = {
-    "R1": "Golpe en la cabeza con anticoagulante, desmayo, vómitos o dolor de cabeza: necesita que lo vea un médico "
-          "ahora. Llamá a la emergencia móvil.",
-    "R2": "Fiebre con mucha rigidez, confusión o alucinaciones que aparecieron de golpe: necesita atención médica "
-          "ahora. Llamá a la emergencia móvil.",
-    "R3": "Si no puede tragar o vomita la medicación, la levodopa no está entrando: llamá a la emergencia móvil.",
-    # VERIFICAR NÚMERO de la Línea Vida antes de la demo (CLAUDE.md §16.8).
-    "R4": "Lo que contás es muy importante y hay alguien para escucharte: llamá ya a la Línea Vida, "
-          "0800 0767 o *0767, gratis y a toda hora.",
-    None: "Lo que contaste puede ser una señal de alarma. Si te preocupa, llamá a la emergencia móvil.",
+# Alcance (04:15): Entrecasa no es un botón de pánico. El único efecto de un rojo es este mensaje fijo en la
+# pantalla de quien escribió el relato; en el informe queda marcado con su etiqueta (RED_LABELS).
+RED_MESSAGE = ("Esto puede ser urgente. Entrecasa no es un servicio de emergencias: si es urgente, "
+               "llamá a tu emergencia móvil.")
+# VERIFICAR NÚMERO de la Línea Vida antes de la demo (CLAUDE.md §16.8).
+R4_MESSAGE = "Si estás pensando en hacerte daño, llamá a la Línea Vida: 0800 0767 o *0767, las 24 horas."
+RED_TEXTS = {"R1": RED_MESSAGE, "R2": RED_MESSAGE, "R3": RED_MESSAGE, "R4": R4_MESSAGE, None: RED_MESSAGE}
+# Lo que se marca en el informe: nombra los signos, no un tema reservado (§6.4).
+RED_LABELS = {
+    "R1": "Caída con golpe en la cabeza y un signo de alarma",
+    "R2": "Fiebre con signos de alarma",
+    "R3": "Medicación que no entra (vómitos o no poder tragar)",
+    "R4": "Ideas de muerte o de hacerse daño",
+    None: "Posible señal de alarma (respaldo con IA)",
 }
+
+
+def red_label(rule_id: str) -> str:
+    """Etiqueta del rojo para el informe; "R1-IA" usa la de R1."""
+    return RED_LABELS.get(rule_id.removesuffix("-IA"), RED_LABELS[None])
 
 # R1: repregunta de solo los criterios que faltan (los que el relato ya negó no se preguntan).
 R1_CRITERIA_QUESTIONS = {

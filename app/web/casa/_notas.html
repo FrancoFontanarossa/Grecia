@@ -1,0 +1,9 @@
+{# Mensajes fijos del código para quien escribió el relato (ecNotas en static/js/contar.js): el del rojo
+   (rules.red, alcance de las 04:15: es el único efecto de un rojo) y el de límites (rules.limits). Ícono y palabra,
+   no solo color (§9.2). #}
+<template x-for="(n, i) in notas" :key="i">
+  <div class="vidrio" role="status" style="margin-top: 14px; padding: 16px 18px" :style="n.kind === 'rojo' ? 'background: rgba(253,236,234,.9)' : ''">
+    <span class="chip chip--chico" :class="n.kind === 'rojo' ? 'chip--rojo' : ''" x-show="n.kind === 'rojo'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>Importante</span>
+    <p class="cuerpo-j" :style="n.kind === 'rojo' ? 'margin-top: 8px; color: #3D1A16; font-weight: 600' : 'color: var(--tinta2)'" x-text="n.text"></p>
+  </div>
+</template>

@@ -67,6 +67,7 @@
         <p class="cuerpo" style="margin-top: 6px; color: #2A3446" x-text="'«' + (transcript || text) + '»'"></p>
       </div>
     </template>
+    <template x-if="phase === 'resultado'"><div>{% include "casa/_notas.html" %}</div></template>
   </div>
 
   <div class="hoja">

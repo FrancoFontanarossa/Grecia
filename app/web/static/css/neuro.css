@@ -81,6 +81,8 @@
 .inf-l li { font-size: 13.5px; line-height: 1.5; margin: 5px 0 0 16px; }
 .inf-al { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.5; padding: 6px 0; border-bottom: 1px solid var(--color-linea-suave); }
 .inf-al > span:first-child { width: 56px; flex: none; color: var(--color-tinta-suave); }
+.inf-prioridad { margin: 4px 0 14px; }
+.inf-prioridad .inf-al > span:first-child { width: 64px; }
 .inf-pie { display: flex; justify-content: space-between; gap: 20px; margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--color-linea); font-size: 12.5px; color: var(--color-tinta-suave); }
 @media (max-width: 1060px) { .inf-grid, .inf-enc { grid-template-columns: 1fr; } .inf-hoja { padding: 24px 20px; } }
 

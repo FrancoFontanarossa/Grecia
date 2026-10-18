@@ -1,14 +1,15 @@
 # Carriles y avisos (CLAUDE.md §6.1 y §6.3): rojos, A1, A2 y A3. Los guarda en `alerts` con sus
-# destinatarios (rules.consent) y los devuelve; notify solo entrega. Verde no genera aviso: va al informe.
+# destinatarios (rules.consent) y los devuelve. Verde no genera aviso: va al informe.
+# Alcance (04:15): ningún aviso notifica. El rojo solo muestra un mensaje fijo a quien escribió y queda marcado en
+# el informe; el ámbar es prioridad en el informe ("para conversar en la consulta").
 import json
 from datetime import datetime, timedelta
 
-from app import clock, config, db
+from app import clock, config, db, taxonomy
 from app.config import TZ
 from app.models import Alert, RedResult
 from app.rules import consent, med_change
-
-A3_SUGGESTION = "¿Querés que le avisemos a tu neuróloga para adelantar la consulta?"
+from app.rules.red import red_label
 
 
 def _save(patient_id: int, lane: str, rule_id: str, text: str, *, reserved: bool, speaker_id: int | None,
@@ -41,7 +42,7 @@ def _events(ids: list[int]) -> list[dict]:
 
 
 def _label(symptom: str) -> str:
-    return symptom.replace("_", " ")
+    return taxonomy.symptom_label(symptom)
 
 
 def event_alerts(patient_id: int, new_events: list[int], now: datetime) -> list[Alert]:
@@ -69,7 +70,7 @@ def event_alerts(patient_id: int, new_events: list[int], now: datetime) -> list[
 
 
 def episode_alerts(patient_id: int, now: datetime) -> list[Alert]:
-    """A3: 3 episodios en 7 días en el mismo tramo (hora de la toma). Al equipo, y la sugerencia a Juan."""
+    """A3: 3 episodios en 7 días en el mismo tramo (hora de la toma). Prioridad en el informe; a nadie más."""
     since = now - timedelta(days=config.EPISODES_WINDOW_DAYS)
     with db.connect() as conn:
         rows = conn.execute("SELECT dose_time FROM episodes WHERE patient_id = ? AND dose_time >= ? AND dose_time <= ? "
@@ -87,7 +88,6 @@ def episode_alerts(patient_id: int, now: datetime) -> list[Alert]:
         if _a3_slot_alerted(patient_id, slot, since):   # uno por tramo cada 7 días
             continue
         out.append(_save(patient_id, "ambar", "A3", text, reserved=False, speaker_id=None, now=now))
-        out.append(_save(patient_id, "ambar", "A3-sugerencia", A3_SUGGESTION, reserved=False, speaker_id=None, now=now))
     return out
 
 
@@ -99,10 +99,12 @@ def _a3_slot_alerted(patient_id: int, slot: str, since: datetime) -> bool:
 
 
 def red_alert(patient_id: int, red: RedResult, *, speaker_id: int | None, now: datetime) -> Alert | None:
-    """Un rojo completo (sin criterio faltante) es un aviso de carril rojo con su texto fijo."""
+    """Un rojo completo (sin criterio faltante) queda marcado para el informe con su etiqueta (nombra los signos).
+    El mensaje fijo de la pantalla es red.text y lo ve solo quien escribió (en la respuesta de POST /api/entries)."""
     if red.missing_criterion is not None:
         return None
-    return _save(patient_id, "rojo", red.rule_id, red.text, reserved=False, speaker_id=speaker_id, now=now)
+    return _save(patient_id, "rojo", red.rule_id, red_label(red.rule_id), reserved=False, speaker_id=speaker_id,
+                 now=now)
 
 
 def evaluate(patient_id: int, new_events: list[int], *, red: RedResult | None = None,

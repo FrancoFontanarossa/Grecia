@@ -49,17 +49,14 @@ def test_episode_day_is_hard_day(seeded):
     assert g.hard_day and not g.achieved
 
 
-def test_red_pauses_the_goal_until_acked(seeded):
+def test_red_pauses_the_goal_that_day_only(seeded):
+    # Alcance de las 04:15: no hay "Estoy bien"; la pausa dura el día del rojo.
     walk(DAY, 5000)
     red_alert(dt.datetime.combine(DAY, dt.time(9), TZ))
     g = goals.status(1, DAY)
     assert g.hard_day and not g.achieved                    # en pausa: no se logra aunque camine
     assert paused_reason() == "rojo"
     walk(DAY + dt.timedelta(days=1), 5000)
-    assert goals.status(1, DAY + dt.timedelta(days=1)).hard_day   # sigue en pausa al otro día
-
-    with db.connect() as conn:
-        conn.execute("UPDATE alerts SET acked_at = created_at")
     g = goals.status(1, DAY + dt.timedelta(days=1))
     assert g.achieved and not g.hard_day and paused_reason() is None
 

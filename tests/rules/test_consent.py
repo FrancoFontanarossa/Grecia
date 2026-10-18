@@ -59,53 +59,42 @@ def test_canal_reservado_active(seeded):
     assert consent.canal_reservado_active(99) is True        # sin filas: activo (protege)
 
 
-# ── recipients (§6.3) ───────────────────────────────────────────────────────────────────────────────────
-@pytest.mark.parametrize("rule,expected", [
-    ("R1", [JUAN, MARTA, LAURA]), ("R2", [MARTA, LAURA]), ("R3", [JUAN, MARTA]),
-    ("R1-IA", [JUAN, MARTA, LAURA]), ("R-IA", [JUAN, MARTA, LAURA]),
-])
-def test_red_recipients(seeded, rule, expected):
-    assert ids(consent.recipients(alert(rule, "rojo"))) == expected
+# ── recipients (alcance de las 04:15) ───────────────────────────────────────────────────────────────────
+# Sin botón de pánico ni avisos a la familia: el rojo no tiene destinatarios (solo el mensaje fijo a quien escribió,
+# en la respuesta del relato) y el ámbar va solo al equipo, como prioridad en el informe.
+@pytest.mark.parametrize("rule", ["R1", "R2", "R3", "R4", "R1-IA", "R-IA"])
+@pytest.mark.parametrize("speaker", [None, JUAN, MARTA, LAURA])
+def test_red_goes_to_nobody(seeded, rule, speaker):
+    assert consent.recipients(alert(rule, "rojo"), speaker_id=speaker) == []
 
 
-def test_r4_goes_to_the_person(seeded):
-    assert ids(consent.recipients(alert("R4", "rojo"), speaker_id=MARTA)) == [MARTA]
-    assert ids(consent.recipients(alert("R4", "rojo"))) == [JUAN]
-
-
-def test_amber_recipients(seeded):
-    assert ids(consent.recipients(alert("A1", "ambar"))) == [MARTA, PEREIRA]
-    assert ids(consent.recipients(alert("A2", "ambar"))) == [PEREIRA]
-    assert ids(consent.recipients(alert("A3", "ambar"))) == [PEREIRA]
-    assert ids(consent.recipients(alert("A3-sugerencia", "ambar"))) == [JUAN]
+@pytest.mark.parametrize("rule", ["A1", "A2", "A3"])
+def test_amber_goes_only_to_the_team(seeded, rule):
+    assert ids(consent.recipients(alert(rule, "ambar"))) == [PEREIRA]
+    assert ids(consent.recipients(alert(rule, "ambar", reserved=True), speaker_id=MARTA)) == [PEREIRA]
     assert consent.recipients(alert("V1", "verde")) == []
 
 
-def test_a1_to_marta_only_with_consent(seeded):
+def test_a1_ignores_the_family_avisos_consent(seeded):
     with db.connect() as conn:
-        conn.execute("UPDATE consents SET enabled = 0 WHERE recipient_id = ? AND kind = 'avisos'", (MARTA,))
+        conn.execute("UPDATE consents SET enabled = 1 WHERE recipient_id = ? AND kind = 'avisos'", (MARTA,))
     assert ids(consent.recipients(alert("A1", "ambar"))) == [PEREIRA]
 
 
-def test_reserved_goes_to_team_and_whoever_told_it(seeded):
-    assert ids(consent.recipients(alert("A1", "ambar", reserved=True), speaker_id=LAURA)) == [LAURA, PEREIRA]
-    assert ids(consent.recipients(alert("A1", "ambar", reserved=True), speaker_id=MARTA)) == [MARTA, PEREIRA]
-    assert ids(consent.recipients(alert("A1", "ambar", reserved=True))) == [PEREIRA]
-
-
 def test_test_patient_is_separate(seeded):
-    assert ids(consent.recipients(alert("R1", "rojo", patient_id=5))) == [5, 6]
+    assert consent.recipients(alert("R1", "rojo", patient_id=5)) == []
+    assert JUAN not in ids(consent.recipients(alert("A1", "ambar", patient_id=5)))
+    assert PEREIRA not in ids(consent.recipients(alert("A1", "ambar", patient_id=5)))
 
 
-# ── Cero filtraciones hacia Juan ────────────────────────────────────────────────────────────────────────
-RULES = ["R1", "R2", "R3", "R4", "R1-IA", "R-IA", "A1", "A2", "A3", "A3-sugerencia", "V1"]
+# ── Cero filtraciones hacia Juan ni la familia ──────────────────────────────────────────────────────────
+RULES = ["R1", "R2", "R3", "R4", "R1-IA", "R-IA", "A1", "A2", "A3", "V1"]
 LANES = ["rojo", "ambar", "verde"]
 
 
 @pytest.mark.parametrize("rule,lane,speaker", list(itertools.product(RULES, LANES, [None, JUAN, MARTA, LAURA])))
-def test_no_reserved_content_reaches_juan(seeded, rule, lane, speaker):
-    got = ids(consent.recipients(alert(rule, lane, reserved=True), speaker_id=speaker))
-    if lane != "rojo":
-        assert JUAN not in got
-    # Si un reservado dispara un rojo, a Juan solo le llega el texto fijo de la regla (signos, no el tema).
+@pytest.mark.parametrize("reserved", [True, False])
+def test_no_alert_reaches_juan_or_the_family(seeded, rule, lane, speaker, reserved):
+    got = ids(consent.recipients(alert(rule, lane, reserved=reserved), speaker_id=speaker))
+    assert not {JUAN, MARTA, LAURA} & set(got)
 

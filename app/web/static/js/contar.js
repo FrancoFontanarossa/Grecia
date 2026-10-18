@@ -223,21 +223,18 @@
         data.entry_id = id;
         try { sessionStorage.setItem("ec_entry_" + id, JSON.stringify(data)); if (opts.questionId) sessionStorage.setItem("ec_q_" + id, "1"); } catch (e) {}
         this.transcript = data.transcript || (this._blob ? "" : this.text);
-        // El rojo manda, aunque la extracción haya fallado.
-        if (data.red) {
-          var rojo = (data.alerts || []).filter(function (a) { return a.lane === "rojo"; })[0];
-          try { sessionStorage.setItem("ec_red_" + id, JSON.stringify(data.red)); } catch (e) {}
-          location.assign("/casa/emergencia/" + (rojo ? rojo.id : "0") + "?entry=" + id);
-          return;
-        }
-        // entries.py responde 200 con error_code (comentario de Guada en el #8); el relato ya quedó guardado.
-        if (data.error_code === "no_se_escucho") { this._fail("no-escuche", TEXTS.notHeard); return; }
-        if (data.error_code === "ia" || (data.error && !(data.understood || []).length)) {
-          if (!data.error_code && this._blob && !data.transcript) { this._fail("no-escuche", TEXTS.notHeard); return; }
-          this._fail("ia", TEXTS.aiFailed); return;
-        }
-        if (this._blob && !this.transcript && !(data.understood || []).length) {
-          this._fail("no-escuche", TEXTS.notHeard); return;
+        // Un rojo ya no lleva a otra pantalla (alcance de las 04:15): su mensaje fijo se muestra junto a lo que
+        // entendimos, aunque la extracción haya fallado (ecNotas).
+        if (!data.red) {
+          // entries.py responde 200 con error_code (comentario de Guada en el #8); el relato ya quedó guardado.
+          if (data.error_code === "no_se_escucho") { this._fail("no-escuche", TEXTS.notHeard); return; }
+          if (data.error_code === "ia" || (data.error && !(data.understood || []).length)) {
+            if (!data.error_code && this._blob && !data.transcript) { this._fail("no-escuche", TEXTS.notHeard); return; }
+            this._fail("ia", TEXTS.aiFailed); return;
+          }
+          if (this._blob && !this.transcript && !(data.understood || []).length) {
+            this._fail("no-escuche", TEXTS.notHeard); return;
+          }
         }
         this.result = data;
         this.correctId = id;  // si regraba, corrige esta misma entrada
@@ -265,6 +262,7 @@
         });
       },
       regrabar: function () { this.result = null; this.empezar(); },
+      get notas() { return window.ecNotas(this.result); },
       get mmss() { return EC.mmss(this.seconds); }
     };
   };
@@ -286,15 +284,34 @@
           .finally(function () { self.loading = false; });
       },
       get items() { return (this.data && this.data.understood) || []; },
+      get notas() { return window.ecNotas(this.data); },
       confirmar: function () {
-        var fromQuestion = false;
-        try { fromQuestion = sessionStorage.getItem("ec_q_" + entryId) === "1"; } catch (e) {}
+        var fromQuestion = false, isPatient = false;
+        try {
+          fromQuestion = sessionStorage.getItem("ec_q_" + entryId) === "1";
+          isPatient = localStorage.getItem("ec_role") === "paciente";
+        } catch (e) {}
         fetch("/api/entries/" + entryId + "/confirm", { method: "POST" }).finally(function () {
-          // Después de responder una pregunta, la app ofrece el golpeteo (ARQUITECTURA §3.2).
-          location.assign(fromQuestion ? "/casa/golpeteo?desde=pregunta" : "/casa");
+          // Después de responder una pregunta, a Juan la app le ofrece el golpeteo (ARQUITECTURA §3.2); a Marta no.
+          location.assign(fromQuestion && isPatient ? "/casa/golpeteo?desde=pregunta" : "/casa");
         });
       }
     };
+  };
+
+  /* ------------------------------------------------ mensajes fijos del código */
+  // Rojo (rules.red) y límites (rules.limits): textos fijos que devuelve POST /api/entries y que solo ve quien
+  // escribió. Nunca los redacta el modelo. Si al rojo le falta un criterio, se muestra la repregunta y el aviso.
+  var NOT_EMERGENCY = "Entrecasa no es un servicio de emergencias: si es urgente, llamá a tu emergencia móvil.";
+  window.ecNotas = function (data) {
+    var out = [];
+    if (!data) return out;
+    if (data.red) {
+      out.push({ kind: "rojo", text: data.red.text });
+      if (data.red.missing_criterion) out.push({ kind: "rojo", text: NOT_EMERGENCY });
+    }
+    if (data.limit) out.push({ kind: "limite", text: data.limit });
+    return out;
   };
 
   // Aviso corto al volver al inicio ("Guardado…").

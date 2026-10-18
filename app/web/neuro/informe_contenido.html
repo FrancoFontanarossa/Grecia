@@ -45,6 +45,17 @@
 
     <div class="inf-temas">
       <h2 class="inf-h2">Para conversar en la consulta</h2>
+      {# Prioridad por reglas (código, no IA). Alcance de las 04:15: el ámbar no notifica a nadie y es lo primero de
+         esta sección; el rojo solo le mostró un mensaje fijo a quien lo escribió y queda marcado acá. #}
+      {% set prioridad = m.alerts | selectattr("lane", "in", ["rojo", "ambar"]) | rejectattr("rule_id", "equalto", "A3-sugerencia") | list %}
+      {% if prioridad %}
+      <div class="inf-prioridad">
+        {% for a in prioridad | sort(attribute="lane", reverse=True) %}
+        <div class="inf-al"><span><span class="pildora-neuro pildora-neuro--{{ a.lane }}">{{ "Rojo" if a.lane == "rojo" else "Ámbar" }}</span></span>
+          <span><span class="num">{{ a.created_at | ddmm }}</span> · {{ a.text }}{% if a.reserved %} <span class="inf-priv">Para hablar en privado</span>{% endif %}</span></div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% for t in rep.topics %}
       <article class="inf-tema">
         <div class="inf-tema__h"><span class="inf-tema__n">{{ loop.index }}</span><h3>{{ t.title }}</h3>{% if t.reserved %}<span class="inf-priv">Para hablar en privado</span>{% endif %}</div>

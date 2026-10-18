@@ -25,7 +25,8 @@ def test_texto_se_guarda_y_devuelve_el_contrato(tmp_data_dir, monkeypatch):
 
     assert r.status_code == 200
     body = r.json()
-    assert set(body) == {"entry_id", "transcript", "understood", "red", "alerts"}  # sin "error"
+    assert set(body) == {"entry_id", "transcript", "understood", "red", "alerts", "limit"}  # sin "error"
+    assert body["limit"] is None
     assert body["transcript"] == texto.strip()
     assert body["understood"] == [] and body["red"] is None and body["alerts"] == []
     entry = db.get_entry(body["entry_id"])
@@ -33,19 +34,18 @@ def test_texto_se_guarda_y_devuelve_el_contrato(tmp_data_dir, monkeypatch):
     assert entry["occurred_hint"] == "anoche" and entry["modality"] == "texto" and entry["speaker_id"] == 2
 
 
-def test_entrada_queda_guardada_aunque_la_push_falle(tmp_data_dir, monkeypatch):
+def test_rojo_se_guarda_y_no_manda_push(tmp_data_dir, monkeypatch):
     def boom(**kw):
         raise WebPushException("falló", response=SimpleNamespace(status_code=500, text=""))
     monkeypatch.setattr(push, "webpush", boom)
     db.save_subscription(person_id=1, endpoint="https://push.example/x", p256dh="p", auth="a")
 
-    texto = "se golpeó la cabeza y toma apixabán"          # un rojo: la única push que sale al contar algo
+    texto = "se golpeó la cabeza y toma apixabán"          # alcance de las 04:15: un rojo no manda push
     r = client.post("/api/entries", data={"person_id": 1, "text": texto})
 
-    assert r.status_code == 200
+    assert r.status_code == 200 and r.json()["red"]["rule_id"] == "R1"
     assert _rows("entries")[0]["raw_text"] == texto
-    notif = [n for n in _rows("notifications") if n["person_id"] == 1]
-    assert len(notif) == 1 and notif[0]["push_sent"] == 0 and notif[0]["kind"] == "rojo"
+    assert _rows("notifications") == []
 
 
 def test_ya_no_manda_recibido(tmp_data_dir, monkeypatch):
@@ -217,12 +217,13 @@ def test_audio_de_formato_desconocido_da_415_y_no_guarda(tmp_data_dir):
     assert r.status_code == 415 and _rows("entries") == []
 
 
-def test_rojo_por_regla_no_extrae_ni_consulta_al_respaldo(tmp_data_dir, monkeypatch, fake_model, fake_red_backup):
+def test_rojo_por_regla_extrae_igual_y_no_consulta_al_respaldo(tmp_data_dir, monkeypatch, fake_model, fake_red_backup):
+    # Alcance de las 04:15: el rojo solo suma el mensaje fijo; el relato se extrae igual para "Anoté esto".
     monkeypatch.setattr(push, "webpush", lambda **kw: None)
     r = client.post("/api/entries", data={"person_id": 2, "text": "se cayó, se golpeó la cabeza y toma apixabán"})
     body = r.json()
     assert body["red"]["rule_id"] == "R1" and body["red"]["missing_criterion"] is None
-    assert body["understood"] == [] and fake_model.calls == [] and fake_red_backup.calls == []
+    assert len(fake_model.calls) == 1 and fake_red_backup.calls == []
     assert _rows("entries")[0]["raw_text"].startswith("se cayó")      # el relato queda igual
 
 

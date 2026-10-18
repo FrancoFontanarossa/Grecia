@@ -74,12 +74,12 @@ def test_corregir_un_reservado_a_no_reservado_no_filtra_el_anterior_a_juan(tmp_d
     assert [v.text for v in visible] == ["anoche estaba muy cansado"]
 
 
-def test_corregir_no_borra_un_rojo_ya_enviado(tmp_data_dir, monkeypatch):
+def test_corregir_no_borra_un_rojo_ya_marcado(tmp_data_dir, monkeypatch):
     monkeypatch.setattr(push, "webpush", lambda **kw: None)
     eid = client.post("/api/entries", data={"person_id": 2, "text": "se golpeó la cabeza y toma apixabán"}).json()["entry_id"]
     client.post(f"/api/entries/{eid}/correct", data={"text": "se golpeó la rodilla"})
     assert [a["rule_id"] for a in rows("SELECT rule_id FROM alerts WHERE lane = 'rojo'")] == ["R1"]
-    assert len(rows("SELECT * FROM notifications WHERE kind = 'rojo'")) == 3
+    assert rows("SELECT * FROM notifications") == []          # alcance de las 04:15: el rojo no manda push
 
 
 def test_corregir_con_audio_transcribe(tmp_data_dir, monkeypatch):
@@ -123,7 +123,7 @@ def test_alerts_en_la_respuesta_r1_a1_a3(tmp_data_dir, monkeypatch):
     clock.set("2026-10-16T19:00:00")
     monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([])))
     a3 = client.post("/api/entries", data={"person_id": 2, "text": "hoy estuvo tranquilo"}).json()
-    assert {"A3", "A3-sugerencia"} <= {a["rule_id"] for a in a3["alerts"]}
+    assert "A3" in {a["rule_id"] for a in a3["alerts"]} and "A3-sugerencia" not in {a["rule_id"] for a in a3["alerts"]}
 
 
 # ── GET /api/entries/{id} ──

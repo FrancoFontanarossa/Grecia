@@ -53,17 +53,25 @@ def test_new_hallucination_gives_a1_and_a2(seeded):
     assert [(a.rule_id, a.lane) for a in alerts] == [("A1", "ambar"), ("A2", "ambar")]
     assert alerts[0].text == "Primera mención de alucinaciones (contado por Marta el 14/10)."
     assert alerts[1].text == "Síntoma nuevo a 11 días del cambio de pramipexol: alucinaciones."
-    assert alerts[0].recipients == [MARTA, PEREIRA] and alerts[1].recipients == [PEREIRA]
-    assert [json.loads(r["recipients"]) for r in stored()] == [[MARTA, PEREIRA], [PEREIRA]]
+    # Alcance de las 04:15: el ámbar no notifica a nadie; es prioridad en el informe (solo el equipo).
+    assert alerts[0].recipients == [PEREIRA] and alerts[1].recipients == [PEREIRA]
+    assert [json.loads(r["recipients"]) for r in stored()] == [[PEREIRA], [PEREIRA]]
     assert all(a.id > 0 for a in alerts)
+
+
+def test_symptom_label_is_readable(seeded):
+    set_clock(WED_14)
+    entry = add_entry(MARTA, created_at=WED_14)
+    ev = add_event(entry, domain="sueno", symptom="actua_suenos", speaker_role="cuidador", is_new=True)
+    [a] = lanes.evaluate(1, [ev], speaker_id=MARTA)
+    assert a.text == "Síntoma nuevo a 11 días del cambio de pramipexol: que actúa los sueños."
 
 
 def test_reserved_hallucination_never_reaches_juan(seeded):
     set_clock(WED_14)
     alerts = lanes.evaluate(1, [hallucination(speaker=LAURA, role="familiar", reserved=True)], speaker_id=LAURA)
     assert all(a.reserved for a in alerts)
-    assert all(JUAN not in a.recipients for a in alerts)
-    assert alerts[0].recipients == [LAURA, PEREIRA]
+    assert all(a.recipients == [PEREIRA] for a in alerts)
 
 
 def test_not_new_or_negated_gives_nothing(seeded):
@@ -87,13 +95,14 @@ def test_same_event_twice_does_not_duplicate(seeded):
     assert len(stored()) == 2
 
 
-# ── Rojos como carril rojo ──────────────────────────────────────────────────────────────────────────────
-def test_red_becomes_a_red_lane_alert(seeded):
+# ── Rojos: marcados en el informe, sin destinatarios (alcance de las 04:15) ─────────────────────────────
+def test_red_is_marked_for_the_report_and_goes_to_nobody(seeded):
     set_clock(WED_14)
     r = red.evaluate("Se cayó, se golpeó la cabeza y toma apixabán", ["levodopa"])
+    assert r.text == red.RED_MESSAGE                       # el mensaje fijo de la pantalla de quien escribió
     [a] = lanes.evaluate(1, [], red=r, speaker_id=MARTA)
-    assert a.lane == "rojo" and a.rule_id == "R1" and a.text == red.RED_TEXTS["R1"]
-    assert a.recipients == [JUAN, MARTA, LAURA]
+    assert a.lane == "rojo" and a.rule_id == "R1" and a.text == red.RED_LABELS["R1"]
+    assert a.recipients == []
 
 
 def test_red_question_is_not_an_alert(seeded):
@@ -102,10 +111,17 @@ def test_red_question_is_not_an_alert(seeded):
     assert r.missing_criterion and lanes.evaluate(1, [], red=r) == []
 
 
-def test_r4_goes_only_to_the_person(seeded):
+def test_r4_shows_the_linea_vida_and_goes_to_nobody(seeded):
     set_clock(WED_14)
-    [a] = lanes.evaluate(1, [], red=red.evaluate("me quiero morir", []), speaker_id=JUAN)
-    assert a.recipients == [JUAN]
+    r = red.evaluate("me quiero morir", [])
+    assert r.text == red.R4_MESSAGE and "0800 0767" in r.text
+    [a] = lanes.evaluate(1, [], red=r, speaker_id=JUAN)
+    assert a.recipients == [] and a.text == red.RED_LABELS["R4"]
+
+
+def test_backup_red_label(seeded):
+    assert red.red_label("R2-IA") == red.RED_LABELS["R2"]
+    assert red.red_label("R-IA") == red.RED_LABELS[None]
 
 
 # ── A3 ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -122,10 +138,9 @@ def test_a3_three_episodes_in_7_days_same_slot(seeded):
     assert lanes.evaluate(1, []) == []
     episode(16)
     set_clock(dt.datetime(2026, 10, 16, 19, tzinfo=TZ))
-    team, juan = lanes.evaluate(1, [])
+    [team] = lanes.evaluate(1, [])                         # sin sugerencia a Juan (alcance de las 04:15)
     assert team.rule_id == "A3" and team.recipients == [PEREIRA]
     assert team.text == "3 episodios en 7 días después de la toma de las 16:00 (13/10, 15/10, 16/10)."
-    assert juan.rule_id == "A3-sugerencia" and juan.recipients == [JUAN] and juan.text == lanes.A3_SUGGESTION
     assert lanes.evaluate(1, []) == []                     # una vez por tramo
 
 
