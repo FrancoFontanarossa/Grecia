@@ -20,7 +20,10 @@ def why_chart(dev: dict | None) -> dict | None:
         usual = "Otros fines de semana" if dose.weekday() >= 5 else "Otros días de semana"
     else:
         usual = "Otros días"
+    part = ("a la mañana" if dose.hour < 12 else "a la tarde" if dose.hour < 20 else "a la noche") if dose else ""
     return {
+        # La conclusión primero (REFERENCIAS.md): la arma el código, sin cifras; las cifras van en las barras.
+        "headline": f"Hoy {part} caminaste menos que de costumbre".replace("  ", " "),
         "usual": {"label": f"{usual}, {window}", "value": round(median), "approx": True, "pct": 100},
         "today": {"label": f"Hoy, después de la toma de las {dose.hour}" if dose else "Hoy",
                   "value": round(observed), "pct": max(2, min(100, round(observed / median * 100))) if median else 0},

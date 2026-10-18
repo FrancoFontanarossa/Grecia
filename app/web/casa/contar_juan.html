@@ -89,6 +89,8 @@
     </div>
   </template>
 
-  <button type="button" class="btn btn--claro" x-show="phase !== 'procesando' && !(phase === 'error' && errorKind === 'ia')" @click="cancelar()">Cancelar</button>
+  {# Salida: a lo ancho, de 64 y siempre al pie (REFERENCIAS.md). #}
+  <button type="button" class="btn btn--claro" style="width: 100%; min-height: 64px; font-size: 21px; border-width: 2px; border-radius: 18px"
+          x-show="phase !== 'procesando' && !(phase === 'error' && errorKind === 'ia')" @click="cancelar()">Cancelar</button>
 </main>
 {% endblock %}
