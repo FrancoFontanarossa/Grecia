@@ -31,7 +31,8 @@ def window(dose_time: datetime) -> tuple[datetime, datetime]:
 
 def _covered(conn, patient_id: int, start: datetime, end: datetime) -> bool:
     return conn.execute(
-        "SELECT 1 FROM biometric_syncs WHERE patient_id = ? AND window_start <= ? AND window_end >= ? LIMIT 1",
+        "SELECT 1 FROM biometric_syncs WHERE patient_id = ? AND scope IS NULL AND window_start <= ? AND window_end >= ? "
+        "LIMIT 1",
         (patient_id, db.to_db(start), db.to_db(end))).fetchone() is not None
 
 

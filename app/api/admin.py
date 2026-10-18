@@ -22,7 +22,7 @@ def inject_drop(patient_id: int, dose_time: datetime, pct: float) -> int:
     end = db.to_db(dose_time + timedelta(minutes=config.DEVIATION_WINDOW_MINUTES))
     with db.connect() as conn:
         covered = conn.execute(
-            "SELECT 1 FROM biometric_syncs WHERE patient_id = ? AND window_start <= ? AND window_end >= ?",
+            "SELECT 1 FROM biometric_syncs WHERE patient_id = ? AND scope IS NULL AND window_start <= ? AND window_end >= ?",
             (patient_id, start, end),
         ).fetchone()
         if not covered:
@@ -106,6 +106,13 @@ def post_seed():
     result = seed.run()
     people = [{"id": i, "name": n, "role": r, "patient_id": p} for i, n, r, p in result.pop("people")]
     return {"ok": True, "people": people, **result}
+
+
+@router.post("/seed_wearable")
+def post_seed_wearable():
+    """Pulsera simulada (data/mock_wearable.py), separada de /admin/seed. Idempotente."""
+    from data import mock_wearable
+    return {"ok": True, **mock_wearable.run()}
 
 
 @router.post("/import_steps")
