@@ -129,7 +129,7 @@ async def import_steps(request: Request, patient_id: int = 1):
 # reanuda al terminar, también si falla.
 log = logging.getLogger("entrecasa.admin")
 _precorrer: dict = {"running": False, "done": False, "relatos_cargados": None, "ya_estaban": None,
-                    "preguntas": None, "errores": [], "informe_generado": None}
+                    "preguntas": None, "errores": [], "informe_generado": None, "informe_tipo": None}
 _precorrer_task: asyncio.Task | None = None
 
 
@@ -140,10 +140,17 @@ async def _run_precorrer() -> None:
     await scheduler.stop()
     try:
         result = await pre.run(pre.ESC)
+        informe = result["informe"]
+        # report.is_minimal (lo devuelve el script como sin_redaccion): "minimo" = armado por código, sin la IA.
+        tipo = None if not informe.get("ok") else "minimo" if informe.get("sin_redaccion") else "ia"
         _precorrer.update(relatos_cargados=result["cargados"], ya_estaban=result["ya_estaban"],
-                          preguntas=len(result["preguntas"]), informe_generado=bool(result["informe"]["ok"]))
-        if not result["informe"]["ok"]:
+                          preguntas=len(result["preguntas"]), informe_generado=bool(informe.get("ok")),
+                          informe_tipo=tipo)
+        if not informe.get("ok"):
             _precorrer["errores"].append("el informe final no se pudo generar: volver a correr el precorrido")
+        elif tipo == "minimo":
+            _precorrer["errores"].append("el informe quedó mínimo (sin redacción de la IA): para la demo hace falta "
+                                         "el de la IA; volver a correr el precorrido")
     except Exception as exc:
         log.error("falló el precorrido (%s)", type(exc).__name__)
         _precorrer["errores"].append(f"{type(exc).__name__}: {exc}")
@@ -159,7 +166,7 @@ async def post_precorrer():
     if _precorrer["running"]:
         raise HTTPException(status_code=409, detail="El precorrido ya está corriendo: ver GET /admin/precorrer/status")
     _precorrer.update(running=True, done=False, relatos_cargados=None, ya_estaban=None, preguntas=None, errores=[],
-                      informe_generado=None)
+                      informe_generado=None, informe_tipo=None)
     _precorrer_task = asyncio.create_task(_run_precorrer())
     return {"started": True}
 

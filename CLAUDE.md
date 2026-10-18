@@ -502,7 +502,7 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /admin/restore` | — | `{ok}` |
 | `POST /admin/seed` | — | `{ok, people, …conteos, warnings}`: corre `data/seed.py` (idempotente) |
 | `POST /admin/precorrer` | — | `{started: true}` enseguida; 409 si ya está corriendo. Corre `scripts/precorrer_semana.py` dentro del servidor, en segundo plano, con el scheduler en vivo en pausa (se reanuda al terminar, también si falla) |
-| `GET /admin/precorrer/status` | — | `{running, done, relatos_cargados, ya_estaban, preguntas, errores, informe_generado, reloj}` |
+| `GET /admin/precorrer/status` | — | `{running, done, relatos_cargados, ya_estaban, preguntas, errores, informe_generado, informe_tipo, reloj}`; `informe_tipo`: `"ia"` (redactado por la IA), `"minimo"` (armado por código, también va a `errores`) o `null` |
 | `POST /admin/import_steps` | CSV `start,steps` por hora (cuerpo crudo), el de `import_health --export-csv` | `{ok, hours, window_start, window_end}`: `source=importacion` y la ventana en `biometric_syncs`; reemplaza lo importado e inyectado de esa ventana |
 
 ---
