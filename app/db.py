@@ -20,7 +20,7 @@ BIOMETRICS_COLUMNS = """
     value REAL NOT NULL,
     start TEXT NOT NULL,
     "end" TEXT NOT NULL,
-    source TEXT NOT NULL CHECK (source IN ('atajo','importacion','seed','inyectado','simulado')),
+    source TEXT NOT NULL CHECK (source IN ('atajo','importacion','seed','inyectado','simulado','pulsera')),
     UNIQUE (patient_id, kind, start, "end", source)
 """
 
@@ -269,7 +269,7 @@ def init() -> None:
 def _migrate(conn: sqlite3.Connection) -> None:
     """Pone al día una base creada antes (la del volumen de Railway). Aditivo e idempotente."""
     sql = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'biometrics'").fetchone()[0]
-    if "'simulado'" not in sql:          # SQLite no deja cambiar un CHECK: se recrea la tabla con los mismos datos
+    if "'pulsera'" not in sql:           # SQLite no deja cambiar un CHECK: se recrea la tabla con los mismos datos
         conn.executescript(
             "BEGIN;"
             f"CREATE TABLE biometrics_new ({BIOMETRICS_COLUMNS});"

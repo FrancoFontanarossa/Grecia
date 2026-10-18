@@ -44,7 +44,7 @@ class BiometricSample(BaseModel):
     value: float
     start: AwareDatetime
     end: AwareDatetime
-    source: Literal["atajo","importacion","seed","inyectado","simulado"]
+    source: Literal["atajo","importacion","seed","inyectado","simulado","pulsera"]
 
 
 class AtajoSample(BaseModel):
@@ -58,6 +58,30 @@ class AtajoPayload(BaseModel):              # cuerpo de POST /api/biometrics/ata
     window_start: AwareDatetime
     window_end: AwareDatetime
     samples: list[AtajoSample]
+
+
+# Cuerpo de POST /api/biometrics/wearable (CLAUDE.md §8). `type` y `unit` se validan en código
+# (api/biometrics.ingest_wearable) para devolver un 422 con un mensaje claro.
+class WearableDevice(BaseModel):
+    vendor: str
+    model: str
+    id: str
+
+
+class WearableSample(BaseModel):
+    type: str                               # un BiometricKind (no "steps": los pasos entran por el Atajo)
+    value: float
+    unit: str
+    start: AwareDatetime
+    end: AwareDatetime
+
+
+class WearablePayload(BaseModel):
+    device: WearableDevice
+    window_start: AwareDatetime
+    window_end: AwareDatetime
+    samples: list[WearableSample]
+    source: Literal["pulsera","simulado","importacion"] = "pulsera"   # "simulado" si lo manda el simulador
 
 
 class Deviation(BaseModel):

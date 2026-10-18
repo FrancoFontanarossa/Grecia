@@ -104,6 +104,8 @@ def test_migrates_a_db_created_before_the_wearable(tmp_path, monkeypatch):
             {"kind": "steps", "value": 400.0, "source": "importacion"}]
         conn.execute("INSERT INTO biometrics (patient_id, kind, value, start, \"end\", source) "
                      "VALUES (1, 'sleep_minutes', 400, 'x', 'y', 'simulado')")
+        conn.execute("INSERT INTO biometrics (patient_id, kind, value, start, \"end\", source) "
+                     "VALUES (1, 'sleep_minutes', 400, 'x', 'y', 'pulsera')")
         assert conn.execute("SELECT scope FROM biometric_syncs").fetchone()[0] is None
         indexes = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}
     assert "ix_biometrics_patient" in indexes
