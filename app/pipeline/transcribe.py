@@ -34,10 +34,11 @@ class NotHeard(TranscriptionError):
 
 
 # Lo que Whisper suele "inventar" sobre silencio o ruido. Con ruido fuerte, además, repite o parafrasea el prompt
-# ("Medicamentos: levodopa…", "la vida de alguien que vive con Parkinson"): eso también es "no te escuché".
+# ("la vida de alguien que vive con Parkinson"): eso también es "no te escuché". Nunca solo nombres de fármacos:
+# "tomo levodopa, carbidopa, pramipexol y apixabán" es un relato real (y puede ser parte de un rojo).
 _SILENCE_HALLUCINATIONS = ("subtitulos realizados", "amara.org", "gracias por ver", "suscribete", "subtitulado por",
                            "relato en espanol", "vida diaria de una persona", "vive con parkinson",
-                           "persona con parkinson", "medicamentos levodopa", "levodopa carbidopa pramipexol")
+                           "persona con parkinson")
 
 
 _FILLERS = re.compile(r"^(?:\s*(?:m+|h+m+|e+h*|a+h*|o+h*|u+h*m*)\s*)*$")
@@ -46,8 +47,12 @@ _FILLERS = re.compile(r"^(?:\s*(?:m+|h+m+|e+h*|a+h*|o+h*|u+h*m*)\s*)*$")
 # cualquier orden y con palabras de relleno. Se mide qué parte de las palabras con contenido salió del prompt.
 # Un relato real puede nombrar fármacos ("se golpeó la cabeza y toma apixabán"), pero casi nunca es casi todo prompt.
 _STOPWORDS = {"a", "al", "con", "de", "del", "el", "en", "es", "la", "las", "le", "lo", "los", "me", "mi", "mis",
-              "o", "para", "por", "que", "se", "su", "sus", "un", "una", "y"}
+              "o", "para", "por", "que", "se", "sobre", "su", "sus", "un", "una", "y"}
 ECHO_MIN_WORDS, ECHO_MIN_SHARE = 3, 0.6
+# Los fármacos del PROMPT: nombrarlos no es eco. Para ser eco hacen falta además ECHO_MIN_NON_DRUG palabras del
+# prompt que no son fármacos (relato, espanol, rioplatense, vida, diaria, persona, parkinson, medicamentos).
+PROMPT_DRUGS = ("levodopa", "carbidopa", "pramipexol", "apixaban")
+ECHO_MIN_NON_DRUG = 2
 
 
 def _content_words(folded: str) -> list[str]:
@@ -60,13 +65,26 @@ def echoes_prompt(folded: str) -> bool:
     prompt_words = set(_content_words(_fold(PROMPT)))
     words = _content_words(folded)
     shared = [w for w in words if w in prompt_words]
-    return len(shared) >= ECHO_MIN_WORDS and len(shared) / len(words) >= ECHO_MIN_SHARE
+    non_drug = {w for w in shared if w not in PROMPT_DRUGS}
+    return (len(non_drug) >= ECHO_MIN_NON_DRUG and len(shared) >= ECHO_MIN_WORDS
+            and len(shared) / len(words) >= ECHO_MIN_SHARE)
+
+
+def is_red(text: str) -> bool:
+    """True si el texto dispara (o repregunta) una regla roja. Se evalúa con todos los fármacos del PROMPT, más que
+    los de cualquier paciente: acá solo decide no descartar; el rojo de verdad lo evalúa después el pipeline con
+    los fármacos del paciente (rules.red.check)."""
+    from app.rules import red
+    return red.evaluate(text, list(PROMPT_DRUGS)) is not None
 
 
 def unintelligible(text: str) -> bool:
-    """Vacío, solo muletillas ("mmm", "eh") o lo que Whisper inventa sobre silencio (frases típicas o eco del prompt)."""
+    """Vacío, solo muletillas ("mmm", "eh") o lo que Whisper inventa sobre silencio (frases típicas o eco del prompt).
+    Un rojo nunca es "no te escuché"."""
     from app.taxonomy import _fold
     folded = _fold(text)
+    if is_red(text):
+        return False
     return (sum(ch.isalnum() for ch in folded) < 3 or bool(_FILLERS.match(folded))
             or any(h in folded for h in _SILENCE_HALLUCINATIONS) or echoes_prompt(folded))
 

@@ -89,8 +89,7 @@ def test_transcripcion_vacia_es_error(tmp_data_dir, monkeypatch):
         asyncio.run(t.transcribe(path))
 
 
-@pytest.mark.parametrize("eco", ["Medicamentos: levodopa, carbidopa, pramipexol, apixabán.",
-                                 "La vida de alguien que vive con Parkinson",
+@pytest.mark.parametrize("eco", ["La vida de alguien que vive con Parkinson",
                                  "Relato en español rioplatense sobre la vida diaria de una persona con Parkinson."])
 def test_el_eco_del_prompt_es_no_te_escuche(eco):
     assert t.unintelligible(eco)
@@ -99,8 +98,9 @@ def test_el_eco_del_prompt_es_no_te_escuche(eco):
 @pytest.mark.parametrize("eco", [
     "Mi vida diaria incluye tomar levodopa, carbidopa, pramipexol y apixabán.",     # el del iPhone, con silencio
     "Tomo apixabán y pramipexol en mi vida diaria con Parkinson.",                 # parafraseado, otro orden
-    "Levodopa, pramipexol, apixabán.",
     "Mi relato sobre la vida diaria con Parkinson y los medicamentos.",
+    "Mi vida diaria incluye tomar levodopa, carbidopa, pramipexol y apixabán",
+    "Relato en español rioplatense sobre la vida diaria de una persona con Parkinson",
 ])
 def test_el_eco_parafraseado_del_prompt_es_no_te_escuche(eco):
     assert t.unintelligible(eco)
@@ -115,3 +115,59 @@ def test_el_eco_parafraseado_del_prompt_es_no_te_escuche(eco):
                                   "Desde que le subieron el pramipexol duerme peor, dice que es por el Parkinson."])
 def test_un_relato_real_no_es_eco(real):
     assert not t.unintelligible(real)
+
+
+# ── Los fármacos solos no son eco, y un rojo nunca es "no te escuché" ──
+
+@pytest.mark.parametrize("real", [
+    "Tomé la levodopa, la carbidopa y el pramipexol",
+    "Tomo levodopa, carbidopa y apixabán",
+    "Ya tomé el pramipexol y la levodopa",
+    "Me caí. Tomo levodopa, carbidopa, pramipexol y apixabán.",
+    "Me golpeé la cabeza, tomo levodopa, carbidopa, pramipexol y apixabán",
+    "Juan se cayó y se golpeó la cabeza. Toma levodopa carbidopa pramipexol apixabán",
+    "La vida con Parkinson es difícil, hoy tomé la levodopa tarde",
+])
+def test_nombrar_farmacos_no_es_no_te_escuche(real):
+    assert not t.unintelligible(real)
+
+
+@pytest.mark.parametrize("solo_farmacos", ["Levodopa, pramipexol, apixabán.",
+                                           "Medicamentos: levodopa, carbidopa, pramipexol, apixabán."])
+def test_solo_nombres_de_farmacos_ya_no_es_eco(solo_farmacos):
+    # Antes eran eco; ahora hacen falta 2 palabras del prompt que no sean fármacos: mejor guardarlo que perder un rojo.
+    assert not t.unintelligible(solo_farmacos)
+
+
+@pytest.mark.parametrize("rojo", ["Me golpeé la cabeza, tomo levodopa, carbidopa, pramipexol y apixabán",
+                                  "Relato de la vida diaria de una persona con Parkinson: se golpeó la cabeza y vomitó",
+                                  "No puede tragar y vomita, toma levodopa"])
+def test_un_rojo_nunca_es_no_te_escuche(rojo):
+    assert t.is_red(rojo) and not t.unintelligible(rojo)
+
+
+def test_transcribe_no_descarta_un_rojo(tmp_data_dir, monkeypatch):
+    texto = "Me golpeé la cabeza, tomo levodopa, carbidopa, pramipexol y apixabán"
+    _fake_client(monkeypatch, result=SimpleNamespace(text=texto))
+    path = t.save_audio(b"audio", "audio/mp4")
+    assert asyncio.run(t.transcribe(path)) == texto
+
+
+def _relatos_reales() -> list[str]:
+    import json
+    from pathlib import Path
+
+    import yaml
+    root = Path(__file__).resolve().parent.parent
+    textos = []
+    for name in ("relatos", "rojos", "cebos"):
+        textos += [json.loads(line)["text"] for line in (root / "eval" / "sets" / f"{name}.jsonl").read_text("utf-8").splitlines() if line.strip()]
+    escenario = yaml.safe_load((root / "data" / "escenario" / "juan.yaml").read_text("utf-8"))
+    textos += [r["texto"] for r in escenario["relatos"]]
+    return textos
+
+
+def test_cero_falsos_no_te_escuche_en_los_101_relatos_reales():
+    textos = _relatos_reales()
+    assert len(textos) == 101
+    assert [x for x in textos if t.unintelligible(x)] == []
