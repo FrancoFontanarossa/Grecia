@@ -30,7 +30,7 @@ Para cada evento:
 - **attribution_by.** Quién dijo esa causa o minimización: `quien_cuenta`, `paciente` u `otra_persona` (por ejemplo, Laura cuenta que "mamá dice que no es nada": `otra_persona`). `null` si no hay atribución.
 - **severity.** Solo si se dice la intensidad: "un poco" 1, "bastante" 2, "mucho" 3, "muchísimo" o "no podía hacer nada" 4. Si no se dice, `null`. No la deduzcas.
 - **time_said.** Lo que el relato dice sobre cuándo pasó **ese** evento, sin hacer cuentas de fechas (las hace el código). Cada evento lleva el suyo: en "ayer me caí y hoy dormí mal", la caída es `ayer` y el mal dormir es `hoy`.
-  - `day`: `hoy`, `ayer`, `anteayer`, `dia_semana` (si nombra un día: completá `weekday`), `no_dice`, o `habitual` si cuenta algo que **suele** pasar y no un momento ("me levanto un par de veces al baño nomás", "siempre me cuesta arrancar a la mañana").
+  - `day`: `hoy`, `ayer`, `anteayer`, `dia_semana` (si nombra un día: completá `weekday`), `no_dice`, o `habitual` si cuenta algo que **suele** pasar y no un momento ("me levanto un par de veces al baño nomás", "siempre me cuesta arrancar a la mañana", "todas las noches"). "Otra vez", "de nuevo" o "volvió a" **no** es habitual: es algo que pasó otra vez en un momento (si no dice cuándo, `no_dice`).
   - "Anoche" es `day: ayer` con `part: noche`, salvo que el relato diga que fue hoy de madrugada ("anoche, a las tres de la mañana" o "esta madrugada" es `day: hoy` con `part: madrugada`).
   - `part`: `madrugada`, `manana`, `mediodia`, `tarde`, `noche` o `null`.
   - `clock`: la hora si se dice ("a las cuatro de la tarde" → `"16:00"`, "después del almuerzo" → `null`). Nunca inventes una hora.
