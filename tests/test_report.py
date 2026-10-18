@@ -13,10 +13,11 @@ from tests.conftest import FakeSonnet
 
 _REAL_REQUEST = report.request_regeneration   # antes de que el fixture autouse lo reemplace
 
-FACTS = json.loads((Path(__file__).resolve().parent.parent / "scripts/fixtures/report_facts_semana.json").read_text())
+RAW = json.loads((Path(__file__).resolve().parent.parent / "scripts/fixtures/report_facts_semana.json").read_text())
+FACTS = report_facts.present(RAW)
 SUMMARY = ("En el período 20/09 al 17/10, a 25 días del cambio de pramipexol, Marta contó dos episodios en que Juan "
            "hablaba con gente que no estaba. Después de la toma de las 16, los pasos bajaron en 3 tardes. "
-           "Marta contó 3 noches con despertares. Pasos: 15 de 28 días en la meta de 4000.")
+           "Marta contó 3 noches con despertares. Pasos: 15 de 28 días en la meta de 4.000.")
 
 
 def topic(title, ids, reserved=False, **voices):
@@ -40,7 +41,7 @@ def test_genera_report_y_el_codigo_fuerza_reserved(monkeypatch):
     assert rep.summary == SUMMARY and len(rep.topics) == 3 and rep.removed_count == 0
     assert rep.topics[0].reserved is True            # el modelo dijo False, pero 205 y 209 son reservados
     assert rep.topics[1].reserved is False
-    assert rep.topics[0].voices == {"cuidador": "anoche hablaba con alguien que no estaba"}   # sin nulls
+    assert rep.topics[0].voices == {"Marta, su esposa": "anoche hablaba con alguien que no estaba"}   # claves del código
     kw = fake.calls[0]
     assert kw["output_config"] == {"effort": "medium"} and "<facts>" in kw["messages"][0]["content"]
     assert kw["system"][0]["text"].startswith("# Parkinson")
@@ -92,14 +93,17 @@ def test_facts_desde_la_base(tmp_data_dir):
                                "occurred_at": dt.datetime(2026, 10, 14, 22, tzinfo=TZ), "time_vague": True,
                                "speaker_role": "cuidador", "quote": "anoche hablaba con alguien", "plain": "x",
                                "confidence": 0.9, "is_new": True, "reserved": True}])
-    f = report_facts.build(1, clock.now())
-    assert f["period"] == {"start": "2026-09-20", "end": "2026-10-17", "days": 28,
-                           "label": "2026-09-20/2026-10-17", "text": "20/09 al 17/10"}
-    assert f["steps"]["days_in_goal"] == 1 and f["steps"]["days_with_data"] == 2 and f["steps"]["goal"] == 4000
-    assert f["medication"][0]["days_since_change"] == 25
-    [e] = f["events"]
+    raw = report_facts.collect(1, clock.now())
+    assert raw["period"] == {"start": "2026-09-20", "end": "2026-10-17", "days": 28,
+                             "label": "2026-09-20/2026-10-17", "text": "20/09 al 17/10"}
+    assert raw["steps"]["days_in_goal"] == 1 and raw["steps"]["days_with_data"] == 2 and raw["steps"]["goal"] == 4000
+    [e] = raw["events"]
     assert (e["speaker_name"], e["reserved"], e["is_new"], e["days_since_med_change"]) == ("Marta", True, True, 22)
-    assert f["entries_by_voice"] == {"cuidador": 1}
+    f = report_facts.build(1, clock.now())
+    assert f["steps"]["goal"] == "4.000" and f["steps"]["days_in_goal"] == "1"
+    assert f["medication"][0]["days_since_change"] == "25" and f["medication"][0]["changed"] == "22/09"
+    assert f["events"][0]["speaker_label"] == "Marta, su esposa" and f["events"][0]["date"] == "14/10"
+    assert f["entries_by_voice"] == [{"voice": "Marta, su esposa", "entries": "1"}]
 
 
 def test_report_guarda_en_reports(tmp_data_dir, monkeypatch):
@@ -131,3 +135,43 @@ def test_regeneracion_como_mucho_cada_30s_y_gana_la_ultima(monkeypatch):
         await asyncio.sleep(0.3)
     asyncio.run(scenario())
     assert runs == [1, 1]
+
+
+
+# ── Fidelidad: números, quién dijo qué, con/sin relato, franjas ──
+
+def _with(**topic0):
+    return {**GOOD, "topics": [{**GOOD["topics"][0], **topic0}] + GOOD["topics"][1:]}
+
+
+@pytest.mark.parametrize("bad, why", [
+    ({**GOOD, "summary": SUMMARY.replace("15 de 28", "99 de 28")}, "número que no está"),
+    ({**GOOD, "summary": SUMMARY.replace("los pasos bajaron en 3 tardes", "bajaron a unos 390 pasos")}, "aproxima"),
+    (_with(narrative="Marta contó que «hablaba con alguien que no existe»."), "cita no literal"),
+    (_with(narrative="Laura dijo «anoche hablaba con alguien que no estaba»."), "cita con otro nombre"),
+    (_with(narrative="«anoche hablaba con alguien que no estaba», según el registro."), "cita sin nombre"),
+    (_with(narrative="Marta lo contó al mediodía."), "franja inventada"),
+    ({**GOOD, "topics": GOOD["topics"][:1] + [{**GOOD["topics"][1], "narrative": "Dos tardes quedaron sin explicar."}]
+      + GOOD["topics"][2:]}, "explicado"),
+    (_with(voices={"paciente": "anoche hablaba con alguien que no estaba", "cuidador": None, "familiar": None}),
+     "voz que no es suya"),
+])
+def test_fidelidad_rechaza_y_reintenta(monkeypatch, bad, why):
+    fake = FakeSonnet(bad, GOOD)
+    monkeypatch.setattr(llm, "_create", fake)
+    asyncio.run(report.generate(FACTS))
+    assert len(fake.calls) == 2, why
+
+
+def test_cita_con_su_nombre_y_franja_que_esta_en_la_cita_pasan(monkeypatch):
+    ok = _with(narrative="Marta, su esposa, contó el 14/10 que «anoche hablaba con alguien que no estaba». Fue de noche.")
+    fake = FakeSonnet(ok)
+    monkeypatch.setattr(llm, "_create", fake)
+    asyncio.run(report.generate(FACTS))
+    assert len(fake.calls) == 1
+
+
+def test_episodios_con_y_sin_relato():
+    s = FACTS["deviations_summary"]
+    assert (s["count"], s["with_story"], s["without_story"], s["pct_change_range"]) == ("3", "1", "2", "69–71%")
+    assert [d["story"] for d in FACTS["deviations"]] == ["sin relato", "con relato de Juan", "sin relato"]

@@ -5,6 +5,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 from app import _tmp_rules, clock, db
 from app.models import Report, ReportTopic
 from app.pipeline import knowledge, llm, report_facts
+from app.taxonomy import _fold
 
 try:                                   # el verificador es de Franco; mientras no esté, el stub TEMPORAL
     from app.rules import verifier as _verifier  # type: ignore
@@ -83,28 +85,100 @@ def user_message(facts: dict) -> str:
     return f"<facts>\n{text}\n</facts>"
 
 
+# Números: fechas dd/mm como un solo token; el resto, enteros o decimales con . o ,
+_NUMBER = re.compile(r"\d{1,2}/\d{1,2}|\d+(?:[.,]\d+)*")
+_APPROX = re.compile(r"\b(unos|unas|alrededor de|aproximadamente|cerca de|casi|mas de|menos de|mas o menos)\s+\d")
+_EXPLAINED = re.compile(r"\bexplicad\w*|\bsin explicar\b|\bsin explicacion\w*")
+_PARTS = {"mediodia": re.compile(r"\bmediodia\b"), "madrugada": re.compile(r"\bmadrugada\b"),
+          "manana": re.compile(r"\b(a|por) la manana\b"), "noche": re.compile(r"\b(a|por) la noche\b|\bde noche\b")}
+_QUOTED = re.compile(r"«([^»]+)»|“([^”]+)”|\"([^\"]+)\"")
+
+
+def _strings(value, skip=("label",)) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for k, v in value.items() if k not in skip for s in _strings(v, skip)]
+    if isinstance(value, list):
+        return [s for v in value for s in _strings(v, skip)]
+    return []                       # números crudos e ids no cuentan: las cifras van como strings
+
+
+def allowed_numbers(facts: dict) -> set[str]:
+    return {n for text in _strings(facts) for n in _NUMBER.findall(text)}
+
+
+def _unquote(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip().strip('"\'“”«»').strip()
+    return value or None
+
+
+def _texts(t: _Topic) -> list[str]:
+    return [t.title, t.narrative, t.question, *t.observed]
+
+
 def check(out: _Output, facts: dict) -> None:
-    """Forma que exige el código. ValueError → reintento."""
+    """Forma y fidelidad que exige el código. ValueError → reintento."""
     words = len(out.summary.split())
     if not SUMMARY_WORDS[0] <= words <= SUMMARY_WORDS[1]:
         raise ValueError(f"el resumen tiene {words} palabras")
     if len(out.topics) != 3:
         raise ValueError(f"tienen que ser tres temas, vinieron {len(out.topics)}")
-    known = {e["id"] for e in facts.get("events", [])}
+    events = {e["id"]: e for e in facts.get("events", [])}
+    labels = facts.get("voices", {})
+    numbers = allowed_numbers(facts)
+    all_text = " ".join(_fold(q["quote"] + " " + (q.get("time") or "")) for q in events.values())
+
+    def check_text(text: str, where: str, evidence_text: str) -> None:
+        folded = _fold(text)
+        for n in _NUMBER.findall(text):
+            if n not in numbers:
+                raise ValueError(f"{where}: el número {n!r} no está en facts")
+        if _APPROX.search(folded):
+            raise ValueError(f"{where}: aproxima una cifra")
+        if _EXPLAINED.search(folded):
+            raise ValueError(f"{where}: habla de explicado/sin explicar (decí 'con relato' o 'sin relato')")
+        for word, pattern in _PARTS.items():
+            if pattern.search(folded) and word not in evidence_text:
+                raise ValueError(f"{where}: pone una franja ({word}) que no está en los eventos")
+
+    check_text(out.summary, "resumen", all_text)
     for t in out.topics:
-        if len(t.narrative.split()) > NARRATIVE_WORDS:
-            raise ValueError(f"el párrafo de «{t.title}» es demasiado largo")
-        unknown = set(t.evidence_ids) - known
+        unknown = set(t.evidence_ids) - events.keys()
         if unknown:
             raise ValueError(f"«{t.title}» cita ids que no existen: {sorted(unknown)}")
+        if len(t.narrative.split()) > NARRATIVE_WORDS:
+            raise ValueError(f"el párrafo de «{t.title}» es demasiado largo")
+        evidence_text = " ".join(_fold(events[i]["quote"] + " " + (events[i].get("time") or "")) for i in t.evidence_ids)
+        for text in _texts(t):
+            check_text(text, f"«{t.title}»", evidence_text)
+        # Cada cita del párrafo: literal de un evento y con el nombre de quien la dijo en la misma frase.
+        for sentence in re.split(r"(?<=[.;])\s+", t.narrative):
+            for m in _QUOTED.finditer(sentence):
+                quote = next(g for g in m.groups() if g)
+                owners = [e for e in events.values() if quote in e["quote"]]
+                if not owners:
+                    raise ValueError(f"«{t.title}»: la cita «{quote}» no es literal de ningún evento")
+                names = {labels.get(e["speaker"], e["speaker"]).split(",")[0] for e in owners}
+                if not any(name in sentence for name in names):
+                    raise ValueError(f"«{t.title}»: la cita «{quote}» no dice quién la contó ({', '.join(names)})")
+        for role, quote in t.voices.items():
+            quote = _unquote(quote)
+            if quote and not any(quote in e["quote"] for e in events.values() if e["speaker"] == role):
+                raise ValueError(f"«{t.title}»: la voz de {role} («{quote}») no es una cita literal de un evento "
+                                 f"de esa voz; copiá exacta una `quote` de un evento con speaker={role}")
 
 
 def to_report(out: _Output, facts: dict) -> Report:
-    """Salida del modelo → Report. `reserved` lo decide el código: si un evento del tema es reservado, el tema lo es."""
+    """Salida del modelo → Report. `reserved` lo decide el código: si un evento del tema es reservado, el tema lo es.
+    Las claves de voices las arma el código con los datos: "Juan", "Marta, su esposa"."""
     reserved_ids = {e["id"] for e in facts.get("events", []) if e.get("reserved")}
+    labels = facts.get("voices", {})
     topics = [ReportTopic(
         title=t.title.strip(), narrative=t.narrative.strip(), observed=[o.strip() for o in t.observed if o.strip()],
-        voices={k: v.strip() for k, v in t.voices.items() if k in VOICES and v and v.strip()},
+        voices={labels.get(k, k): _unquote(v) for k, v in t.voices.items() if k in VOICES and _unquote(v)},
         question=t.question.strip(), evidence_ids=list(dict.fromkeys(t.evidence_ids)),
         reserved=t.reserved or bool(set(t.evidence_ids) & reserved_ids),
     ) for t in out.topics]
