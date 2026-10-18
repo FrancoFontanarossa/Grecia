@@ -131,7 +131,8 @@ async def run(esc: Escenario = ESC) -> dict:
         # El informe final, sincrónico: el script no termina hasta que queda guardado en `reports`.
         try:
             rep = await report.report(esc.patient_id)
-            informe = {"ok": True, "temas": len(rep.topics), "borradas": rep.removed_count}
+            informe = {"ok": True, "temas": len(rep.topics), "borradas": rep.removed_count,
+                       "sin_redaccion": report.is_minimal(rep)}
         except Exception as exc:
             log.error("no se pudo generar el informe final (%s)", type(exc).__name__)
             informe = {"ok": False}
@@ -174,6 +175,8 @@ def main() -> None:
     if not result["informe"]["ok"]:
         print("ERROR: el informe final no se pudo generar; volver a correr el script.")
         sys.exit(1)
+    if result["informe"]["sin_redaccion"]:
+        print("AVISO: se guardó el informe mínimo (sin redacción de la IA); volver a correr para redactarlo.")
     print(f"Informe guardado: {result['informe']['temas']} temas · {result['informe']['borradas']} frases borradas")
 
 

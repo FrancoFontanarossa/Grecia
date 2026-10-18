@@ -48,7 +48,7 @@ def test_genera_report_y_el_codigo_fuerza_reserved(monkeypatch):
 
 
 @pytest.mark.parametrize("bad", [
-    {**GOOD, "topics": GOOD["topics"][:2]},                                             # dos temas
+    {**GOOD, "topics": GOOD["topics"] + [topic("Otro", [201])]},                         # cuatro temas
     {**GOOD, "topics": [topic("x", [999])] + GOOD["topics"][1:]},                       # id inexistente
     {**GOOD, "summary": "Muy corto."},                                                  # resumen corto
     {**GOOD, "topics": [{**GOOD["topics"][0], "narrative": "palabra " * 130}] + GOOD["topics"][1:]},
@@ -59,10 +59,90 @@ def test_salida_que_no_cumple_se_reintenta(monkeypatch, bad):
     assert len(asyncio.run(report.generate(FACTS)).topics) == 3 and len(fake.calls) == 2
 
 
-def test_dos_fallas_son_error(monkeypatch):
-    monkeypatch.setattr(llm, "_create", FakeSonnet({**GOOD, "topics": []}))
+def test_dos_temas_alcanzan(monkeypatch):
+    fake = FakeSonnet({**GOOD, "topics": GOOD["topics"][:2]})
+    monkeypatch.setattr(llm, "_create", fake)
+    assert len(asyncio.run(report.generate(FACTS)).topics) == 2 and len(fake.calls) == 1
+
+
+def test_tres_fallas_duras_son_error(monkeypatch):
+    fake = FakeSonnet({**GOOD, "topics": [topic("x", [999])] + GOOD["topics"][1:]})   # id inexistente: dura
+    monkeypatch.setattr(llm, "_create", fake)
     with pytest.raises(llm.LLMError):
         asyncio.run(report.generate(FACTS))
+    assert len(fake.calls) == report.ATTEMPTS == 3
+
+
+# ── Nunca vacío: fallas blandas se guardan limpias; duras o sin IA, el informe mínimo ──
+
+SOFT = {**GOOD, "summary": SUMMARY.replace("15 de 28", "99 de 28"),                         # cifra que no está
+        "topics": [{**GOOD["topics"][0], "observed": ["unas 7 noches"], "question": "¿Pasa a la madrugada?"},
+                   *GOOD["topics"][1:]]}
+
+
+def test_fallas_blandas_se_guardan_limpias_por_el_verificador(tmp_data_dir, monkeypatch):
+    fake = FakeSonnet(SOFT)
+    monkeypatch.setattr(llm, "_create", fake)
+    monkeypatch.setattr(report_facts, "build", lambda pid, now, period=None: FACTS)
+    rep = asyncio.run(report.report(1))
+    assert len(fake.calls) == 3 and not report.is_minimal(rep)
+    assert rep.removed_count == 3                       # la oración del 99, lo observado y la pregunta
+    assert "99" not in rep.summary and "Hay un tema para hablar en privado (tema 1)." in rep.summary
+    assert rep.topics[0].observed == [] and rep.topics[0].question == ""
+    with base.connect() as conn:
+        row = conn.execute("SELECT content, removed_by_verifier FROM reports").fetchone()
+    assert row["removed_by_verifier"] == 3 and json.loads(row["content"])["redaccion"] == "ia"
+
+
+def test_falla_dura_guarda_el_informe_minimo(tmp_data_dir, monkeypatch):
+    mezcla = _with(evidence_ids=[205, 204])                   # reservado con no reservado: dura
+    monkeypatch.setattr(llm, "_create", FakeSonnet(mezcla))
+    monkeypatch.setattr(report_facts, "build", lambda pid, now, period=None: FACTS)
+    rep = asyncio.run(report.report(1))
+    assert report.is_minimal(rep) and rep.topics == [] and rep.removed_count == 0
+    assert rep.summary.startswith("El resumen redactado no está disponible")
+    with base.connect() as conn:
+        assert json.loads(conn.execute("SELECT content FROM reports").fetchone()["content"])["redaccion"] == "codigo"
+
+
+def test_sin_respuesta_de_la_ia_guarda_el_informe_minimo(tmp_data_dir, monkeypatch):
+    async def caida(**kwargs):
+        raise llm.LLMError("Falta ANTHROPIC_API_KEY")
+    monkeypatch.setattr(llm, "_create", caida)
+    monkeypatch.setattr(report_facts, "build", lambda pid, now, period=None: FACTS)
+    rep = asyncio.run(report.report(1))
+    assert report.is_minimal(rep)
+    with base.connect() as conn:
+        assert conn.execute("SELECT count(*) FROM reports").fetchone()[0] == 1
+
+
+def test_si_falla_y_ya_hay_uno_redactado_queda_ese(tmp_data_dir, monkeypatch):
+    monkeypatch.setattr(report_facts, "build", lambda pid, now, period=None: FACTS)
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    first = asyncio.run(report.report(1))                       # redactado por IA
+    monkeypatch.setattr(llm, "_create", FakeSonnet(_with(evidence_ids=[205, 204])))   # después, falla dura
+    again = asyncio.run(report.report(1))
+    assert again == first and not report.is_minimal(again)
+    with base.connect() as conn:
+        rows = conn.execute("SELECT content FROM reports").fetchall()
+    assert len(rows) == 1 and json.loads(rows[0]["content"])["redaccion"] == "ia"   # no se guardó el mínimo
+
+
+def test_un_minimo_previo_no_cuenta_como_redactado(tmp_data_dir, monkeypatch):
+    monkeypatch.setattr(report_facts, "build", lambda pid, now, period=None: FACTS)
+    report._store(1, "x", report.minimal_report())
+    monkeypatch.setattr(llm, "_create", FakeSonnet(_with(evidence_ids=[205, 204])))
+    assert report.is_minimal(asyncio.run(report.report(1)))
+
+
+def test_verify_local_saca_evidencia_de_otra_franja_y_temas_con_titulo_falso():
+    rep = report.to_report(report._Output.model_validate(
+        {**GOOD, "topics": [GOOD["topics"][0], {**GOOD["topics"][1], "title": "Trabado a la tarde",
+                                                 "evidence_ids": [206, 201]},
+                            {**GOOD["topics"][2], "title": "Noches con 99 despertares"}]}), FACTS)
+    out = report.verify_local(rep, FACTS)
+    assert [t.title for t in out.topics] == ["Habla con gente que no está", "Trabado a la tarde"]
+    assert out.topics[1].evidence_ids == [206] and out.removed_count == 2
 
 
 def test_pasa_por_el_verificador(monkeypatch):
