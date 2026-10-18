@@ -159,9 +159,11 @@ def test_pasa_por_el_verificador(monkeypatch):
 def test_facts_desde_la_base(tmp_data_dir):
     from app import _tmp_db as db
     clock.set("2026-10-17T18:00:00")
+    cambio = dt.datetime(2026, 10, 3, tzinfo=TZ)          # la fecha del cambio es un dato: lo esperado se calcula
+    evento = dt.datetime(2026, 10, 14, 22, tzinfo=TZ)
     with base.connect() as conn:
         conn.execute("INSERT INTO med_schedule (patient_id, drug, times, changed_at) VALUES (1, 'pramipexol', '[]', ?)",
-                     (base.to_db(dt.datetime(2026, 9, 22, tzinfo=TZ)),))
+                     (base.to_db(cambio),))
         conn.execute("INSERT INTO goals (patient_id, metric, target, unit, set_by, active) VALUES (1, 'steps', 4000, 'pasos', 4, 1)")
         for day, steps in [(15, 4200), (16, 3000)]:
             conn.execute("INSERT INTO biometrics (patient_id, kind, value, start, \"end\", source) VALUES (1, 'steps', ?, ?, ?, 'seed')",
@@ -170,7 +172,7 @@ def test_facts_desde_la_base(tmp_data_dir):
     eid = db.insert_entry(patient_id=1, speaker_id=2, modality="texto", raw_text="anoche hablaba con alguien",
                           question_id=None, occurred_hint=None, reserved_requested=False, source="app")
     db.insert_events(eid, 1, [{"domain": "neuropsiquiatrico", "symptom": "alucinaciones", "negated": False,
-                               "occurred_at": dt.datetime(2026, 10, 14, 22, tzinfo=TZ), "time_vague": True,
+                               "occurred_at": evento, "time_vague": True,
                                "speaker_role": "cuidador", "quote": "anoche hablaba con alguien", "plain": "x",
                                "confidence": 0.9, "is_new": True, "reserved": True}])
     raw = report_facts.collect(1, clock.now())
@@ -178,10 +180,12 @@ def test_facts_desde_la_base(tmp_data_dir):
                              "label": "2026-09-20/2026-10-17", "text": "20/09 al 17/10"}
     assert raw["steps"]["days_in_goal"] == 1 and raw["steps"]["days_with_data"] == 2 and raw["steps"]["goal"] == 4000
     [e] = raw["events"]
-    assert (e["speaker_name"], e["reserved"], e["is_new"], e["days_since_med_change"]) == ("Marta", True, True, 22)
+    assert (e["speaker_name"], e["reserved"], e["is_new"], e["days_since_med_change"]) == (
+        "Marta", True, True, (evento.date() - cambio.date()).days)
     f = report_facts.build(1, clock.now())
     assert f["steps"]["goal"] == "4.000" and f["steps"]["days_in_goal"] == "1"
-    assert f["medication"][0]["days_since_change"] == "25" and f["medication"][0]["changed"] == "22/09"
+    assert f["medication"][0]["days_since_change"] == str((clock.now().date() - cambio.date()).days)
+    assert f["medication"][0]["changed"] == f"{cambio:%d/%m}"
     assert f["events"][0]["speaker_label"] == "Marta, su esposa" and f["events"][0]["date"] == "14/10"
     assert f["entries_by_voice"] == [{"voice": "Marta, su esposa", "entries": "1"}]
 
@@ -335,3 +339,45 @@ def test_generate_pasa_por_verify_local(monkeypatch):
     monkeypatch.setattr(report, "verify_local", spy)
     asyncio.run(report.generate(FACTS))
     assert called
+
+
+# ── Eval del informe v2: frase privada, varias franjas y franja del evento ──
+
+def test_la_frase_privada_no_pasa_por_el_chequeo_de_cifras(monkeypatch):
+    # El "(tema 1)" lo pone el código: no es una cifra de facts. Un "1" suelto en otra frase sí se rechaza.
+    sin_uno = report.allowed_numbers(FACTS) - {"1"}
+    monkeypatch.setattr(report, "allowed_numbers", lambda facts: sin_uno)
+    out = report._Output.model_validate(GOOD)
+    report.check(out, FACTS)                                    # no lanza por el "1" de la frase privada
+    rep = report.verify_local(report.to_report(out, FACTS), FACTS)
+    assert "Hay un tema para hablar en privado (tema 1)." in rep.summary and rep.removed_count == 0
+    otra = report._Output.model_validate({**GOOD, "summary": SUMMARY + " Hubo 1 caída."})
+    with pytest.raises(report.SoftCheckError, match="'1'"):
+        report.check(otra, FACTS)
+
+
+def test_un_titulo_que_nombra_dos_franjas_acepta_las_dos():
+    events = {e["id"]: e for e in FACTS["events"]}
+    dos = report.ReportTopic(title="Tardes lentas y noches cortadas", narrative="", observed=[], voices={},
+                             question="", evidence_ids=[202, 201], reserved=False)
+    una = dos.model_copy(update={"title": "Noches cortadas"})
+    assert report._wrong_part_ids(dos, events) == []
+    assert report._wrong_part_ids(una, events) == [202]
+
+
+def test_la_franja_del_evento_cuenta_como_evidencia():
+    events = {e["id"]: e for e in FACTS["events"]}
+    numbers = report.allowed_numbers(FACTS)
+    # 201 dice "anoche" (no "a la noche"), pero el código lo ubicó de noche: la franja está respaldada.
+    assert report._text_problem("A la noche se despertó.", numbers, report._evidence_text([events[201]])) is None
+    # 206 no tiene franja: "a la mañana" sigue siendo inventado.
+    assert "franja" in report._text_problem("A la mañana se sintió trabado.", numbers,
+                                            report._evidence_text([events[206]]))
+
+
+def test_facts_traen_conteos_por_sintoma_calculados_por_codigo():
+    counts = {(c["symptom"], c["reserved"]): c for c in FACTS["event_counts"]}
+    afirmados = [e for e in FACTS["events"] if not e["negated"]]
+    assert sum(int(c["count"]) for c in counts.values()) == len(afirmados)
+    for e in afirmados:                                       # lo negado no suma
+        assert (e["symptom"], e["reserved"]) in counts

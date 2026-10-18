@@ -139,11 +139,24 @@ def private_sentence(indices: list[int]) -> str:
     return f"Hay {len(indices)} temas para hablar en privado (temas {nums})."
 
 
+def _private_indices(topics, events: dict) -> list[int]:
+    reserved_ids = {i for i, e in events.items() if e.get("reserved")}
+    return [n for n, t in enumerate(topics, 1) if t.reserved or set(t.evidence_ids) & reserved_ids]
+
+
+_PRIVATE_MARK = "Tema privado."     # la frase fija, sin su número de tema, para el chequeo de cifras
+
+
+def _without_private_sentence(summary: str, indices: list[int]) -> str:
+    """El número de tema de la frase fija de lo privado lo pone el código, no es una cifra de facts: esa frase
+    exacta (y solo esa) no pasa por el chequeo de números."""
+    return summary.replace(private_sentence(indices), _PRIVATE_MARK) if indices else summary
+
+
 def check_private_summary(out: "_Output", events: dict) -> None:
     """Con un tema reservado, el resumen solo dice que existe: ni su contenido, ni quién lo contó, ni cuándo."""
     reserved_ids = {i for i, e in events.items() if e.get("reserved")}
-    indices = [n for n, t in enumerate(out.topics, 1)
-               if t.reserved or set(t.evidence_ids) & reserved_ids]
+    indices = _private_indices(out.topics, events)
     if not indices:
         return
     summary, folded = out.summary, _fold(out.summary)
@@ -173,12 +186,15 @@ _TITLE_PARTS = {"tarde": {"tarde"}, "noche": {"noche", "madrugada"}, "madrugada"
 _TITLE_PART_WORDS = re.compile(r"\b(tardes?|noches?|nocturn\w*|madrugadas?|mananas?|mediodia)\b")
 
 
-def _title_part(title: str) -> str | None:
-    m = _TITLE_PART_WORDS.search(_fold(title))
-    if not m:
-        return None
-    w = m.group(1)
-    return "noche" if w.startswith("noch") or w.startswith("noctur") else w.rstrip("s")
+def _title_parts(title: str) -> list[str]:
+    """Las franjas que nombra el título ("Mañanas difíciles y noches cortadas" → manana y noche)."""
+    parts = []
+    for m in _TITLE_PART_WORDS.finditer(_fold(title)):
+        w = m.group(1)
+        part = "noche" if w.startswith("noch") or w.startswith("noctur") else w.rstrip("s")
+        if part not in parts:
+            parts.append(part)
+    return parts
 
 
 class HardCheckError(ValueError):
@@ -207,8 +223,14 @@ def _text_problem(text: str, numbers: set[str], evidence_text: str) -> str | Non
     return None
 
 
+_PART_WORDS = {"manana": "a la manana", "noche": "de noche a la noche", "madrugada": "madrugada de noche a la noche",
+               "mediodia": "mediodia", "tarde": "a la tarde"}
+
+
 def _evidence_text(evs) -> str:
-    return " ".join(_fold(e["quote"] + " " + (e.get("time") or "")) for e in evs)
+    """Lo que respalda una franja: la cita, la hora y la franja que calculó el código para el evento (`part`)."""
+    return " ".join(_fold(e["quote"] + " " + (e.get("time") or "") + " " + _PART_WORDS.get(e.get("part") or "", ""))
+                    for e in evs)
 
 
 def _quote_problem(sentence: str, events, labels: dict) -> str | None:
@@ -225,12 +247,13 @@ def _quote_problem(sentence: str, events, labels: dict) -> str | None:
 
 
 def _wrong_part_ids(t, events: dict) -> list[int]:
-    """Ids de la evidencia de otra franja que la que nombra el título."""
-    part = _title_part(t.title)
-    if not part:
+    """Ids de la evidencia de una franja que el título no nombra (si nombra varias, vale cualquiera de ellas)."""
+    parts = _title_parts(t.title)
+    if not parts:
         return []
+    allowed = set().union(*(_TITLE_PARTS[p] for p in parts))
     return [i for i in t.evidence_ids if i in events and events[i].get("part")
-            and events[i]["part"] not in _TITLE_PARTS[part]]
+            and events[i]["part"] not in allowed]
 
 
 def check(out: _Output, facts: dict) -> None:
@@ -260,14 +283,15 @@ def check(out: _Output, facts: dict) -> None:
     if not TOPICS[0] <= len(out.topics) <= TOPICS[1]:
         raise SoftCheckError(f"tienen que ser dos o tres temas, vinieron {len(out.topics)}")
     numbers = allowed_numbers(facts)
-    problem = _text_problem(out.summary, numbers, _evidence_text(events.values()))
+    problem = _text_problem(_without_private_sentence(out.summary, _private_indices(out.topics, events)), numbers,
+                            _evidence_text(events.values()))
     if problem:
         raise SoftCheckError(f"resumen: {problem}")
     for t in out.topics:
         other = _wrong_part_ids(t, events)
         if other:
-            raise SoftCheckError(f"«{t.title}» nombra la {_title_part(t.title)} pero incluye eventos de otra "
-                                 f"franja: {other}")
+            raise SoftCheckError(f"«{t.title}» nombra {' y '.join(_title_parts(t.title))} pero incluye eventos de "
+                                 f"otra franja: {other}")
         if len(t.narrative.split()) > NARRATIVE_WORDS:
             raise SoftCheckError(f"el párrafo de «{t.title}» es demasiado largo")
         evidence_text = _evidence_text(events[i] for i in t.evidence_ids)
@@ -388,7 +412,12 @@ def verify_local(rep: Report, facts: dict) -> Report:
     if private_before and private_before != private_after:     # se cayó un tema: la frase privada se renumera
         new = private_sentence(private_after) if private_after else ""
         summary = summary.replace(private_sentence(private_before), new)
+    keep = private_sentence(private_after) if private_after else None
+    if keep and keep in summary:            # la frase fija de lo privado no pasa por el chequeo de cifras
+        summary = summary.replace(keep, _PRIVATE_MARK)
     summary = clean(summary, list(events.values()), _evidence_text(events.values()))
+    if keep:
+        summary = summary.replace(_PRIVATE_MARK, keep)
     return rep.model_copy(update={"summary": summary, "topics": topics,
                                   "removed_count": rep.removed_count + removed})
 
