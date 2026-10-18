@@ -63,6 +63,9 @@
     <div><span style="font-weight: 700">Lo último que anotamos:</span> {{ hoy.last_understood.plain }}</div>
   </div>
   {% endif %}
-  <a href="/casa/permisos" style="align-self: center; font-size: 16px; color: var(--color-tinta-suave); padding: 4px 8px">Qué ve tu familia</a>
+  <div style="display: flex; justify-content: center; gap: 18px; font-size: 16px">
+    <a href="/casa/permisos" style="color: var(--color-tinta-suave); padding: 4px 8px">Qué ve tu familia</a>
+    <a href="/" style="color: var(--color-tinta-suave); padding: 4px 8px">No soy {{ hoy.person.name }}</a>
+  </div>
 </main>
 {% endblock %}

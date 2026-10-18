@@ -103,10 +103,13 @@
     </div>
   </template>
   <template x-if="phase === 'grabando' || phase === 'pidiendo'">
-    <button type="button" class="btn btn--familia btn--rojo" @click="terminar()" :disabled="phase !== 'grabando'">
-      <span style="width: 20px; height: 20px; border-radius: 5px; background: #FFFFFF; display: inline-block"></span>
-      Terminar
-    </button>
+    <div class="grilla-1-2">
+      <button type="button" class="btn btn--secundario" style="min-height: 68px; border-radius: 20px; font-size: 18px" @click="descartar()">Cancelar</button>
+      <button type="button" class="btn btn--familia btn--rojo" @click="terminar()" :disabled="phase !== 'grabando'">
+        <span style="width: 20px; height: 20px; border-radius: 5px; background: #FFFFFF; display: inline-block"></span>
+        Terminar
+      </button>
+    </div>
   </template>
   <template x-if="phase === 'escribir'">
     <div class="grilla-1-2">

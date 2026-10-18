@@ -120,17 +120,22 @@
       if (EC.push.state() !== "activo") return;
       var personId = EC.person.get();
       if (!personId) return;
-      navigator.serviceWorker.ready.then(function (reg) {
+      // En cada carga con permiso: subscribe() devuelve la misma suscripción si ya existe, y se manda
+      // siempre al servidor (sin flags locales), así sobrevive a un /admin/restore o a una base nueva.
+      var reg;
+      navigator.serviceWorker.ready.then(function (r) {
+        reg = r;
         return reg.pushManager.getSubscription();
       }).then(function (sub) {
-        if (!sub) return;
-        var key = "ec_sub_" + personId + "_" + sub.endpoint.slice(-24);
-        try { if (localStorage.getItem(key)) return; } catch (e) {}
+        return sub || EC.push.publicKey().then(function (key) {
+          return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+        });
+      }).then(function (sub) {
         return fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ person_id: Number(personId), subscription: sub.toJSON() })
-        }).then(function (r) { if (r.ok) try { localStorage.setItem(key, "1"); } catch (e) {} });
+        });
       }).catch(function () {});
     },
     errorText: function (err) {
