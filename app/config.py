@@ -49,6 +49,10 @@ DAILY_PLAN_HOUR = 21                             # a las 21 de clock.now() se pl
 DAILY_PLAN_WINDOW_DAYS = 28                      # ventana de las hipótesis
 DAILY_MAX_QUESTIONS = 1                          # Juan: como mucho 1 pregunta (o seguimiento) planificada por día
 DAILY_MAX_GAME_INVITES = 1                       # …y 1 invitación al golpeteo
+# Bitácora de la revisión diaria: la nota de cada noche (solo equipo médico). BITACORA_ENABLED=0 la apaga en el
+# precorrido y en el informe (la revisión en vivo sigue detrás de DAILY_PLAN_ENABLED).
+BITACORA_ENABLED = os.environ.get("BITACORA_ENABLED", "1") == "1"
+BITACORA_MEMORY_DAYS = 7                         # el digest trae las notas de los 7 días previos
 PLAN_HOURS = ("08:00", "22:00")                  # las acciones van entre estas horas de mañana
 HYPOTHESIS_MIN_DAYS = 4                          # días con y sin la condición, como mínimo
 HYPOTHESIS_MIN_DIFF = 0.20                       # diferencia entre medianas, en la dirección declarada

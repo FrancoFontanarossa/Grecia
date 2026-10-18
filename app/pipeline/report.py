@@ -113,7 +113,8 @@ def _strings(value, skip=("label",)) -> list[str]:
 
 
 def allowed_numbers(facts: dict) -> set[str]:
-    return {n for text in _strings(facts) for n in _NUMBER.findall(text)}
+    """Las cifras de la bitácora (notas de la revisión diaria) no cuentan: son hilo conductor, no fuente."""
+    return {n for text in _strings(facts, skip=("label", "bitacora")) for n in _NUMBER.findall(text)}
 
 
 def _unquote(value: str | None) -> str | None:

@@ -6,6 +6,11 @@ el relato con la misma función que POST /api/entries (process_entry) y corre un
 ticks sin relato para que el scheduler vea las ventanas de las tomas: cada hora (:05) en la semana de la demo y tres
 por día antes. Al final deja el reloj en `fin` y guarda el informe.
 
+Revisión diaria con bitácora (config.BITACORA_ENABLED): al cerrar cada día, a las 23:00, corre la revisión diaria
+(plan_jobs.run_plan) con historia=True: nota del día e hipótesis, sin agendar acciones. La última noche (la de `fin`,
+el viernes 16/10) agenda las acciones del sábado. BITACORA_DESDE=AAAA-MM-DD limita desde qué noche (cada noche es una
+llamada a Sonnet). Una noche que ya tiene revisión no se repite.
+
 Idempotente: un relato ya precorrido (mismo hablante, hora y texto) no se vuelve a cargar, y el scheduler no repite
 preguntas. Las push quedan apagadas mientras corre: las notificaciones se guardan, pero no suenan los teléfonos.
 
@@ -103,6 +108,34 @@ def timeline(esc: Escenario = ESC) -> list[tuple[dt.datetime, Relato | None]]:
     return sorted(moments, key=lambda m: (m[0], m[1] is None))
 
 
+REVIEW_AT = dt.time(23, 0)          # la revisión de cada noche, después del último relato del día
+
+
+def review_nights(esc: Escenario = ESC) -> list[dt.date]:
+    """Las noches con revisión diaria: desde el primer relato (o BITACORA_DESDE) hasta la de `fin`."""
+    import os
+    first = esc.relatos[0].at.date()
+    if os.environ.get("BITACORA_DESDE"):
+        first = max(first, dt.date.fromisoformat(os.environ["BITACORA_DESDE"]))
+    last = esc.end.date()
+    return [first + dt.timedelta(days=i) for i in range((last - first).days + 1)]
+
+
+async def _review(patient_id: int, day: dt.date, last: dt.date) -> str:
+    """Revisión diaria de esa noche: historia=True salvo la última, que agenda las acciones del día siguiente."""
+    from app import plan_jobs
+    if await asyncio.to_thread(plan_jobs.reviewed, patient_id, day):
+        return "ya_estaba"
+    at = dt.datetime.combine(day, REVIEW_AT, TZ)
+    await asyncio.to_thread(clock.set, at.isoformat())
+    try:
+        result = await plan_jobs.run_plan(patient_id, at, historia=day != last)
+    except Exception as exc:            # una noche que falla no frena el precorrido
+        log.error("falló la revisión diaria del %s (%s)", day, type(exc).__name__)
+        return "error"
+    return "ok" if result.get("nota") else "sin_nota"
+
+
 async def run(esc: Escenario = ESC) -> dict:
     from app.api.entries import process_entry
     from app.notify import inbox as push   # inbox llama a send_push; se apaga ahí
@@ -119,8 +152,16 @@ async def run(esc: Escenario = ESC) -> dict:
         return False
     push.send_push = silent
     report.request_regeneration = lambda patient_id: None   # el informe se genera una sola vez, al final
+    nights = review_nights(esc) if config.BITACORA_ENABLED else []
+    reviews: Counter = Counter()
+
+    async def close_days_before(day: dt.date | None) -> None:
+        while nights and (day is None or nights[0] < day):
+            reviews[await _review(esc.patient_id, nights.pop(0), esc.end.date())] += 1
+
     try:
         for at, relato in timeline(esc):
+            await close_days_before(at.date())
             await asyncio.to_thread(clock.set, at.isoformat())
             if relato is not None:
                 if await asyncio.to_thread(_already_loaded, relato):
@@ -130,6 +171,7 @@ async def run(esc: Escenario = ESC) -> dict:
                                         reserved_requested=relato.reserved, source="precorrer")
                     loaded += 1
             questions += await scheduler.tick()
+        await close_days_before(None)          # la última noche (la de `fin`) agenda las acciones del día siguiente
         await asyncio.to_thread(clock.set, esc.end.isoformat())
         # El informe final, sincrónico: el script no termina hasta que queda guardado en `reports`.
         try:
@@ -143,7 +185,7 @@ async def run(esc: Escenario = ESC) -> dict:
         push.send_push, report.request_regeneration = real_send, real_regen
         config.DAILY_PLAN_ENABLED = real_plan
     return {"cargados": loaded, "ya_estaban": skipped, "preguntas": questions, "reloj": esc.end.isoformat(),
-            "informe": informe}
+            "informe": informe, "revisiones": dict(reviews)}
 
 
 def summary(patient_id: int) -> list[str]:
@@ -175,6 +217,7 @@ def main() -> None:
     print(f"Relatos cargados: {result['cargados']} · ya estaban: {result['ya_estaban']}")
     print(f"Preguntas enviadas: {result['preguntas']}")
     print(f"Reloj en: {result['reloj']}")
+    print(f"Revisiones diarias (bitácora): {result['revisiones']}")
     print("\n".join(summary(esc.patient_id)))
     if not result["informe"]["ok"]:
         print("ERROR: el informe final no se pudo generar; volver a correr el script.")

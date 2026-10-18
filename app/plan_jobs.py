@@ -1,6 +1,8 @@
 # Modo 2 en el scheduler (detrás de config.DAILY_PLAN_ENABLED):
 #   plan_if_due:  a partir de las 21 de clock.now(), una vez por paciente y día: build_digest → daily_plan (IA) →
-#                 rules.plan (prueba y decide) → se guardan hipótesis y acciones (agendadas y descartadas con motivo).
+#                 rules.note limpia la nota del día (bitácora) y rules.plan prueba y decide → se guardan la nota,
+#                 las hipótesis y las acciones (agendadas y descartadas con motivo).
+#   run_plan(historia=True): para el precorrido de noches pasadas: nota e hipótesis, sin agendar acciones.
 #   execute_due:  en cada tick, las acciones agendadas cuya hora llegó: golpeteo → push que abre el juego;
 #                 pregunta o seguimiento → pipeline.ask con el motivo → questions + push (con el presupuesto del día).
 #   link_test:    un juego hecho después de una invitación del plan basada en un desvío se vincula a ese episodio.
@@ -14,6 +16,7 @@ from app.models import Trigger
 from app.pipeline import daily_plan as daily_plan_pipeline
 from app.pipeline.digest import build_digest
 from app.rules import budget
+from app.rules import note as note_rules
 from app.rules import plan as plan_rules
 
 log = logging.getLogger("entrecasa.plan")
@@ -22,8 +25,26 @@ GAME_TITLE = "¿Hacemos el juego de 20 segundos?"
 
 def _planned(patient_id: int, plan_date: dt.date) -> bool:
     with db.connect() as conn:
+        if conn.execute("SELECT 1 FROM daily_notes WHERE patient_id = ? AND date = ?",
+                        (patient_id, (plan_date - dt.timedelta(days=1)).isoformat())).fetchone():
+            return True
         return any(conn.execute(f"SELECT 1 FROM {t} WHERE patient_id = ? AND plan_date = ? LIMIT 1",
                                 (patient_id, plan_date.isoformat())).fetchone() for t in ("hypotheses", "planned_actions"))
+
+
+def reviewed(patient_id: int, day: dt.date) -> bool:
+    """Ya hay revisión de ese día (nota, hipótesis o acciones para el día siguiente): el precorrido no la repite."""
+    return _planned(patient_id, day + dt.timedelta(days=1))
+
+
+def _save_note(patient_id: int, day: dt.date, note, removed: int, now: dt.datetime) -> None:
+    row = note_rules.to_row(note)
+    with db.connect() as conn:
+        conn.execute("INSERT INTO daily_notes (patient_id, date, text, points, follow_up, removed_count, created_at) "
+                     "VALUES (?,?,?,?,?,?,?) ON CONFLICT (patient_id, date) DO UPDATE SET text = excluded.text, "
+                     "points = excluded.points, follow_up = excluded.follow_up, removed_count = excluded.removed_count, "
+                     "created_at = excluded.created_at",
+                     (patient_id, day.isoformat(), row["text"], row["points"], row["follow_up"], removed, db.to_db(now)))
 
 
 _done: set[tuple[int, str]] = set()      # planes vacíos de este proceso (no dejan filas): no se repiten en cada tick
@@ -45,11 +66,18 @@ def _save(patient_id: int, plan_date: dt.date, results, scheduled, discarded, no
                           row.get("discard_reason"), db.to_db(now)))
 
 
-async def run_plan(patient_id: int, now: dt.datetime) -> dict:
-    """Genera, valida y guarda el plan de mañana. Devuelve un resumen para el log y el admin."""
+async def run_plan(patient_id: int, now: dt.datetime, *, historia: bool = False) -> dict:
+    """Revisión diaria: nota del día, hipótesis y plan de mañana, validados y guardados. Con historia=True (noches
+    pasadas del precorrido) guarda la nota y las hipótesis, pero no agenda acciones. Devuelve un resumen."""
     digest = await asyncio.to_thread(build_digest, patient_id, now)
     plan_date = dt.date.fromisoformat(digest["plan_date"])
     plan = await daily_plan_pipeline.daily_plan(digest)
+    note_removed = None
+    if plan.note is not None:
+        note, note_removed = note_rules.verify_note(plan.note, digest)
+        await asyncio.to_thread(_save_note, patient_id, plan_date - dt.timedelta(days=1), note, note_removed, now)
+    if historia:
+        plan = plan.model_copy(update={"actions": []})
     first, last = dt.date.fromisoformat(digest["ventana"]["desde"]), dt.date.fromisoformat(digest["ventana"]["hasta"])
     days = await asyncio.to_thread(plan_rules.daily_data, patient_id, first, last)
     results = [plan_rules.test_hypothesis(h, patient_id, (first, last), days) for h in plan.hypotheses]
@@ -57,7 +85,8 @@ async def run_plan(patient_id: int, now: dt.datetime) -> dict:
     await asyncio.to_thread(_save, patient_id, plan_date, results, scheduled, discarded, now)
     _done.add((patient_id, plan_date.isoformat()))
     summary = {"plan_date": plan_date.isoformat(), "hipotesis": len(results), "pasaron": sum(r.passed for r in results),
-               "agendadas": len(scheduled), "descartadas": len(discarded)}
+               "agendadas": len(scheduled), "descartadas": len(discarded), "historia": historia,
+               "nota": plan.note is not None, "nota_borradas": note_removed}
     log.info("plan del paciente %s: %s", patient_id, summary)
     return summary
 
