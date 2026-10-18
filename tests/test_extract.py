@@ -145,3 +145,49 @@ def test_atribucion_de_otra_persona_no_puede_decir_vos_pensas(monkeypatch):
     monkeypatch.setattr(extract, "_call_model", fake)
     [e] = run(entry(text="Mamá me contó que se tambaleó en la vereda, pero dice que no es nada.", role="familiar"))
     assert "Tu mamá piensa" in e.plain and len(fake.calls) == 2
+
+
+JUAN_SUENOS = ("Duermo bastante bien, me levanto un par de veces al baño nomás. A veces sueño cosas raras, pero "
+               "nada, no pasa nada.")
+
+
+def test_el_paciente_que_minimiza_puede_decir_vos_pensas(monkeypatch):
+    # Relato del escenario que fallaba dos veces: Juan cuenta y minimiza él; "Vos pensás" está bien.
+    suenos = ev(domain="sueno", symptom="actua_suenos", negated=False, foreign_attribution="no pasa nada",
+                attribution_by="paciente", quote="A veces sueño cosas raras, pero nada, no pasa nada.",
+                time_said={"day": "habitual", "weekday": None, "part": None, "clock": None},
+                plain="A veces soñás cosas raras. Vos pensás que no pasa nada.")
+    fake = FakeModel(tool_response([suenos]))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    [e] = asyncio.run(extract.extract(entry(text=JUAN_SUENOS, role="paciente", hint=None), patient_name="Juan",
+                                      speaker_name="Juan"))
+    assert len(fake.calls) == 1
+    assert e.negated is False and e.foreign_attribution == "no pasa nada" and "Vos pensás" in e.plain
+
+
+def test_si_cuenta_un_familiar_lo_del_paciente_no_es_vos_pensas(monkeypatch):
+    mal = ev(foreign_attribution="es la edad", attribution_by="paciente", quote="se tambaleó en la vereda",
+             domain="caidas", symptom="casi_caida", plain="Juan se tambaleó. Vos pensás que es la edad.")
+    bien = {**mal, "plain": "Juan se tambaleó. Él piensa que es la edad."}
+    fake = FakeModel(tool_response([mal]), tool_response([bien]))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    [e] = run(entry(text="Papá se tambaleó en la vereda y dice que es la edad.", role="familiar"))
+    assert "Él piensa" in e.plain and len(fake.calls) == 2
+
+
+def test_cita_con_otra_mayuscula_toma_el_texto_tal_cual(monkeypatch):
+    # rel-06 del eval: el modelo devolvía la cita con minúscula inicial y la extracción fallaba dos veces.
+    texto = "Hace unos días que no va al baño, está muy estreñido."
+    cita = ev(domain="autonomico", symptom="constipacion", foreign_attribution=None, quote="hace unos días que no va al baño",
+              plain="Hace unos días que Juan no va al baño.")
+    fake = FakeModel(tool_response([cita]))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    [e] = run(entry(text=texto, hint=None))
+    assert e.quote == "Hace unos días que no va al baño" and e.quote in texto and len(fake.calls) == 1
+
+
+def test_cita_que_no_esta_ni_cambiando_mayusculas_sigue_siendo_invalida(monkeypatch):
+    fake = FakeModel(tool_response([ev(quote="Hace días que no va")]), tool_response([ev()]))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    run(entry())
+    assert len(fake.calls) == 2

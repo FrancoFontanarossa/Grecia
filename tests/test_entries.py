@@ -250,3 +250,34 @@ def test_el_respaldo_recibe_la_medicacion_del_esquema(tmp_data_dir, monkeypatch,
         conn.execute("INSERT INTO med_schedule (patient_id, drug, times) VALUES (1, 'levodopa/carbidopa', '[]')")
     client.post("/api/entries", data={"person_id": 2, "text": "estuvo más duro toda la tarde"})
     assert "levodopa/carbidopa" in fake_red_backup.calls[0]
+
+
+def test_si_la_extraccion_no_valida_el_relato_queda_y_anote_lo_muestra(tmp_data_dir, monkeypatch):
+    """Fallo total de la extracción (no valida en ningún intento): el relato no se pierde."""
+    from app.pipeline import extract
+    from tests.conftest import FakeModel, tool_response
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    fake = FakeModel(tool_response(tool=False, stop_reason="end_turn"))
+    monkeypatch.setattr(extract, "_call_model", fake)
+    texto = "Duermo bastante bien. A veces sueño cosas raras, pero nada, no pasa nada."
+
+    r = client.post("/api/entries", data={"person_id": 1, "text": texto})
+
+    assert r.status_code == 200 and len(fake.calls) == 2
+    body = r.json()
+    assert body["error_code"] == "ia" and body["understood"] == []
+    assert _rows("entries")[0]["raw_text"] == texto and _rows("events") == []
+    vista = client.get(f"/api/entries/{body['entry_id']}?person_id=1").json()    # lo que lee "Anoté esto"
+    assert vista["transcript"] == texto and vista["understood"] == [] and "error" not in vista
+
+
+def test_si_la_extraccion_falla_los_rojos_por_regla_siguen(tmp_data_dir, monkeypatch, fake_red_backup):
+    from app.pipeline import extract
+    from tests.conftest import FakeModel, tool_response
+    monkeypatch.setattr(push, "webpush", lambda **kw: None)
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response(tool=False, stop_reason="end_turn")))
+
+    body = client.post("/api/entries", data={"person_id": 2, "text": "se cayó y se golpeó la cabeza"}).json()
+
+    assert body["red"]["rule_id"] == "R1" and body["error_code"] == "ia"
+    assert _rows("entries")[0]["raw_text"] == "se cayó y se golpeó la cabeza"
