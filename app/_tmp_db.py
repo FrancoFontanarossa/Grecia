@@ -59,14 +59,6 @@ def mentioned_symptoms(patient_id: int) -> set[str]:
     return {r["symptom"] for r in rows}
 
 
-def canal_reservado_active(patient_id: int) -> bool:
-    """Activo si algún destinatario lo tiene habilitado. Sin filas se asume activo: lo reservado no llega al paciente."""
-    with db.connect() as conn:
-        row = conn.execute("SELECT MAX(enabled) AS on_ FROM consents WHERE patient_id = ? AND kind = 'canal_reservado'",
-                           (patient_id,)).fetchone()
-    return bool(row["on_"]) if row and row["on_"] is not None else True
-
-
 _EVENT_COLUMNS = ("domain", "symptom", "severity", "negated", "occurred_at", "time_vague", "speaker_role",
                   "foreign_attribution", "quote", "plain", "confidence", "minutes_since_dose", "is_new", "reserved")
 
@@ -128,13 +120,6 @@ def save_subscription(*, person_id: int, endpoint: str, p256dh: str, auth: str) 
 def delete_subscription(endpoint: str) -> None:
     with db.connect() as conn:
         conn.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
-
-
-def patient_meds(patient_id: int) -> list[str]:
-    """Fármacos del esquema del paciente (med_schedule), para los criterios de los rojos."""
-    with db.connect() as conn:
-        rows = conn.execute("SELECT drug FROM med_schedule WHERE patient_id = ? ORDER BY drug", (patient_id,)).fetchall()
-    return [r["drug"] for r in rows]
 
 
 # ── Proactividad (scheduler) ───────────────────────────────────────────────────────────────────────────

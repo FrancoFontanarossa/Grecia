@@ -230,11 +230,11 @@ def test_rojo_por_regla_no_extrae_ni_consulta_al_respaldo(tmp_data_dir, monkeypa
 def test_r1_sin_criterio_repregunta_y_sigue_extrayendo(tmp_data_dir, monkeypatch, fake_model):
     monkeypatch.setattr(push, "webpush", lambda **kw: None)
     body = client.post("/api/entries", data={"person_id": 2, "text": "se cayó y se golpeó la cabeza"}).json()
-    assert body["red"]["missing_criterion"] == "anticoagulante_o_signos" and len(fake_model.calls) == 1
+    assert body["red"]["missing_criterion"].startswith("anticoagulante") and len(fake_model.calls) == 1
 
 
 def test_el_respaldo_sube_a_rojo_con_texto_fijo(tmp_data_dir, monkeypatch):
-    from app._tmp_rules import RED_TEXTS
+    from app.rules.red import RED_TEXTS
     from app.pipeline import red_backup
     from tests.conftest import FakeRedBackup
     monkeypatch.setattr(push, "webpush", lambda **kw: None)

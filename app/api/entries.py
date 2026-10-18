@@ -1,5 +1,6 @@
-# POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio)
-# corre los rojos (reglas + respaldo con IA que solo sube) y extrae los eventos. Sin avisos todavía.
+# POST /api/entries (CLAUDE.md §11): guarda el relato crudo y, dentro del mismo pedido, transcribe (si es audio),
+# corre los rojos (rules.red + respaldo con IA que solo sube), extrae los eventos y pasa a los avisos
+# (rules.lanes → destinatarios de rules.consent → push con notify.dispatch).
 import asyncio
 import logging
 import time
@@ -8,8 +9,10 @@ from typing import Literal, get_args
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
-from app import _tmp_rules as rules  # TEMPORAL: app.rules de Franco
 from app import notify
+from app.notify import dispatch
+from app.rules import consent, lanes
+from app.rules import red as red_rules
 from app.models import Entry, Event, OccurredHint
 from app.pipeline import extract as extraction
 from app.pipeline import red_backup, report
@@ -88,10 +91,10 @@ async def create_entry(
     if raw_text:
         row = await asyncio.to_thread(db.get_entry, entry_id)
         entry = Entry.model_validate({**row, "speaker_role": person["role"]})
-        meds = await asyncio.to_thread(db.patient_meds, entry.patient_id)
+        meds = await asyncio.to_thread(red_rules.patient_meds, entry.patient_id)
 
         # Rojos: primero las reglas (código); el respaldo con IA solo puede subir. ARQUITECTURA §3.1
-        red = rules.red_check(raw_text, meds)
+        red = red_rules.evaluate(raw_text, meds)
         is_red = red is not None and red.missing_criterion is None
         events: list[Event] | None = None
         t = time.perf_counter()
@@ -103,21 +106,23 @@ async def create_entry(
                 red_backup.red_backup(raw_text, red, meds=meds),
             )
             if red is None and verdict.escalate:
-                red, is_red = rules.red_from_backup(verdict.suspected_rule), True
+                red, is_red = red_rules.from_backup(verdict.suspected_rule), True
             elif isinstance(extracted, extraction.ExtractionError):
                 response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
             else:
                 events = extracted
         timing["rojos_y_extraccion"] = time.perf_counter() - t
-        if red is not None:
-            response["red"] = red.model_dump()
-            # TODO: alerta roja con rules.lanes + rules.consent de Franco → notify.send(..., "rojo", ...)
+        event_ids: list[int] = []
         if events is not None:
-            await _save_events(entry, events)
+            event_ids = await _save_events(entry, events)
             if events:
                 report.request_regeneration(entry.patient_id)   # en segundo plano, como mucho cada 30 s
             response["understood"] = extraction.understood(events, await asyncio.to_thread(db.now))
-            # TODO: rules.lanes.evaluate + rules.consent.recipients → alerts
+        if red is not None:
+            response["red"] = red.model_dump()
+        alerts = await asyncio.to_thread(lanes.evaluate, entry.patient_id, event_ids, red=red, speaker_id=person_id)
+        await dispatch.dispatch(alerts)
+        response["alerts"] = [a.model_dump(mode="json") for a in alerts if _visible_to(a, person)]
 
     await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
     timing["total"] = time.perf_counter() - t0
@@ -138,10 +143,15 @@ async def _save_events(entry: Entry, events: list[Event]) -> list[int]:
     if not events:
         return []
     mentioned = await asyncio.to_thread(db.mentioned_symptoms, entry.patient_id)
-    consent = await asyncio.to_thread(db.canal_reservado_active, entry.patient_id)
+    active = await asyncio.to_thread(consent.canal_reservado_active, entry.patient_id, entry.speaker_id)
     rows = [{**e.model_dump(), "minutes_since_dose": None,   # TODO: con med_schedule y doses de Franco
              "is_new": new,
-             "reserved": rules.is_reserved(e, reserved_requested=entry.reserved_requested,
-                                           canal_reservado_active=consent)}
-            for e, new in zip(events, rules.mark_new(events, mentioned))]
+             "reserved": consent.is_reserved(e, reserved_requested=entry.reserved_requested,
+                                             canal_reservado_active=active)}
+            for e, new in zip(events, consent.mark_new(events, mentioned))]
     return await asyncio.to_thread(db.insert_events, entry.id, entry.patient_id, rows)
+
+
+def _visible_to(alert, person: dict) -> bool:
+    """La respuesta va a quien contó: el paciente nunca ve un aviso reservado (§6.4)."""
+    return person["role"] != "paciente" or consent.patient_can_see(reserved=alert.reserved, lane=alert.lane)
