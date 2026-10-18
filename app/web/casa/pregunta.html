@@ -8,7 +8,7 @@
   <div class="cont">
     <div class="top">
       <a href="/casa" class="circ" aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
-      <span class="chip">Una pregunta de hoy</span>
+      <span class="chip">{{ "Una pregunta de otro día" if q.past else "Una pregunta de hoy" }}</span>
       <span style="width: 46px"></span>
     </div>
     <h1 class="lt lt--29" style="margin-top: 18px">{{ q.question }}</h1>
@@ -39,7 +39,7 @@
         <text x="{{ (x_hoy + w_hoy / 2) | round(1) }}" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif" font-size="13" font-weight="600" fill="#fff">{{ et_hoy }}</text>
         <text x="{{ c_hab | round(1) }}" y="72" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif" font-size="13" fill="#46536A">{{ et_hab }}</text>
       </svg>
-      <p class="cap" style="font-size: 14px; margin-top: 4px; color: var(--tinta3)">Pasos medidos por tu teléfono. No es un diagnóstico.</p>
+      <p class="cap" style="font-size: 14px; margin-top: 4px; color: var(--tinta3)">Pasos medidos por {{ "tu" if person.role == "paciente" else "el" }} teléfono. No es un diagnóstico.</p>
     </div>
     {% elif q.why %}
     <div class="vidrio" style="margin-top: 16px; padding: 16px 18px">
@@ -51,6 +51,14 @@
 
   <div class="hoja">
     <div class="asa"></div>
+    {% if q.past %}
+    {# Pregunta de un día anterior: ya pasó; no se responde como si fuera de hoy. #}
+    <div class="fila" role="status"><span class="tx"><span class="a">Esta pregunta ya pasó.</span><span class="b" style="display: block">Si querés, contá cómo están hoy.</span></span></div>
+    <div class="dock dock--fija" style="padding-top: 6px">
+      <a href="/casa/contar" class="btn p j" onclick="EC.mic.acquire()">Contar algo</a>
+      <a href="/casa" class="txtbtn" style="min-height: 64px; display: flex; align-items: center; justify-content: center; padding: 0">Volver al inicio</a>
+    </div>
+    {% else %}
     {% for opt in q.options %}
     <button type="button" class="fila" :aria-pressed="elegida === {{ loop.index0 }} ? 'true' : 'false'"
             :disabled="enviando" @click="responder({{ loop.index0 }}, {{ opt | tojson | forceescape }})">
@@ -71,6 +79,7 @@
       </a>
       <a href="/casa" class="txtbtn" style="min-height: 64px; display: flex; align-items: center; justify-content: center; padding: 0">Ahora no</a>
     </div>
+    {% endif %}
   </div>
 </main>
 {% endblock %}
