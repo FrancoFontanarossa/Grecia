@@ -1,22 +1,27 @@
-"""Precorre la semana de la demo (lunes 12 a viernes 16/10/2026, CLAUDE.md §3 y §14) por el pipeline real.
+"""Precorre el escenario de la demo (data/escenario/juan.yaml, docs/PULIDO.md §2) por el pipeline real con el reloj.
 
 Los relatos los escribió el equipo (se rotulan source="precorrer"); todo lo demás sale del sistema: extracción,
-rojos, avisos, desvíos, preguntas y episodios. Mueve el reloj de demo a cada momento, carga el relato con la misma
-función que POST /api/entries y corre un tick del scheduler. Ticks extra a cada hora (:05) para que el scheduler
-vea las ventanas de las tomas. Al final deja el reloj en el viernes 16 a las 23:00.
+rojos, avisos, desvíos, preguntas, episodios e informe. Para cada momento mueve el reloj de demo (clock.set), carga
+el relato con la misma función que POST /api/entries (process_entry) y corre un tick del scheduler. Además hay
+ticks sin relato para que el scheduler vea las ventanas de las tomas: cada hora (:05) en la semana de la demo y tres
+por día antes. Al final deja el reloj en `fin` y guarda el informe.
 
 Idempotente: un relato ya precorrido (mismo hablante, hora y texto) no se vuelve a cargar, y el scheduler no repite
 preguntas. Las push quedan apagadas mientras corre: las notificaciones se guardan, pero no suenan los teléfonos.
 
-    .venv/bin/python -m scripts.precorrer_semana            # contra la base de DATA_DIR
+    .venv/bin/python -m scripts.precorrer_semana                       # data/escenario/juan.yaml contra DATA_DIR
+    .venv/bin/python -m scripts.precorrer_semana otro_escenario.yaml
 Orden del domingo (ROADMAP): seed → precorrer → POST /admin/snapshot → ensayo.
 """
 import asyncio
 import datetime as dt
 import logging
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -27,9 +32,8 @@ from app.config import TZ  # noqa: E402
 
 log = logging.getLogger("entrecasa.precorrer")
 
-JUAN, MARTA, LAURA = 1, 2, 3
-END = dt.datetime(2026, 10, 16, 23, 0, tzinfo=TZ)
-TICK_HOURS = range(8, 23)            # 8:05 a 22:05: el scheduler ve las ventanas de 10, 14, 18 y 22
+ESCENARIO = ROOT / "data" / "escenario" / "juan.yaml"
+HINTS = {"ahora", "esta_manana", "esta_tarde", "anoche", "ayer"}   # OccurredHint (app/models.py)
 
 
 @dataclass(frozen=True)
@@ -39,28 +43,50 @@ class Relato:
     text: str
     hint: str | None = None
     reserved: bool = False
+    modality: str = "texto"
 
 
-def _at(day: int, hhmm: str) -> dt.datetime:
-    return dt.datetime.combine(dt.date(2026, 10, day), dt.time.fromisoformat(hhmm), TZ)
+@dataclass(frozen=True)
+class Escenario:
+    patient_id: int
+    relatos: list[Relato]
+    end: dt.datetime
+    ticks: list[dt.datetime]
 
 
-RELATOS = [
-    Relato(_at(12, "08:40"), MARTA, "Anoche se despertó tres veces, la última a las cuatro, y le costó volver a dormirse.", "anoche"),
-    Relato(_at(12, "11:15"), JUAN, "Hoy me levanté bien. Fui caminando hasta la plaza a ver a los nietos."),
-    Relato(_at(12, "20:30"), LAURA, "Hablé con papá por teléfono, lo noté contento. Dice que fue a la plaza."),
-    Relato(_at(13, "09:30"), JUAN, "A la mañana me tembló un poco la mano con el mate, nada más.", "esta_manana"),
-    Relato(_at(13, "21:00"), MARTA, "Esta mañana no se cayó, pero le costó levantarse de la silla del living."),
-    Relato(_at(14, "08:20"), MARTA, "No durmió casi nada, se levantó cuatro veces al baño.", "anoche"),
-    Relato(_at(14, "10:05"), JUAN, "Duermo bastante bien, me levanto un par de veces al baño nomás, a veces sueño cosas raras."),
-    Relato(_at(14, "21:40"), MARTA, "anoche hablaba con alguien que no estaba; debe ser el cansancio", "anoche", reserved=True),
-    Relato(_at(15, "12:30"), LAURA, "Mamá me contó que se tambaleó en la vereda volviendo del almacén, pero dice que no es nada."),
-    Relato(_at(15, "17:40"), JUAN, "Después de la pastilla de las cuatro me sentí trabado, me costó salir a caminar.", "esta_tarde"),
-    Relato(_at(16, "08:10"), MARTA, "Otra noche de levantarse varias veces. Yo también estoy cansada.", "anoche"),
-    Relato(_at(16, "13:00"), JUAN, "Estos días ando medio estreñido."),
-    Relato(_at(16, "22:10"), MARTA, "Otra vez decía que había gente en el patio. Lo tranquilicé y se durmió."),
-    Relato(_at(16, "22:30"), LAURA, "Papá me mandó un audio, estaba bien de ánimo."),
-]
+def _when(value: str) -> dt.datetime:
+    return dt.datetime.fromisoformat(str(value).replace(" ", "T")).replace(tzinfo=TZ)
+
+
+def load(path: Path = ESCENARIO) -> Escenario:
+    """Lee y valida el YAML: personas conocidas, horas en orden, cuando_paso del contrato."""
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    people = data["personas"]
+    relatos = []
+    for i, r in enumerate(data["relatos"], 1):
+        if r["quien"] not in people:
+            raise ValueError(f"relato {i}: quien={r['quien']!r} no está en personas")
+        hint = r.get("cuando_paso")
+        if hint is not None and hint not in HINTS:
+            raise ValueError(f"relato {i}: cuando_paso={hint!r} no es un OccurredHint")
+        relatos.append(Relato(at=_when(r["cuando"]), person_id=people[r["quien"]], text=" ".join(r["texto"].split()),
+                              hint=hint, reserved=bool(r.get("reservado", False)), modality=r.get("modalidad", "texto")))
+    relatos.sort(key=lambda r: r.at)
+
+    demo = data["ticks"]["semana_demo"]
+    demo_from, demo_to = dt.date.fromisoformat(demo["desde"]), dt.date.fromisoformat(demo["hasta"])
+    first_h, last_h = demo["horas"]
+    ticks, day = [], relatos[0].at.date()
+    while day <= demo_to:
+        hours = range(first_h, last_h + 1) if day >= demo_from else data["ticks"]["resto"]
+        ticks += [dt.datetime.combine(day, dt.time(h, 5), TZ) for h in hours]
+        day += dt.timedelta(days=1)
+    return Escenario(patient_id=data["paciente"], relatos=relatos, end=_when(data["fin"]), ticks=ticks)
+
+
+ESC = load()
+RELATOS = ESC.relatos
+END = ESC.end
 
 
 def _already_loaded(r: Relato) -> bool:
@@ -70,15 +96,14 @@ def _already_loaded(r: Relato) -> bool:
             (r.person_id, db.to_db(r.at), r.text)).fetchone() is not None
 
 
-def timeline() -> list[tuple[dt.datetime, Relato | None]]:
-    """Relatos y ticks horarios, en orden. Un tick (None) va después del relato si caen en el mismo minuto."""
-    moments: list[tuple[dt.datetime, Relato | None]] = [(r.at, r) for r in RELATOS]
-    for day in range(12, 17):
-        moments += [(_at(day, f"{h:02d}:05"), None) for h in TICK_HOURS]
+def timeline(esc: Escenario = ESC) -> list[tuple[dt.datetime, Relato | None]]:
+    """Relatos y ticks, en orden. Un tick (None) va después del relato si caen en el mismo minuto."""
+    moments: list[tuple[dt.datetime, Relato | None]] = [(r.at, r) for r in esc.relatos]
+    moments += [(t, None) for t in esc.ticks]
     return sorted(moments, key=lambda m: (m[0], m[1] is None))
 
 
-async def run() -> dict:
+async def run(esc: Escenario = ESC) -> dict:
     from app.api.entries import process_entry
     from app.notify import inbox as push   # inbox llama a send_push; se apaga ahí
     from app.pipeline import report
@@ -92,7 +117,7 @@ async def run() -> dict:
     push.send_push = silent
     report.request_regeneration = lambda patient_id: None   # el informe se genera una sola vez, al final
     try:
-        for at, relato in timeline():
+        for at, relato in timeline(esc):
             await asyncio.to_thread(clock.set, at.isoformat())
             if relato is not None:
                 if await asyncio.to_thread(_already_loaded, relato):
@@ -102,29 +127,50 @@ async def run() -> dict:
                                         reserved_requested=relato.reserved, source="precorrer")
                     loaded += 1
             questions += await scheduler.tick()
-        await asyncio.to_thread(clock.set, END.isoformat())
+        await asyncio.to_thread(clock.set, esc.end.isoformat())
         # El informe final, sincrónico: el script no termina hasta que queda guardado en `reports`.
         try:
-            rep = await report.report(JUAN)
+            rep = await report.report(esc.patient_id)
             informe = {"ok": True, "temas": len(rep.topics), "borradas": rep.removed_count}
         except Exception as exc:
             log.error("no se pudo generar el informe final (%s)", type(exc).__name__)
             informe = {"ok": False}
     finally:
         push.send_push, report.request_regeneration = real_send, real_regen
-    return {"cargados": loaded, "ya_estaban": skipped, "preguntas": questions, "reloj": END.isoformat(),
+    return {"cargados": loaded, "ya_estaban": skipped, "preguntas": questions, "reloj": esc.end.isoformat(),
             "informe": informe}
+
+
+def summary(patient_id: int) -> list[str]:
+    """Qué generó el sistema, por día: para revisar el escenario antes del snapshot (PULIDO §2, paso 4)."""
+    with db.connect() as conn:
+        qs = conn.execute("SELECT substr(sent_at, 1, 10) AS d, rule_id, to_person_id, question FROM questions "
+                          "WHERE patient_id = ? AND question != '' ORDER BY sent_at", (patient_id,)).fetchall()
+        alerts = conn.execute("SELECT substr(created_at, 1, 10) AS d, lane, rule_id FROM alerts WHERE patient_id = ? "
+                              "ORDER BY created_at", (patient_id,)).fetchall()
+        eps = conn.execute("SELECT substr(dose_time, 1, 16) AS t, status FROM episodes WHERE patient_id = ? ORDER BY dose_time",
+                           (patient_id,)).fetchall()
+        events = conn.execute("SELECT count(*) FROM events WHERE patient_id = ?", (patient_id,)).fetchone()[0]
+    lines = [f"Eventos extraídos: {events}"]
+    lines += [f"  pregunta {r['d']} {r['rule_id']} → persona {r['to_person_id']}: {r['question']}" for r in qs]
+    lines += [f"  aviso {r['d']} {r['lane']} {r['rule_id']}" for r in alerts]
+    lines += [f"  episodio {r['t']} {r['status']}" for r in eps]
+    return lines
 
 
 def main() -> None:
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
     logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
+    esc = load(Path(sys.argv[1])) if len(sys.argv) > 1 else ESC
     db.init()
-    result = asyncio.run(run())
+    by_voice = Counter(r.person_id for r in esc.relatos)
+    print(f"Escenario: {len(esc.relatos)} relatos ({dict(by_voice)}) · {len(esc.ticks)} ticks")
+    result = asyncio.run(run(esc))
     print(f"Relatos cargados: {result['cargados']} · ya estaban: {result['ya_estaban']}")
     print(f"Preguntas enviadas: {result['preguntas']}")
     print(f"Reloj en: {result['reloj']}")
+    print("\n".join(summary(esc.patient_id)))
     if not result["informe"]["ok"]:
         print("ERROR: el informe final no se pudo generar; volver a correr el script.")
         sys.exit(1)
