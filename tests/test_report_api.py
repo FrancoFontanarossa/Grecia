@@ -106,9 +106,9 @@ def test_series_de_la_pulsera_en_la_vista_tecnica(base):
     s = rep.wearable_series(1, START, END, NOW)
     assert [(n["date"], n["sleep_minutes"], n["sleep_awakenings"]) for n in s["noches"]] == \
         [("2026-10-16", 400, 2), ("2026-10-17", 210, 7)]
-    assert s["mediciones"] == {"sleep_minutes": 2, "sleep_awakenings": 2, "tremor_minutes": 3}
-    perfil = {p["hour"]: p.get("tremor_minutes") for p in s["perfil_hora"]}
-    assert perfil[16] == 28 and perfil[17] == 30 and perfil[10] == 2 and perfil[3] is None
+    # Temblor y discinesia no se muestran (§8): la API técnica no los devuelve aunque estén en la base.
+    assert s["mediciones"] == {"sleep_minutes": 2, "sleep_awakenings": 2}
+    assert s["por_hora"] == [] and s["perfil_hora"] == [] and "tremor_minutes" not in s["etiquetas"]
     assert s["etiquetas"]["sleep_awakenings"] == {"texto": "Despertares", "unidad": "veces"}
     assert s["fuentes"] == ["seed"] and s["simulado"] is False
 

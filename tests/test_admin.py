@@ -176,7 +176,7 @@ CSV = "start,steps\n" + "".join(
 def test_import_steps_then_seed_injects_drops(client):
     r = client.post("/admin/import_steps", content=CSV, headers={**OK, "Content-Type": "text/csv"})
     assert r.json() == {"ok": True, "hours": 42, "window_start": "2026-10-04T00:00:00-03:00",
-                        "window_end": "2026-10-18T00:00:00-03:00"}
+                        "window_end": "2026-10-17T18:00:00-03:00"}   # hasta la última hora con datos
     assert len(steps()) == 42 and {s[2] for s in steps()} == {"importacion"}
     assert client.post("/admin/seed", headers=OK).json()["injected_drops"] == 3
 
