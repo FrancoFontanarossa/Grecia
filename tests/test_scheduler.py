@@ -253,3 +253,19 @@ def test_el_episodio_tiene_el_deviation_completo_antes_de_la_push(at_1805, monke
         "window": "16:00-18:00", "observed": 420, "median": 1300.0, "z": -4.1, "pct_change": -0.68,
         "baseline": "estrato", "baseline_n": 8}
     assert dev["dose_time"].startswith("2026-10-17T16:00") and dev["baseline_label"] == "otras tardes entre semana"
+
+
+def test_si_evaluate_falla_para_un_paciente_siguen_los_demas(tmp_data_dir, pushes, monkeypatch, caplog):
+    from app import db as base_db
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    with base_db.connect() as conn:
+        conn.execute("INSERT INTO people (id, patient_id, role, name, relation) VALUES (5, 5, 'paciente', 'Prueba', 'paciente')")
+    clock.set("2026-10-17T18:05:00")
+
+    def evaluate(pid, now):
+        if pid == 1:
+            raise RuntimeError("datos raros con texto de un relato")
+        return [trigger(patient_id=5, to_person_id=5)]
+    monkeypatch.setattr(scheduler, "evaluate", evaluate)
+    assert len(asyncio.run(scheduler.tick())) == 1                 # el paciente 5 igual recibe su pregunta
+    assert "paciente 1 (RuntimeError)" in caplog.text and "datos raros" not in caplog.text

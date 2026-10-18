@@ -4,6 +4,7 @@
 import asyncio
 import datetime as dt
 import logging
+import sys
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
 from app import clock, notify
@@ -80,7 +81,7 @@ async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
             await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id,
                                     to_person_id=trigger.to_person_id, rule_id=trigger.rule_id, question="",
                                     why=trigger.why, options=[], status="descartada", sent_at=now)
-        log.info("%s explicado por lo que ya contaron: %s", trigger.rule_id, explanation.reasoning)
+        log.info("%s explicado por lo que ya contaron (persona %s)", trigger.rule_id, trigger.to_person_id)
         await save_episode("explicado", None)
         return None
 
@@ -115,13 +116,17 @@ async def tick() -> list[int]:
         if expired:
             log.info("%s preguntas de días anteriores vencieron", expired)
         for patient in await asyncio.to_thread(db.patients):
-            triggers = await asyncio.to_thread(evaluate, patient["id"], now)
+            try:
+                triggers = await asyncio.to_thread(evaluate, patient["id"], now)
+            except Exception as exc:   # un paciente con datos raros no frena a los demás
+                log.error("falló rules.triggers.evaluate para el paciente %s (%s)", patient["id"], type(exc).__name__)
+                continue
             # Primero los desvíos: si hay pregunta del día, es para lo que midió el teléfono.
             for trigger in sorted(triggers, key=lambda t: _dose_time(t) is None):
                 try:
                     qid = await handle(trigger, now)
                 except Exception:
-                    log.exception("falló el disparador %s", trigger.rule_id)
+                    log.error("falló el disparador %s (%s)", trigger.rule_id, type(sys.exc_info()[1]).__name__)
                     continue
                 if qid:
                     sent.append(qid)
@@ -145,7 +150,7 @@ async def _loop() -> None:
         try:
             await tick()
         except Exception:
-            log.exception("falló el tick")
+            log.error("falló el tick (%s)", type(sys.exc_info()[1]).__name__)
 
 
 def start() -> None:
