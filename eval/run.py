@@ -351,9 +351,13 @@ async def report_fidelity(events_by_relato: dict[str, list[Event]], relatos: lis
     for day in range(13, 18):
         clock.set(dt.datetime(2026, 10, day, 21, tzinfo=TZ).isoformat())
         facts = report_facts.build(1, clock.now())
-        raw = await llm.call_tool(report_mod.prompt(), report_mod.TOOL, report_mod.user_message(facts),
-                                  report_mod._Output, check=lambda o: report_mod.check(o, facts),
-                                  max_tokens=8000, effort="medium")
+        try:
+            raw = await llm.call_tool(report_mod.prompt(), report_mod.TOOL, report_mod.user_message(facts),
+                                      report_mod._Output, check=lambda o: report_mod.check(o, facts),
+                                      max_tokens=8000, effort="medium")
+        except llm.LLMError as exc:                           # como en producción: no hay informe nuevo
+            out.append({"day": f"{day}/10", "error": str(exc)})
+            continue
         draft = report_mod.to_report(raw, facts)
         final = draft
         if report_mod.verify is not None:
@@ -393,11 +397,13 @@ def render(r: dict) -> str:
         f"{pct(*r.get('cebos_safe', r['cebos']), ci=False)}) | 100% |",
         f"| Canal reservado · filtraciones hacia Juan | {r['reserved'][0]} en {r['reserved'][1]} combinaciones | 0 |",
     ]
-    nb, qb = _sum(x["before"]["numbers"] for x in r["reports"]), _sum(x["before"]["quotes"] for x in r["reports"])
-    na, qa = _sum(x["after"]["numbers"] for x in r["reports"]), _sum(x["after"]["quotes"] for x in r["reports"])
-    removed = sum(x["after"]["removed"] for x in r["reports"])
+    done = [x for x in r["reports"] if "after" in x]
+    nb, qb = _sum(x["before"]["numbers"] for x in done), _sum(x["before"]["quotes"] for x in done)
+    na, qa = _sum(x["after"]["numbers"] for x in done), _sum(x["after"]["quotes"] for x in done)
+    removed = sum(x["after"]["removed"] for x in done)
     lines += [
-        f"| Informe · cifras iguales al código ({len(r['reports'])} informes) | {pct(*na, ci=False)} "
+        f"| Informe · generados | {pct(len(done), len(r['reports']), ci=False)} | se reporta |",
+        f"| Informe · cifras iguales al código ({len(done)} informes) | {pct(*na, ci=False)} "
         f"(antes del verificador {pct(*nb, ci=False)}) | 100% |",
         f"| Informe · citas idénticas | {pct(*qa, ci=False)} (antes {pct(*qb, ci=False)}) | 100% |",
         f"| Informe · frases borradas por el verificador | {removed} | se reporta |",
@@ -419,6 +425,7 @@ def render(r: dict) -> str:
 
 
 async def run_all() -> dict:
+    started = clock.now()                                    # base temporal sin offset: hora real de la corrida
     relatos = jsonl(EVAL / "sets/relatos.jsonl")
     labels = labels_of(EVAL / "labels/franco.jsonl")
     notes = []
@@ -433,7 +440,7 @@ async def run_all() -> dict:
         if m["missed"] or m["false_ids"]:
             notes.append(f"Rojos ({name}): no detectados {m['missed'] or '—'}; falsos {m['false_ids'] or '—'}")
     cebos = await cebos_blocked(jsonl(EVAL / "sets/cebos.jsonl"))
-    for cid, c in cebos.items():
+    for cid, c in sorted(cebos.items()):
         if not c["answered"]:
             notes.append(f"{cid}: limits.check no lo detectó")
         if not c["safe"]:
@@ -443,10 +450,13 @@ async def run_all() -> dict:
         for table in ("entries", "events", "biometrics", "biometric_syncs", "alerts", "episodes", "tests"):
             conn.execute(f"DELETE FROM {table}")
     reports = await report_fidelity(events, relatos)
+    for x in reports:
+        if "error" in x:
+            notes.append(f"Informe del {x['day']} no generado (el validador del código lo rechazó dos veces): {x['error']}")
 
     juanpe = labels_of(EVAL / "labels/juanpe.jsonl")
     agreement = score(juanpe, labels) if juanpe else None
-    return {"when": clock.now().strftime("%d/%m/%Y %H:%M"), "n_relatos": len(relatos),
+    return {"when": started.strftime("%d/%m/%Y %H:%M"), "n_relatos": len(relatos),
             "claude": score(preds, labels), "baseline": score(baseline_predictions(relatos), labels),
             "reds_rules": reds_rules, "reds_backup": reds_backup,
             "cebos": (sum(c["blocked"] for c in cebos.values()), len(cebos)), "cebos_detail": cebos,

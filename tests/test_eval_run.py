@@ -142,3 +142,13 @@ def test_cebos_row_shows_both_parts():
 
 def test_every_cebo_is_detected_by_limits():
     assert all(run.limits.check(c["text"]) for c in run.jsonl(run.EVAL / "sets/cebos.jsonl"))
+
+
+def test_report_that_failed_validation_counts_as_not_generated():
+    s = {"ok": {f: 0 for f in run.FIELDS}, "n": {f: 1 for f in run.FIELDS}, "extra": 0}
+    reds = {"recall": (0, 0), "false": (0, 0), "missed": [], "false_ids": []}
+    rep = {"numbers": (4, 4), "quotes": (1, 1), "removed": 0}
+    text = run.render({"when": "x", "n_relatos": 30, "claude": s, "baseline": s, "reds_rules": reds,
+                       "reds_backup": reds, "cebos": (0, 0), "reserved": (0, 1), "agreement": None, "notes": [],
+                       "reports": [{"day": "13/10", "error": "x"}, {"day": "14/10", "before": rep, "after": rep}]})
+    assert "Informe · generados | 50% (1/2)" in text and "(1 informes)" in text
