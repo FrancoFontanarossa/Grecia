@@ -256,6 +256,19 @@ CREATE TABLE IF NOT EXISTS daily_notes (
     created_at TEXT NOT NULL,
     UNIQUE (patient_id, date)
 );
+CREATE TABLE IF NOT EXISTS patient_profile_items (
+    id INTEGER PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('patron','vocabulario','costumbre')),
+    key TEXT NOT NULL,
+    text TEXT NOT NULL,
+    spec TEXT NOT NULL DEFAULT '{}',
+    evidence_ids TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL CHECK (status IN ('activo','retirado')),
+    created_at TEXT NOT NULL,
+    last_confirmed_at TEXT NOT NULL,
+    retired_reason TEXT
+);
 CREATE INDEX IF NOT EXISTS ix_people_patient ON people (patient_id);
 CREATE INDEX IF NOT EXISTS ix_notifications_person ON notifications (person_id, created_at);
 CREATE INDEX IF NOT EXISTS ix_entries_patient ON entries (patient_id, created_at);

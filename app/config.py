@@ -53,6 +53,10 @@ DAILY_MAX_GAME_INVITES = 1                       # …y 1 invitación al golpete
 # precorrido y en el informe (la revisión en vivo sigue detrás de DAILY_PLAN_ENABLED).
 BITACORA_ENABLED = os.environ.get("BITACORA_ENABLED", "1") == "1"
 BITACORA_MEMORY_DAYS = 7                         # el digest trae las notas de los 7 días previos
+# Perfil de Juan (parte fija + aprendizajes aceptados con evidencia) en todos los prompts. Apagado salvo PROFILE_ENABLED=1.
+PROFILE_ENABLED = os.environ.get("PROFILE_ENABLED", "0") == "1"
+PROFILE_MAX_ACTIVE = 10
+PROFILE_MAX_LINES = 25
 PLAN_HOURS = ("08:00", "22:00")                  # las acciones van entre estas horas de mañana
 HYPOTHESIS_MIN_DAYS = 4                          # días con y sin la condición, como mínimo
 HYPOTHESIS_MIN_DIFF = 0.20                       # diferencia entre medianas, en la dirección declarada
