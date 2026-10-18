@@ -321,3 +321,9 @@ a.fila:active, button.fila:active { background: var(--suave); }
 /* anoté esto */
 .check-v3 { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(140deg, #4F8BE4, #1E4FA3); display: grid; place-items: center;
   box-shadow: 0 10px 24px rgba(30,79,163,.28); }
+/* juego de golpeteo */
+.circulo-juego { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; border: 0; font: 600 19px var(--font);
+  touch-action: none; -webkit-user-select: none; user-select: none; }
+.circulo-juego--ahora { background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 35%), linear-gradient(140deg, #4F8BE4, #1E4FA3);
+  color: #FFFFFF; box-shadow: 0 16px 34px rgba(30,79,163,.3); }
+.circulo-juego--despues { background: rgba(255,255,255,.5); border: 2px dashed #AFC0D8; color: var(--tinta2); font-weight: 400; font-size: 16px; }
