@@ -9,6 +9,21 @@ from pathlib import Path
 
 from app import config
 
+# NULL en biometric_syncs.scope = pasos (Atajo e importación), como siempre; "pulsera" = la pulsera simulada.
+# §7.3 ("sync sin muestras = 0 pasos") solo mira las de pasos.
+SYNC_SCOPE_WEARABLE = "pulsera"
+
+BIOMETRICS_COLUMNS = """
+    id INTEGER PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    value REAL NOT NULL,
+    start TEXT NOT NULL,
+    "end" TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('atajo','importacion','seed','inyectado','simulado','pulsera')),
+    UNIQUE (patient_id, kind, start, "end", source)
+"""
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS people (
     id INTEGER PRIMARY KEY,
@@ -103,23 +118,15 @@ CREATE TABLE IF NOT EXISTS events (
     is_new INTEGER NOT NULL DEFAULT 0,
     reserved INTEGER NOT NULL DEFAULT 0
 );
-CREATE TABLE IF NOT EXISTS biometrics (
-    id INTEGER PRIMARY KEY,
-    patient_id INTEGER NOT NULL,
-    kind TEXT NOT NULL,
-    value REAL NOT NULL,
-    start TEXT NOT NULL,
-    "end" TEXT NOT NULL,
-    source TEXT NOT NULL CHECK (source IN ('atajo','importacion','seed','inyectado')),
-    UNIQUE (patient_id, kind, start, "end", source)
-);
+CREATE TABLE IF NOT EXISTS biometrics (""" + BIOMETRICS_COLUMNS + """);
 CREATE TABLE IF NOT EXISTS biometric_syncs (
     id INTEGER PRIMARY KEY,
     patient_id INTEGER NOT NULL,
     window_start TEXT NOT NULL,
     window_end TEXT NOT NULL,
     received_at TEXT NOT NULL,
-    n_samples INTEGER NOT NULL
+    n_samples INTEGER NOT NULL,
+    scope TEXT
 );
 CREATE TABLE IF NOT EXISTS episodes (
     id INTEGER PRIMARY KEY,
@@ -254,8 +261,26 @@ def init() -> None:
     try:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(SCHEMA)
+        _migrate(conn)
     finally:
         conn.close()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Pone al día una base creada antes (la del volumen de Railway). Aditivo e idempotente."""
+    sql = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'biometrics'").fetchone()[0]
+    if "'pulsera'" not in sql:           # SQLite no deja cambiar un CHECK: se recrea la tabla con los mismos datos
+        conn.executescript(
+            "BEGIN;"
+            f"CREATE TABLE biometrics_new ({BIOMETRICS_COLUMNS});"
+            'INSERT INTO biometrics_new (id, patient_id, kind, value, start, "end", source)'
+            ' SELECT id, patient_id, kind, value, start, "end", source FROM biometrics;'
+            "DROP TABLE biometrics;"
+            "ALTER TABLE biometrics_new RENAME TO biometrics;"
+            "CREATE INDEX IF NOT EXISTS ix_biometrics_patient ON biometrics (patient_id, kind, start);"
+            "COMMIT;")
+    if "scope" not in {r[1] for r in conn.execute("PRAGMA table_info(biometric_syncs)")}:
+        conn.execute("ALTER TABLE biometric_syncs ADD COLUMN scope TEXT")
 
 
 def _copy(src_path: Path, dst_path: Path) -> None:

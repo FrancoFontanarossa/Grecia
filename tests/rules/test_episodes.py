@@ -102,3 +102,13 @@ def test_only_scheduled_doses_count(seeded):
     steps.load()
     # 15:00 no es hora de toma: no hay base.
     assert episodes.baseline(1, dt.datetime(2026, 10, 13, 15, tzinfo=TZ)) is None
+
+
+def test_a_wearable_sync_does_not_turn_unknown_steps_into_zero(seeded):
+    """La ventana de la pulsera (scope=pulsera) no cuenta para §7.3: sin sync de pasos sigue siendo None."""
+    steps.load({TUE_13: None}, sync=False)
+    with db.connect() as conn:
+        conn.execute("INSERT INTO biometric_syncs (patient_id, window_start, window_end, received_at, n_samples, scope) "
+                     "VALUES (1, '2026-09-19T23:00:00-03:00', '2026-10-18T00:00:00-03:00', 'x', 1, 'pulsera')")
+    assert episodes.observed(1, steps.at16(TUE_13)) is None
+    assert episodes.deviation(1, steps.at16(TUE_13)) is None

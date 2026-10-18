@@ -25,6 +25,14 @@ SILENCE_DAYS = 2                                 # P-SILENCIO: 2 días sin relat
 GAME_HISTORY, GAME_MIN_HISTORY = 7, 3            # P-JUEGO y games.score: últimas 7 sesiones, mínimo 3
 GAME_SLOWER_RATIO = 0.85                         # …más lento si toques/s < 85% de la mediana
 REPEAT_COUNT, REPEAT_WINDOW_DAYS = 2, 7          # P-REPITE: 2 veces en 7 días por la familia
+# Pulsera (CLAUDE.md §8). Centrales: las manda el simulador. Opcionales: la ingesta las acepta y guarda si llegan.
+# Temblor y discinesia se aceptan pero no se resumen ni se muestran (requieren algoritmos validados).
+WEARABLE_CORE = ("sleep_minutes", "sleep_awakenings", "heart_rate_rest", "active_minutes")
+WEARABLE_OPTIONAL = ("hrv_ms", "spo2_pct", "resp_rate", "tremor_minutes", "dyskinesia_minutes",
+                     "walking_speed", "walking_asymmetry", "double_support", "steadiness")
+WEARABLE_NOT_SHOWN = ("tremor_minutes", "dyskinesia_minutes")
+SLEEP_TRIGGER_HOURS = (8, 12)                    # P-SUENO: a la mañana, de 8 a 12 (la noche que pasó)
+SLEEP_TRIGGER_KINDS = ("sleep_awakenings", "sleep_minutes")   # …si la pulsera vio despertares o poco sueño
 
 # Avisos ámbar (CLAUDE.md §6.3).
 MED_CHANGE_WEEKS = 8                             # A2: primera mención dentro de las 8 semanas del cambio
