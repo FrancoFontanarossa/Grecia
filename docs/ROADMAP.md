@@ -45,7 +45,7 @@
 **Que lo crítico no falle, que se pueda demostrar y que todo esté arriba.**
 - Infra: repo, Railway, Tenki Reviewer, CI con Tenki Runner, `railway.toml`, `app/main.py`.
 - Base y reloj: `app/db.py`, `app/clock.py` (offset en `clock_state`).
-- Datos: prueba del Atajo de iOS (que lea pasos y haga POST) y `POST /api/biometrics/atajo`; exportación de Salud → `data/import_health.py`; `data/seed.py` (personas, consentimientos, esquema de tomas, cambio de pramipexol del 22/09, meta de 4.000 pasos, historial de golpeteo, tres caídas inyectadas). Revisar la franja de 16 a 18 h antes de fijar el escenario.
+- Datos: prueba del Atajo de iOS (que lea pasos y haga POST) y `POST /api/biometrics/atajo`; exportación de Salud → `data/import_health.py`; `data/seed.py` (personas, consentimientos, esquema de tomas, cambio de pramipexol del 03/10, meta de 4.000 pasos, historial de golpeteo, tres caídas inyectadas). Revisar la franja de 16 a 18 h antes de fijar el escenario.
 - Lógica del admin: `clock/advance`, `clock/set`, `inject_drop`, `restore`.
 - Todas las reglas con tests: R1–R4, A1–A3, consentimiento, canal reservado, presupuesto y silencio, metas y pausa, **desvío de pasos**, **disparadores proactivos**, **puntaje del golpeteo**, verificador.
 - Eval: 30 relatos + primera etiqueta, línea de base léxica, sets de rojos y cebos, canal reservado, fidelidad del informe, `eval/run.py` y `results.md` (la diapositiva sale de esa tabla).

@@ -26,24 +26,33 @@ def hallucination(*, speaker=MARTA, role="cuidador", is_new=True, reserved=False
 
 
 # ── med_change ──────────────────────────────────────────────────────────────────────────────────────────
-def test_recent_change_is_pramipexol_22_days(seeded):
+def test_recent_change_is_pramipexol_11_days(seeded):
     mc, days = med_change.recent_change(1, WED_14)
-    assert mc.drug == "pramipexol" and days == 22
+    assert mc.drug == "pramipexol" and days == 11
 
 
 def test_change_older_than_8_weeks_does_not_count(seeded):
-    assert med_change.recent_change(1, dt.datetime(2026, 11, 18, tzinfo=TZ)) is None   # 57 días
-    assert med_change.recent_change(1, dt.datetime(2026, 11, 17, tzinfo=TZ)) is not None
-    assert med_change.recent_change(1, dt.datetime(2026, 9, 21, tzinfo=TZ)) is None    # antes del cambio
+    assert med_change.recent_change(1, dt.datetime(2026, 11, 29, tzinfo=TZ)) is None   # 57 días
+    assert med_change.recent_change(1, dt.datetime(2026, 11, 28, tzinfo=TZ)) is not None
+    assert med_change.recent_change(1, dt.datetime(2026, 10, 2, tzinfo=TZ)) is None    # antes del cambio
 
 
-# ── A1 y A2 (§5.2: alucinación nueva a 22 días del cambio de pramipexol) ───────────────────────────────
+def test_symptom_of_the_base_weeks_is_not_a2(seeded):
+    """La base del escenario (20/09–02/10) queda antes del cambio: A2 marca solo lo nuevo después."""
+    set_clock(dt.datetime(2026, 9, 26, 10, tzinfo=TZ))
+    entry = add_entry(JUAN, created_at=dt.datetime(2026, 9, 26, 9, tzinfo=TZ))
+    ev = add_event(entry, domain="motor", symptom="rigidez", speaker_role="paciente", is_new=True,
+                   occurred_at=dt.datetime(2026, 9, 26, 8, tzinfo=TZ))
+    assert [a.rule_id for a in lanes.evaluate(1, [ev])] == []
+
+
+# ── A1 y A2 (§5.2: alucinación nueva a 11 días del cambio de pramipexol) ───────────────────────────────
 def test_new_hallucination_gives_a1_and_a2(seeded):
     set_clock(WED_14)
     alerts = lanes.evaluate(1, [hallucination()], speaker_id=MARTA)
     assert [(a.rule_id, a.lane) for a in alerts] == [("A1", "ambar"), ("A2", "ambar")]
     assert alerts[0].text == "Primera mención de alucinaciones (contado por Marta el 14/10)."
-    assert alerts[1].text == "Síntoma nuevo a 22 días del cambio de pramipexol: alucinaciones."
+    assert alerts[1].text == "Síntoma nuevo a 11 días del cambio de pramipexol: alucinaciones."
     assert alerts[0].recipients == [MARTA, PEREIRA] and alerts[1].recipients == [PEREIRA]
     assert [json.loads(r["recipients"]) for r in stored()] == [[MARTA, PEREIRA], [PEREIRA]]
     assert all(a.id > 0 for a in alerts)

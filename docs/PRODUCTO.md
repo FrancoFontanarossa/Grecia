@@ -27,7 +27,7 @@ Le contamos la idea a una chica cuyo abuelo murió con Parkinson. Lo cuidaba su 
 | Neuróloga | 15 minutos, el paciente llega en un buen momento, diarios que no sirven | Un informe redactado con dos voces y evidencia, y los datos técnicos aparte |
 | Prestador (mutualistas, prepagas, Hospital Británico) | Emergencias evitables, neurólogos saturados | Seguimiento entre consultas sin sumar personal (hipótesis a validar) |
 
-**El caso concreto (antes / después).** Antes: Marta ve a Juan hablar de noche con alguien que no está, piensa que es el cansancio y no se lo dice a nadie; la consulta del 28 pasa sin que se hable. Después: lo cuenta en 20 segundos desde su celular, la app entiende que es una alucinación nueva a 22 días de un cambio de medicación, Juan no recibe nada que lo exponga, y el 28 la neuróloga lo tiene en el primer tema del informe, con la fecha, las palabras de Marta y una pregunta sugerida.
+**El caso concreto (antes / después).** Antes: Marta ve a Juan hablar de noche con alguien que no está, piensa que es el cansancio y no se lo dice a nadie; la consulta del 28 pasa sin que se hable. Después: lo cuenta en 20 segundos desde su celular, la app entiende que es una alucinación nueva a 11 días de un cambio de medicación, Juan no recibe nada que lo exponga, y el 28 la neuróloga lo tiene en el primer tema del informe, con la fecha, las palabras de Marta y una pregunta sugerida.
 
 ## 3. Competencia y diferencial
 

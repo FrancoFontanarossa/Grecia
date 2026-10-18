@@ -70,12 +70,12 @@ Lo que la consigna exige y nos cambia cosas:
 
 ## 3. Personajes y calendario de la demo (ficticios)
 
-- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el martes 22/09/2026**. **iPhone, sin reloj.** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
+- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el sábado 03/10/2026**. **iPhone, sin reloj.** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
 - **Marta**, su esposa, vive con él. Segunda voz, principal para lo nocturno.
 - **Laura**, su hija, vive en Salto. Recibe logros, rojos y un resumen tranquilo. También puede contar algo.
 - **Dra. Pereira**, la neuróloga: lee el informe en la computadora. Consulta del miércoles 28/10.
 
-**Semana de la demo:** lunes 12 a sábado 17/10/2026, con 4 semanas previas de historia de pasos (20/09 a 17/10). El miércoles 14 son **22 días** desde el cambio de pramipexol (lo calcula el código).
+**Semana de la demo:** lunes 12 a sábado 17/10/2026, con 4 semanas previas de historia de pasos (20/09 a 17/10). El miércoles 14 son **11 días** desde el cambio de pramipexol (lo calcula el código). La base del escenario (20/09 a 02/10) queda antes del cambio.
 
 **Tres caídas de pasos inyectadas** en la ventana de 2 h después de la toma de las 16, con `source=inyectado`: **martes 13** (sin explicación), **jueves 15** (Juan la explica: "me sentí trabado") y **viernes 16** (la tercera en 7 días → A3). Ninguna en las semanas previas, para no ensuciar la línea de base. **En la demo se inyecta una cuarta en vivo, rotulada**, para disparar la notificación delante del jurado.
 
@@ -141,7 +141,7 @@ Diagnóstico, estadio, probabilidad de Parkinson, estado on/off inferido, opcion
 2. Progreso visible: "Escuchando… → Pasando a texto… → Entendiendo lo que contaste…".
 3. Extracción: alucinación · cuidadora · atribución ajena "cansancio" · primera mención · anoche.
 4. "Lo que entendimos" en la pantalla de Marta, con el interruptor "Solo para el equipo médico" activado.
-5. Código: alucinación nueva + 22 días del cambio de pramipexol → **ámbar** al equipo (informe y bandeja de la neuróloga) y a Marta con qué hacer.
+5. Código: alucinación nueva + 11 días del cambio de pramipexol → **ámbar** al equipo (informe y bandeja de la neuróloga) y a Marta con qué hacer.
 6. Canal reservado: **Juan no ve nada de esto** (ni notificación ni detalle).
 
 ### 5.3 Rojo
@@ -663,3 +663,4 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 00:45 | Pulsera simulada (`source=simulado`, `POST /admin/seed_wearable`, `biometric_syncs.scope`), `rules.biometrics` (resumen diario y anomalías con z robusto) y P-SUENO; contrato: `BiometricKind` con las métricas nuevas y `PromptContext.biometric_summary` opcional | Franco |
 | 01:00 | Corrección de la pulsera: la ingesta es real (`POST /api/biometrics/wearable`, `WearablePayload`, `source` del dispositivo); el simulador (`scripts/simular_pulsera.py`) la usa por HTTP y sale `/admin/seed_wearable`; la noche del 13 al 14 es corta; `import_health --export-wearable` para datos reales del iPhone; domingo: seed → simular_pulsera → precorrer → reloj → snapshot | Franco |
 | 01:15 | Pulsera: centrales (sueño, despertares, FC en reposo, minutos activos; las manda el simulador) y opcionales (se aceptan y guardan si llegan); temblor y discinesia no se simulan ni se muestran (requieren algoritmos validados); `describe` muestra solo lo presente con su source | Juanpe y Franco |
+| 01:15 | El cambio de pramipexol pasa al sábado 03/10 (el miércoles 14 queda a 11 días): la base del escenario queda antes del cambio y A2 marca solo lo nuevo; volver a correr el seed mueve la fecha si ya estaba | Juanpe y Franco |
