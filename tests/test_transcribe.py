@@ -96,8 +96,22 @@ def test_el_eco_del_prompt_es_no_te_escuche(eco):
     assert t.unintelligible(eco)
 
 
+@pytest.mark.parametrize("eco", [
+    "Mi vida diaria incluye tomar levodopa, carbidopa, pramipexol y apixabán.",     # el del iPhone, con silencio
+    "Tomo apixabán y pramipexol en mi vida diaria con Parkinson.",                 # parafraseado, otro orden
+    "Levodopa, pramipexol, apixabán.",
+    "Mi relato sobre la vida diaria con Parkinson y los medicamentos.",
+])
+def test_el_eco_parafraseado_del_prompt_es_no_te_escuche(eco):
+    assert t.unintelligible(eco)
+
+
 @pytest.mark.parametrize("real", ["Anoche hablaba con alguien que no estaba. Debe ser el cansancio.",
                                   "Se cayó en el baño, se golpeó la cabeza y toma apixabán.",
+                                  # un rojo que nombra tres fármacos no puede volverse "no te escuché"
+                                  "Se cayó, se golpeó la cabeza y toma levodopa, carbidopa y apixabán.",
+                                  "Hoy me olvidé la levodopa y el pramipexol, y a la tarde estaba duro.",
+                                  "Tomé la levodopa a las ocho.",
                                   "Desde que le subieron el pramipexol duerme peor, dice que es por el Parkinson."])
 def test_un_relato_real_no_es_eco(real):
     assert not t.unintelligible(real)

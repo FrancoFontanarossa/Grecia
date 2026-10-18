@@ -42,13 +42,33 @@ _SILENCE_HALLUCINATIONS = ("subtitulos realizados", "amara.org", "gracias por ve
 
 _FILLERS = re.compile(r"^(?:\s*(?:m+|h+m+|e+h*|a+h*|o+h*|u+h*m*)\s*)*$")
 
+# Eco parafraseado del prompt ("Mi vida diaria incluye tomar levodopa, carbidopa, pramipexol y apixabán"): en
+# cualquier orden y con palabras de relleno. Se mide qué parte de las palabras con contenido salió del prompt.
+# Un relato real puede nombrar fármacos ("se golpeó la cabeza y toma apixabán"), pero casi nunca es casi todo prompt.
+_STOPWORDS = {"a", "al", "con", "de", "del", "el", "en", "es", "la", "las", "le", "lo", "los", "me", "mi", "mis",
+              "o", "para", "por", "que", "se", "su", "sus", "un", "una", "y"}
+ECHO_MIN_WORDS, ECHO_MIN_SHARE = 3, 0.6
+
+
+def _content_words(folded: str) -> list[str]:
+    return [w for w in folded.split() if w not in _STOPWORDS]
+
+
+def echoes_prompt(folded: str) -> bool:
+    """True si el texto (ya pasado por _fold) es casi todo palabras del PROMPT: lo inventó el modelo."""
+    from app.taxonomy import _fold
+    prompt_words = set(_content_words(_fold(PROMPT)))
+    words = _content_words(folded)
+    shared = [w for w in words if w in prompt_words]
+    return len(shared) >= ECHO_MIN_WORDS and len(shared) / len(words) >= ECHO_MIN_SHARE
+
 
 def unintelligible(text: str) -> bool:
-    """Vacío, solo muletillas ("mmm", "eh") o lo que Whisper inventa sobre silencio."""
+    """Vacío, solo muletillas ("mmm", "eh") o lo que Whisper inventa sobre silencio (frases típicas o eco del prompt)."""
     from app.taxonomy import _fold
     folded = _fold(text)
     return (sum(ch.isalnum() for ch in folded) < 3 or bool(_FILLERS.match(folded))
-            or any(h in folded for h in _SILENCE_HALLUCINATIONS))
+            or any(h in folded for h in _SILENCE_HALLUCINATIONS) or echoes_prompt(folded))
 
 
 class UnsupportedAudio(ValueError):
