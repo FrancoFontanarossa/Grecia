@@ -20,6 +20,7 @@ PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "extract.md"
 TOOL_NAME = "registrar_eventos"
 MAX_ATTEMPTS = 2   # 1 intento + 1 reintento
 MAX_TOKENS = 4096
+MAX_TEXT_CHARS = 3000   # un relato más largo se guarda entero, pero a la IA le llega recortado
 
 HINT_LABEL = {"ahora": "ahora", "esta_manana": "esta mañana", "esta_tarde": "esta tarde",
               "anoche": "anoche", "ayer": "ayer"}
@@ -123,7 +124,9 @@ def user_message(entry: Entry, *, patient_name: str, speaker_name: str | None) -
     created = entry.created_at.astimezone(TZ)
     who = f"{speaker_name} ({entry.speaker_role})" if speaker_name else entry.speaker_role
     hint = HINT_LABEL[entry.occurred_hint] if entry.occurred_hint else "no lo eligió"
-    text = entry.raw_text.replace("</relato>", "</ relato>")   # el relato no puede cerrar la etiqueta
+    text = entry.raw_text[:MAX_TEXT_CHARS].replace("</relato>", "</ relato>")   # el relato no puede cerrar la etiqueta
+    if len(entry.raw_text) > MAX_TEXT_CHARS:
+        text += "\n[… el relato sigue; se recortó para leerlo]"
     return (
         "<contexto>\n"
         f"Paciente: {patient_name}\n"
@@ -144,6 +147,7 @@ async def _call_model(system: list[dict], content: str):
         # Una key que no está atada a un workspace necesita el header anthropic-workspace-id.
         workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID")
         _client = anthropic.AsyncAnthropic(
+            timeout=30.0, max_retries=1,
             default_headers={"anthropic-workspace-id": workspace} if workspace else None)
     # Haiku 5.5: sin temperature (cualquier valor distinto del default da 400). La consistencia sale del tool
     # forzado + schema strict + enums, y effort bajo. Con tool forzado el modelo no piensa antes de llamar.

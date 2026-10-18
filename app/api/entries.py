@@ -28,6 +28,8 @@ OCCURRED_HINTS = get_args(OccurredHint)
 EntrySource = Literal["app", "precorrer"]
 
 AI_ERROR = "No pude entenderlo esta vez. Lo guardé tal cual para tu neuróloga."
+NOT_HEARD = "No te escuché bien. ¿Probamos de nuevo?"
+ANALYZE_TIMEOUT = 75.0   # la app espera 120 s; si la IA tarda más, el relato queda guardado crudo
 
 
 @router.post("/api/entries")
@@ -70,6 +72,8 @@ async def process_entry(*, person_id: int, text: str | None = None, audio: bytes
     if audio is not None:
         try:
             audio_path = await asyncio.to_thread(transcription.save_audio, audio, audio_type)
+        except transcription.NotHeard as exc:
+            raise HTTPException(422, {"code": "no_se_escucho", "message": NOT_HEARD, "transcript": ""}) from exc
         except transcription.UnsupportedAudio as exc:
             raise HTTPException(415, str(exc)) from exc
         raw_text = ""   # se completa con la transcripción; si falla queda "" y el audio guardado
@@ -91,11 +95,23 @@ async def process_entry(*, person_id: int, text: str | None = None, audio: bytes
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
     if question_id is not None:   # respuesta a una pregunta proactiva: queda respondida y entra al episodio
         await asyncio.to_thread(db.answer_question, question_id, person_id, entry_id)
-    raw_text = await _analyze(entry_id, person, raw_text, audio_path, response, timing)
+    raw_text = await _safe_analyze(entry_id, person, raw_text, audio_path, response, timing)
 
     timing["total"] = time.perf_counter() - t0
     log.info("entrada %s (%s): %s", entry_id, modality, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
     return response
+
+
+async def _safe_analyze(entry_id: int, person: dict, raw_text: str, audio_path, response: dict, timing: dict) -> str:
+    """_analyze con tope de tiempo y sin 500: ante cualquier falla, el relato ya está guardado crudo."""
+    try:
+        return await asyncio.wait_for(_analyze(entry_id, person, raw_text, audio_path, response, timing),
+                                      ANALYZE_TIMEOUT)
+    except Exception:   # incluye TimeoutError
+        log.exception("falló el análisis de la entrada %s: queda guardada cruda", entry_id)
+        response.setdefault("error", AI_ERROR)
+        response.setdefault("error_code", "ia")
+        return raw_text
 
 
 async def _analyze(entry_id: int, person: dict, raw_text: str, audio_path, response: dict, timing: dict) -> str:
@@ -104,8 +120,10 @@ async def _analyze(entry_id: int, person: dict, raw_text: str, audio_path, respo
         t = time.perf_counter()
         try:
             raw_text = await transcription.transcribe(audio_path)
+        except transcription.NotHeard:
+            response["error"], response["error_code"] = NOT_HEARD, "no_se_escucho"   # el audio quedó guardado
         except transcription.TranscriptionError:
-            response["error"] = AI_ERROR   # el audio quedó guardado para la neuróloga
+            response["error"], response["error_code"] = AI_ERROR, "ia"   # el audio quedó guardado para la neuróloga
         else:
             await asyncio.to_thread(db.set_entry_text, entry_id, raw_text)
             response["transcript"] = raw_text
@@ -131,7 +149,7 @@ async def _analyze(entry_id: int, person: dict, raw_text: str, audio_path, respo
             if red is None and verdict.escalate:
                 red, is_red = red_rules.from_backup(verdict.suspected_rule), True
             elif isinstance(extracted, extraction.ExtractionError):
-                response["error"] = AI_ERROR   # el relato crudo ya quedó guardado
+                response["error"], response["error_code"] = AI_ERROR, "ia"   # el relato crudo ya quedó guardado
             else:
                 events = extracted
         timing["rojos_y_extraccion"] = time.perf_counter() - t
@@ -202,6 +220,8 @@ async def correct_entry(entry_id: int, text: str | None = Form(None), audio: Upl
     if audio is not None:
         try:
             audio_path = await asyncio.to_thread(transcription.save_audio, await audio.read(), audio.content_type)
+        except transcription.NotHeard as exc:
+            raise HTTPException(422, {"code": "no_se_escucho", "message": NOT_HEARD, "transcript": ""}) from exc
         except transcription.UnsupportedAudio as exc:
             raise HTTPException(415, str(exc)) from exc
         raw_text = ""
@@ -211,7 +231,7 @@ async def correct_entry(entry_id: int, text: str | None = Form(None), audio: Upl
         alert_label=lanes._label)
     log.info("entrada %s corregida: %s eventos y %s avisos borrados", entry_id, *removed)
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
-    await _analyze(entry_id, person, raw_text, audio_path, response, timing)
+    await _safe_analyze(entry_id, person, raw_text, audio_path, response, timing)
     timing["total"] = time.perf_counter() - t0
     log.info("corrección %s: %s", entry_id, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
     return response

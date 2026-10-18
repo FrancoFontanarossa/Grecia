@@ -29,6 +29,7 @@ async def _create(**kwargs):
     if _client is None:
         workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID")
         _client = anthropic.AsyncAnthropic(
+            timeout=90.0, max_retries=1,
             default_headers={"anthropic-workspace-id": workspace} if workspace else None)
     return await _client.beta.messages.create(**kwargs)
 
