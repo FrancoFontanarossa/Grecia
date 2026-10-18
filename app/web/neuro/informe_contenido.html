@@ -45,14 +45,21 @@
 
     <div class="inf-temas">
       <h2 class="inf-h2">Para conversar en la consulta</h2>
-      {# Prioridad por reglas (código, no IA). Alcance de las 04:15: el ámbar no notifica a nadie y es lo primero de
-         esta sección; el rojo solo le mostró un mensaje fijo a quien lo escribió y queda marcado acá. #}
-      {% set prioridad = m.alerts | selectattr("lane", "in", ["rojo", "ambar"]) | rejectattr("rule_id", "equalto", "A3-sugerencia") | list %}
-      {% if prioridad %}
+      {# Prioridad por reglas (código, no IA): un punto de color y por qué importa, nunca el nombre del carril.
+         Los A2 van juntos en una fila, con las fechas en un desplegable (app/api/report.py: notices). #}
+      {% if r.avisos %}
       <div class="inf-prioridad">
-        {% for a in prioridad | sort(attribute="lane", reverse=True) %}
-        <div class="inf-al"><span><span class="pildora-neuro pildora-neuro--{{ a.lane }}">{{ "Rojo" if a.lane == "rojo" else "Ámbar" }}</span></span>
-          <span><span class="num">{{ a.created_at | ddmm }}</span> · {{ a.text }}{% if a.reserved %} <span class="inf-priv">Para hablar en privado</span>{% endif %}</span></div>
+        {% for a in r.avisos %}
+        <div class="inf-aviso">
+          <span class="inf-aviso__et"><i class="inf-punto inf-punto--{{ 'rojo' if a.kind == 'rojo' else 'ambar' }}" aria-hidden="true"></i>{{ a.etiqueta }}</span>
+          <span>{% if a.kind != "A2" %}<span class="num">{{ a.fecha | ddmm }}</span> · {% endif %}{{ a.texto }}{% if a.reserved %} <span class="inf-priv">Para hablar en privado</span>{% endif %}
+            {% if a.detalle %}
+            <details class="inf-detalle"><summary>Fechas</summary>
+              <ul>{% for d in a.detalle %}<li><span class="num">{{ d.fecha | ddmm }}</span> · {{ d.sintoma }}{% if d.dias is not none %} · a <span class="num">{{ d.dias }}</span> {{ "día" if d.dias == 1 else "días" }} del cambio{% endif %}{% if d.reserved %} · <span class="inf-solo">solo equipo</span>{% endif %}</li>{% endfor %}</ul>
+            </details>
+            {% endif %}
+          </span>
+        </div>
         {% endfor %}
       </div>
       {% endif %}
@@ -92,6 +99,33 @@
       <p class="inf-par">{% if r.report_status == "pendiente" %}Los temas aparecen cuando el informe esté listo.{% elif sin_ia %}Los temas redactados no están disponibles en este informe. Los datos de pasos, medicación, cobertura, lo que no sabemos y alertas de esta página sí están al día.{% else %}Sin datos en el período.{% endif %}</p>
       {% endfor %}
     </div>
+
+    {# Armado por código (app/api/report.py: noticed): episodios y preguntas proactivas del período. #}
+    <section class="inf-notamos">
+      <h2 class="inf-h2">Lo que notamos y lo que nos contaron</h2>
+      {% if r.lo_que_notamos %}
+      <table class="inf-crono inf-crono--notamos">
+        <thead><tr><th>Cuándo</th><th>Qué notamos</th><th>A quién</th><th>Qué respondió</th><th>Resultado</th></tr></thead>
+        <tbody>
+          {% for n in r.lo_que_notamos %}
+          <tr>
+            <td class="num">{{ n.fecha | ddmm }}</td>
+            <td class="num">{{ n.detecto }}{% if n.fuente %} <span class="inf-fuente">{{ n.fuente }}</span>{% endif %}</td>
+            <td>{{ n.pregunta_a or "—" }}</td>
+            <td>{% if n.respuesta %}«{{ n.respuesta.cita | truncate(140, True, "…") }}»
+              {% if n.respuesta.event_id %}<span class="inf-ev inf-ev--fila no-imprimir"><button type="button" data-id="{{ n.respuesta.event_id }}" data-label="{{ n.respuesta.label }}" data-quote="{{ n.respuesta.cita }}" data-reserved="{{ '1' if n.respuesta.reserved else '0' }}"
+                  @click="ev = Object.assign({}, $el.dataset)">{{ n.respuesta.label }}</button></span>{% endif %}
+              {% else %}<span class="inf-solo">sin respuesta</span>{% endif %}</td>
+            <td>{{ n.resultado }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="inf-s">Lo detecta el código con los pasos del teléfono y la pulsera; las citas son literales.</div>
+      {% else %}
+      <p class="inf-s">En el período no hubo desvíos ni preguntas del sistema.</p>
+      {% endif %}
+    </section>
   </div>
 
   <aside class="inf-lado">
@@ -120,7 +154,7 @@
         </div>
         {% endfor %}
       </div>
-      <div class="inf-s">Línea: cambio de medicación · <i class="inf-marca" aria-hidden="true"></i> en ámbar: tardes con caída después de la toma</div>
+      <div class="inf-s">Línea: cambio de medicación · <i class="inf-marca" aria-hidden="true"></i> tardes con caída después de la toma</div>
     </section>
 
     {% set dc = r.desde_el_cambio %}
@@ -153,6 +187,22 @@
     </section>
     {% endif %}
 
+    {% set pu = r.pulsera %}
+    {% if pu and pu.metrics %}
+    <section>
+      <h4>Pulsera, semana del {{ pu.week }}</h4>
+      <table class="inf-dc num">
+        <thead><tr><th></th><th>Semana</th><th>Habitual</th></tr></thead>
+        <tbody>
+          {% for p in pu.metrics %}
+          <tr><td>{{ p.label }}{% if p.unit %} ({{ p.unit }}){% endif %}</td><td>{{ p.week }}</td><td>{{ p.baseline or "—" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="inf-s"><span class="inf-fuente">{{ pu.rotulo }}</span> Mediana por noche o por día; habitual: {{ pu.baseline }}.</div>
+    </section>
+    {% endif %}
+
     {% set nos = r.lo_que_no_sabemos %}
     <section>
       <h4>Lo que no sabemos</h4>
@@ -165,19 +215,14 @@
       {% endif %}
     </section>
 
-    {# Dos líneas: rojos con fecha; síntomas nuevos juntos. La sugerencia a Juan (A3-sugerencia) no va acá. #}
-    {% set rojos = m.alerts | selectattr("lane", "equalto", "rojo") | list %}
-    {% set ambar = m.alerts | selectattr("lane", "equalto", "ambar") | rejectattr("rule_id", "equalto", "A3-sugerencia") | list %}
-    {% set sintomas = [] %}
-    {% for a in ambar | selectattr("rule_id", "equalto", "A2") %}{% set s = (a.text.split(": ", 1)[1] if ": " in a.text else a.text) | replace(".", "") %}{% if s not in sintomas %}{% set _ = sintomas.append(s) %}{% endif %}{% endfor %}
+    {# Conteo por etiqueta; el detalle está en "Para conversar en la consulta". #}
     <section>
-      <h4>Alertas del período</h4>
-      <div class="inf-al"><span>Rojas</span><span>{% for a in rojos %}<span class="pildora-neuro pildora-neuro--rojo">Rojo</span> <span class="num">{{ a.created_at | ddmm }}</span> · {{ a.text.split(":")[0] }}{% if not loop.last %}<br>{% endif %}{% else %}Ninguna{% endfor %}</span></div>
-      <div class="inf-al"><span>Nuevos</span><span>
-        {%- if sintomas %}Desde el cambio: {{ sintomas | join(", ") }}.{% endif %}
-        {%- for a in ambar if a.rule_id != "A2" %} {{ a.text }}{% endfor %}
-        {%- if not ambar %}Ninguno{% endif -%}
-      </span></div>
+      <h4>Avisos del período</h4>
+      {% for kind in ["rojo", "A1", "A2", "A3"] %}
+      {% set n = r.avisos | selectattr("kind", "equalto", kind) | list %}
+      <div class="inf-al"><span class="inf-aviso__et"><i class="inf-punto inf-punto--{{ 'rojo' if kind == 'rojo' else 'ambar' }}" aria-hidden="true"></i>{{ {"rojo": "Puede ser urgente", "A1": "Primera vez", "A2": "Nuevo desde el cambio", "A3": "Se repite"}[kind] }}</span>
+        <span class="num">{% if kind == "A2" and n %}{{ n[0].detalle | length }}{% else %}{{ n | length or "Ninguno" }}{% endif %}</span></div>
+      {% endfor %}
     </section>
   </aside>
 </div>

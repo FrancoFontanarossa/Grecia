@@ -49,6 +49,7 @@ class Relato:
     hint: str | None = None
     reserved: bool = False
     modality: str = "texto"
+    answers: str | None = None      # rule_id de la pregunta de ese día a esa persona que responde (question_id)
 
 
 @dataclass(frozen=True)
@@ -75,7 +76,8 @@ def load(path: Path = ESCENARIO) -> Escenario:
         if hint is not None and hint not in HINTS:
             raise ValueError(f"relato {i}: cuando_paso={hint!r} no es un OccurredHint")
         relatos.append(Relato(at=_when(r["cuando"]), person_id=people[r["quien"]], text=" ".join(r["texto"].split()),
-                              hint=hint, reserved=bool(r.get("reservado", False)), modality=r.get("modalidad", "texto")))
+                              hint=hint, reserved=bool(r.get("reservado", False)), modality=r.get("modalidad", "texto"),
+                              answers=r.get("responde")))
     relatos.sort(key=lambda r: r.at)
 
     demo = data["ticks"]["semana_demo"]
@@ -99,6 +101,21 @@ def _already_loaded(r: Relato) -> bool:
         return conn.execute(
             "SELECT 1 FROM entries WHERE source = 'precorrer' AND speaker_id = ? AND created_at = ? AND raw_text = ?",
             (r.person_id, db.to_db(r.at), r.text)).fetchone() is not None
+
+
+def _open_question(r: Relato) -> int | None:
+    """La pregunta abierta que responde el relato: la última de esa regla a esa persona, el mismo día y antes."""
+    if not r.answers:
+        return None
+    day = dt.datetime.combine(r.at.date(), dt.time(0), TZ)
+    with db.connect() as conn:
+        q = conn.execute(
+            "SELECT id FROM questions WHERE to_person_id = ? AND rule_id = ? AND question != '' "
+            "AND status IN ('enviada', 'pendiente') AND sent_at >= ? AND sent_at <= ? ORDER BY sent_at DESC LIMIT 1",
+            (r.person_id, r.answers, db.to_db(day), db.to_db(r.at))).fetchone()
+    if q is None:
+        log.warning("el relato de %s responde %s, pero no hay pregunta abierta: va como relato común", r.at, r.answers)
+    return q["id"] if q else None
 
 
 def timeline(esc: Escenario = ESC) -> list[tuple[dt.datetime, Relato | None]]:
@@ -167,8 +184,10 @@ async def run(esc: Escenario = ESC) -> dict:
                 if await asyncio.to_thread(_already_loaded, relato):
                     skipped += 1
                 else:
+                    question_id = await asyncio.to_thread(_open_question, relato)
                     await process_entry(person_id=relato.person_id, text=relato.text, occurred_hint=relato.hint,
-                                        reserved_requested=relato.reserved, source="precorrer")
+                                        question_id=question_id, reserved_requested=relato.reserved,
+                                        source="precorrer")
                     loaded += 1
             questions += await scheduler.tick()
         await close_days_before(None)          # la última noche (la de `fin`) agenda las acciones del día siguiente
