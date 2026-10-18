@@ -50,6 +50,7 @@
     </div>
 
     {% include "neuro/_bitacora.html" %}
+    {% if perfil %}{% include "neuro/_perfil.html" %}{% endif %}
   </div>
 </div>
 <script id="datos-tecnica" type="application/json">{{ t | tojson }}</script>

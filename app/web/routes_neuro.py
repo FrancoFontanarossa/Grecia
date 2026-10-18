@@ -48,13 +48,15 @@ def informe(request: Request, patient_id: int, parcial: int = 0):
 def tecnica(request: Request, patient_id: int):
     r = build_report(patient_id)
     t = build_technical(patient_id)
-    bitacora = []
+    bitacora, perfil = [], None
     if store.has_db():
-        from app.api.plan import build_bitacora
+        from app import config
+        from app.api.plan import build_bitacora, build_profile_view
         bitacora = build_bitacora(patient_id)
+        perfil = build_profile_view(patient_id) if config.PROFILE_ENABLED else None
     return templates.TemplateResponse(request, "neuro/tecnica.html", {"r": r, "t": t, "tab": "tecnica",
                                                                        "simulated": t["simulated"],
-                                                                       "bitacora": bitacora})
+                                                                       "bitacora": bitacora, "perfil": perfil})
 
 
 @router.get("/admin/clock")

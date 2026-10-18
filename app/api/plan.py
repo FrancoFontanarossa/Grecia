@@ -107,6 +107,21 @@ def build_bitacora(patient_id: int, limit: int = 28) -> list[dict]:
     return out
 
 
+def build_profile_view(patient_id: int) -> dict:
+    """"Lo que la app aprendió": aprendizajes activos (con evidencia, alta y última confirmación) y retirados."""
+    with db.connect() as conn:
+        name = (conn.execute("SELECT name FROM people WHERE id = ?", (patient_id,)).fetchone() or {"name": "el paciente"})["name"]
+        rows = [dict(r) for r in conn.execute("SELECT * FROM patient_profile_items WHERE patient_id = ? ORDER BY id",
+                                              (patient_id,))]
+        fmt = lambda v: f"{db.from_db(v):%d/%m}"
+        active = [{"kind": r["kind"], "text": r["text"], "created": fmt(r["created_at"]),
+                   "confirmed": fmt(r["last_confirmed_at"]),
+                   "evidence": [_ref_label(conn, e) for e in json.loads(r["evidence_ids"] or "[]")]}
+                  for r in rows if r["status"] == "activo"]
+        retired = [{"text": r["text"], "reason": r["retired_reason"]} for r in rows if r["status"] == "retirado"]
+    return {"name": name, "active": active, "retired": retired}
+
+
 @router.get("/api/patients/{patient_id}/plan")
 def get_plan(patient_id: int, date: str | None = None):
     return build_plan(patient_id, date)
