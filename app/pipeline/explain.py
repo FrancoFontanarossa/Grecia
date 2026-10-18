@@ -54,9 +54,21 @@ def verify(out: _Output, context: PromptContext) -> Explanation:
     return Explanation(explained=out.explained, by=quotes if out.explained else [], reasoning=out.reasoning)
 
 
+def after_dose(context: PromptContext) -> PromptContext:
+    """Una caída de pasos después de una toma solo la explica lo que se contó después de esa toma (un "estuve
+    sentado toda la tarde" de ayer no explica la tarde de hoy). Sin desvío, el contexto queda igual."""
+    if context.deviation is None:
+        return context
+    dose = context.deviation.dose_time
+    return context.model_copy(update={"recent_entries": [e for e in context.recent_entries if e.created_at >= dose]})
+
+
 async def explain(trigger: Trigger, context: PromptContext) -> Explanation:
+    context = after_dose(context)
     if not context.recent_entries:
-        return Explanation(explained=False, by=[], reasoning="No hay relatos de los últimos 3 días.")
+        reason = ("No hay relatos posteriores a la toma." if context.deviation is not None
+                  else "No hay relatos de los últimos 3 días.")
+        return Explanation(explained=False, by=[], reasoning=reason)
     try:
         out = await llm.call_tool(prompt(), TOOL, llm.render_context(context), _Output, max_tokens=2048)
     except llm.LLMError as exc:
