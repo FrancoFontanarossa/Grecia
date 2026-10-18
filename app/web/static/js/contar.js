@@ -84,6 +84,12 @@
         this._duration = performance.now() - this._t0;
         try { this._rec.stop(); } catch (e) { this._onStopped(); }
       },
+      // Familia: tira la grabación en curso sin mandarla y vuelve a donde estaba.
+      descartar: function () {
+        this._cleanup();
+        this.seconds = 0; this.bars = flatBars(); this._blob = null;
+        this.phase = this.result ? "resultado" : "listo";
+      },
       cancelar: function () {
         this._cleanup();
         location.assign(opts.backUrl || "/casa");
