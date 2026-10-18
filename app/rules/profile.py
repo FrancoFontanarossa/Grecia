@@ -33,7 +33,9 @@ FRANJAS = ("08-10", "12-14", "16-18", "20-22")
 
 
 def _n(x: float) -> str:
-    return f"{x:,.0f}".replace(",", ".") if abs(x) >= 10 else f"{x:.1f}".replace(".", ",")
+    if abs(x) >= 10 or float(x).is_integer():
+        return f"{x:,.0f}".replace(",", ".")
+    return f"{x:.1f}".replace(".", ",")
 
 
 def _rows(sql: str, *args) -> list[dict]:

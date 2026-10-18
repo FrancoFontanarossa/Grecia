@@ -198,3 +198,14 @@ def test_la_vista_tecnica_muestra_lo_aprendido(juan, monkeypatch):
     html = TestClient(app).get("/neuro/tecnica/1").text
     assert "Lo que la app aprendió de Juan" in html and "propuesto por IA, aceptado solo con evidencia" in html
     assert json.loads(items()[0]["spec"])["hypothesis"]["condition"] == "fin_de_semana"
+
+
+def test_con_perfil_el_digest_trae_las_citas_de_14_dias_sin_lo_reservado(juan, monkeypatch):
+    from app.pipeline.digest import build_digest
+    relato("ando trabado", "motor", day=DAY - dt.timedelta(days=3))
+    relato("hablaba con alguien que no estaba", "neuropsiquiatrico", speaker=2, role="cuidador", reserved=True,
+           day=DAY - dt.timedelta(days=2))
+    citas = [r["cita"] for r in build_digest(1, NOW)["relatos_14_dias"]]
+    assert citas == ["ando trabado"]
+    monkeypatch.setattr(config, "PROFILE_ENABLED", False)
+    assert "relatos_14_dias" not in build_digest(1, NOW)
