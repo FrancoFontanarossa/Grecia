@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrecasa, boceto v2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --gris:#F2F3F6; --sup:#FFFFFF; --sup2:#F4F5F8; --linea:#E6E8EE;
+  --tinta:#0F1419; --tinta2:#4B5563; --tinta3:#6B7280;
+  --bio:#2F6FD6; --bio-o:#1E4FA3; --bio-c:#EAF1FC;
+  --pino:#1F4D45; --pino-c:#E4EEEA;
+  --ambar:#B45309; --ambar-c:#FDF3E4; --verde:#15803D; --rojo:#B42318;
+  --sf: -apple-system, "SF Pro Display", "SF Pro Text", Inter, system-ui, sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#E3E6EC;font-family:var(--sf);color:var(--tinta);-webkit-font-smoothing:antialiased;padding:36px 20px 70px}
+.fila{display:flex;gap:36px;flex-wrap:wrap;justify-content:center}
+.tel{width:390px;height:844px;background:var(--gris);border-radius:48px;box-shadow:0 0 0 11px #111, 0 30px 70px rgba(0,0,0,.22);position:relative;overflow:hidden}
+.isla{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:122px;height:34px;background:#000;border-radius:20px;z-index:5}
+.scroll{position:absolute;inset:0;overflow:hidden}
+.cap{text-align:center;font-size:14px;color:#4B5563;margin-top:20px}
+.num{font-variant-numeric:tabular-nums}
+
+/* hero */
+.hero{background:linear-gradient(180deg,#2F6FD6 0%,#5B92E6 55%,#C9DBF6 82%,var(--gris) 100%);padding:70px 22px 34px;color:#fff;text-align:center}
+.hero .fecha{font-size:17px;font-weight:500;opacity:.92}
+.hero .hola{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.hero .big{font-size:96px;font-weight:700;letter-spacing:-.045em;line-height:1;margin-top:26px}
+.hero .lbl{font-size:19px;font-weight:600;margin-top:6px}
+.hero .meta{display:inline-flex;align-items:center;gap:8px;margin-top:14px;background:rgba(255,255,255,.95);color:var(--tinta);border-radius:999px;padding:8px 14px;font-size:16px;font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--verde);display:inline-block}
+
+.cuerpo{padding:0 18px}
+.voz{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;height:76px;border:0;border-radius:20px;background:var(--pino);color:#fff;font:600 22px var(--sf);margin-top:-12px;box-shadow:0 6px 18px rgba(31,77,69,.25)}
+.voz svg{flex:none}
+.card{background:var(--sup);border-radius:20px;padding:18px;margin-top:14px}
+.card .t{font-size:19px;font-weight:600;letter-spacing:-.01em}
+.card .s{font-size:16px;color:var(--tinta2);margin-top:4px;line-height:1.4}
+.fila2{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.valor{font-size:30px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+
+/* barra de rango */
+.rango{margin-top:18px}
+.pista{position:relative;height:10px;border-radius:5px;background:#E8EBF0}
+.pista .hab{position:absolute;top:0;bottom:0;left:52%;width:30%;border-radius:5px;background:linear-gradient(90deg,#9DBDF0,#2F6FD6)}
+.pista .mk{position:absolute;top:14px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:11px solid var(--tinta);transform:translateX(-8px)}
+.escala{display:flex;justify-content:space-between;font-size:14px;color:var(--tinta3);margin-top:22px}
+.estado{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:15px;color:var(--tinta2)}
+.estado b{display:inline-flex;align-items:center;gap:7px;color:var(--tinta);font-weight:600}
+.btn{display:block;width:100%;height:60px;border:0;border-radius:16px;background:var(--tinta);color:#fff;font:600 19px var(--sf);margin-top:16px}
+
+.lista{background:var(--sup);border-radius:20px;margin-top:14px;overflow:hidden}
+.it{display:flex;align-items:center;gap:14px;padding:16px 18px;min-height:72px;border-top:1px solid var(--linea)}
+.it:first-child{border-top:0}
+.ico{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center}
+.it .tx{flex:1}
+.it .t{font-size:19px;font-weight:600}
+.it .s{font-size:15px;color:var(--tinta2);margin-top:2px}
+.it .v{font-size:22px;font-weight:700}
+
+/* Marta */
+.hero.m{background:linear-gradient(180deg,#1F4D45 0%,#3E7A6E 50%,#C8DDD7 82%,var(--gris) 100%)}
+.hero.m .big{font-size:64px;margin-top:18px}
+.seg{display:flex;background:#E7E9EE;border-radius:14px;padding:4px;margin-top:16px}
+.seg span{flex:1;text-align:center;padding:10px 0;font-size:16px;font-weight:600;color:var(--tinta2);border-radius:10px}
+.seg span.on{background:#fff;color:var(--tinta);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.amb{background:var(--sup);border-radius:20px;padding:18px;margin-top:14px;border:1.5px solid #F1D9B5}
+.amb .et{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--ambar);background:var(--ambar-c);border-radius:999px;padding:5px 11px}
+.amb .t{font-size:19px;font-weight:600;line-height:1.3;margin-top:12px}
+.amb .s{font-size:16px;color:var(--tinta2);line-height:1.45;margin-top:6px}
+.dias{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px}
+.d{text-align:center;font-size:13px;color:var(--tinta2);font-weight:500}
+.d i{display:block;height:54px;border-radius:12px;margin-bottom:6px;position:relative;background:#E8EBF0;overflow:hidden}
+.d i b{position:absolute;left:0;right:0;bottom:0;background:var(--bio);border-radius:12px}
+.d i.bajo b{background:#9DBDF0}
+.d.hoy{color:var(--tinta);font-weight:700}
+.leyenda{display:flex;gap:16px;font-size:14px;color:var(--tinta2);margin-top:10px}
+.leyenda span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--bio)}
+.leyenda span.b::before{background:#9DBDF0}
+.botones{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:14px}
+.botones a{display:flex;align-items:center;justify-content:center;gap:8px;height:58px;border-radius:16px;font-weight:600;font-size:17px;text-decoration:none}
+.botones .p{background:var(--pino);color:#fff}.botones .s{background:#fff;color:var(--tinta)}
+</style>
+</head>
+<body>
+<div class="fila">
+
+<!-- JUAN -->
+<div>
+<div class="tel"><div class="isla"></div><div class="scroll">
+  <div class="hero">
+    <div class="fecha">Sábado 17 de octubre</div>
+    <div class="hola">Buenas tardes, Juan</div>
+    <div class="big num">4.060</div>
+    <div class="lbl">pasos hoy</div>
+    <div class="meta"><span class="dot"></span>Llegaste a tu meta de 4.000</div>
+  </div>
+  <div class="cuerpo">
+    <button class="voz"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Contame cómo estás</button>
+
+    <div class="card">
+      <div class="fila2"><div><div class="t">Una pregunta de hoy</div><div class="s">A la tarde caminaste menos que otras tardes. ¿Pasó algo?</div></div></div>
+      <div class="rango">
+        <div class="fila2" style="align-items:baseline"><span class="s" style="margin:0">Pasos de 16 a 18 h</span><span class="valor num">273</span></div>
+        <div class="pista" style="margin-top:10px"><div class="hab"></div><div class="mk" style="left:12%"></div></div>
+        <div class="escala num"><span>0</span><span>Lo habitual: 1.100 a 1.400</span></div>
+        <div class="estado"><span>Medido por tu teléfono</span><b><span class="dot" style="background:var(--ambar)"></span>Menos que siempre</b></div>
+      </div>
+      <button class="btn">Responder</button>
+    </div>
+
+    <div class="lista">
+      <div class="it"><span class="ico" style="background:var(--pino-c)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F4D45" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><div class="tx"><div class="t">Próxima toma</div><div class="s">Levodopa</div></div><div class="v num">20:00</div></div>
+      <div class="it"><span class="ico" style="background:var(--bio-c)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2F6FD6" stroke-width="1.8"><circle cx="8" cy="12" r="3.5"/><circle cx="16" cy="12" r="3.5"/></svg></span><div class="tx"><div class="t">Juego de 20 segundos</div><div class="s">Hoy todavía no lo hiciste</div></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+    </div>
+  </div>
+</div></div>
+<div class="cap">Juan · inicio (en el iPhone la letra es San Francisco)</div>
+</div>
+
+<!-- MARTA -->
+<div>
+<div class="tel"><div class="isla"></div><div class="scroll">
+  <div class="hero m">
+    <div class="fecha">Sábado 17 de octubre</div>
+    <div class="hola">Hola, Marta</div>
+    <div class="big num">5 de 7</div>
+    <div class="lbl">días en la meta esta semana</div>
+    <div class="meta"><span class="dot" style="background:var(--ambar)"></span>Una cosa para mirar</div>
+  </div>
+  <div class="cuerpo">
+    <div class="amb">
+      <span class="et"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.5"/></svg>Algo para mirar</span>
+      <div class="t">Contaste que Juan habló con alguien que no estaba.</div>
+      <div class="s">Es la primera vez, tres semanas después del cambio de pramipexol. Ya está en el resumen para la consulta del 28. Si aparece fiebre o confusión, llamá a la emergencia móvil.</div>
+    </div>
+
+    <div class="seg"><span class="on">Semana</span><span>Noches</span><span>Lo que contaron</span></div>
+
+    <div class="card">
+      <div class="fila2"><div class="t">Pasos de Juan</div><div class="s" style="margin:0">meta 4.000</div></div>
+      <div class="dias">
+        <div class="d"><i><b style="height:86%"></b></i>dom</div>
+        <div class="d"><i><b style="height:94%"></b></i>lun</div>
+        <div class="d"><i class="bajo"><b style="height:62%"></b></i>mar</div>
+        <div class="d"><i><b style="height:90%"></b></i>mié</div>
+        <div class="d"><i class="bajo"><b style="height:60%"></b></i>jue</div>
+        <div class="d"><i><b style="height:84%"></b></i>vie</div>
+        <div class="d hoy"><i><b style="height:88%"></b></i>sáb</div>
+      </div>
+      <div class="leyenda"><span>Llegó</span><span class="b">No llegó</span></div>
+      <div class="s" style="margin-top:10px">Tres tardes caminó menos después de la toma de las 16. El jueves contó que se sintió trabado.</div>
+    </div>
+
+    <div class="botones"><a class="p" href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Contar algo</a><a class="s" href="#">Escribir</a></div>
+  </div>
+</div></div>
+<div class="cap">Marta · hoy</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,62 +1,68 @@
 /* Entrecasa — tokens de diseño (CSS plano, sin build)
  * Copiar a app/web/static/css/tokens.css y cargar en la plantilla base:
- *   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+ *   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
  *   <link rel="stylesheet" href="/static/css/tokens.css">
  * Uso: background: var(--color-pino); border-radius: var(--radius-card); etc.
  * Si algún día se usa Tailwind v4, este bloque se pega tal cual dentro de @theme { }.
  */
 
 :root {
-  /* Base */
-  --color-fondo: #F2F4F1;
+  /* Base (design/boceto-v2.html) */
+  --color-fondo: #F2F3F6;
   --color-superficie: #FFFFFF;
-  --color-superficie-suave: #E8ECE9;
-  --color-linea: #D5DBD6;
-  --color-linea-suave: #E3E8E4;
-  --color-borde-chip: #C9D1CB;
-  --color-tinta: #17201B;
-  --color-tinta-suave: #4A5650;
+  --color-superficie-suave: #F4F5F8;
+  --color-linea: #E6E8EE;
+  --color-linea-suave: #EEF0F4;
+  --color-borde-chip: #DADDE4;
+  --color-tinta: #0F1419;
+  --color-tinta-suave: #4B5563;   /* nunca más claro que esto sobre blanco (7,5:1) */
 
   /* Acción */
-  --color-pino: #1E5B4F;
-  --color-pino-claro: #DCEBE6;
-  --color-pino-oscuro: #123A32;
-  --color-pino-texto-claro: #B9D3CB;
-  --color-onda: #7FB5A6;
+  --color-pino: #1F4D45;
+  --color-pino-claro: #E4EEEA;
+  --color-pino-oscuro: #14332D;
+  --color-pino-texto-claro: #A9C3BC;
+  --color-onda: #8FB3A9;
 
   /* Datos del teléfono */
-  --color-bio: #2F5FA8;
-  --color-bio-medio: #9DB6DD;
-  --color-bio-suave: #C9D7EC;
-  --color-bio-claro: #E1EAF7;
-  --color-bio-texto: #1D3F73;
+  --color-bio: #2F6FD6;
+  --color-bio-medio: #9DBDF0;
+  --color-bio-suave: #C9DBF6;
+  --color-bio-claro: #EAF1FC;
+  --color-bio-texto: #1E4FA3;     /* texto azul sobre gris o azul claro */
 
-  /* Carriles */
+  /* Estados */
+  --color-verde: #15803D;
   --color-ambar: #B45309;
-  --color-ambar-fondo: #FCEFD9;
+  --color-ambar-fondo: #FDF3E4;
+  --color-ambar-borde: #F1D9B5;
   --color-ambar-texto: #8A3F06;
   --color-rojo: #B42318;
   --color-rojo-fondo: #FDE4E1;
 
-  /* Tipografía */
-  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  /* Degradé: SOLO en el hero */
+  --degrade-hero-bio: linear-gradient(180deg, #2F6FD6 0%, #5B92E6 55%, #C9DBF6 82%, #F2F3F6 100%);
+  --degrade-hero-pino: linear-gradient(180deg, #1F4D45 0%, #3E7A6E 50%, #C8DDD7 82%, #F2F3F6 100%);
 
-  --text-juan-titulo: 34px;
-  --text-juan-titulo--line-height: 1.15;
-  --text-juan: 22px;
-  --text-juan--line-height: 1.35;
-  --text-familia-titulo: 28px;
-  --text-familia: 18px;
+  /* Tipografía: SF Pro en el iPhone (la del sistema), Inter de respaldo fuera de Apple */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+
+  --text-juan-titulo: 28px;
+  --text-juan-titulo--line-height: 1.2;
+  --text-juan: 20px;
+  --text-juan--line-height: 1.4;
+  --text-familia-titulo: 26px;
+  --text-familia: 17px;
   --text-familia--line-height: 1.45;
-  --text-medico: 16px;
-  --text-medico--line-height: 1.6;
-  --text-etiqueta: 14px;
+  --text-medico: 15px;
+  --text-medico--line-height: 1.55;
+  --text-etiqueta: 13px;
 
   /* Radios */
   --radius-chip: 10px;
-  --radius-boton: 18px;
+  --radius-boton: 16px;
   --radius-card: 20px;
-  --radius-boton-grande: 22px;
+  --radius-boton-grande: 20px;
 
   /* Tamaños táctiles */
   --spacing-toque-juan: 64px;
@@ -71,6 +77,7 @@ html, body {
   color: var(--color-tinta);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -90,12 +97,17 @@ html, body {
 
 /* Etiqueta de sección */
 .etiqueta-seccion {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-tinta-suave);
 }
+
+/* Títulos apretados como en el boceto; cifras tabulares */
+h1, h2, h3 { letter-spacing: -0.02em; }
+.hero-numero { font-weight: 700; letter-spacing: -0.045em; line-height: 1; font-variant-numeric: tabular-nums; }
+.cifra, .num, td { font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
