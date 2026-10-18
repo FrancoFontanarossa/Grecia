@@ -124,6 +124,64 @@ def collect(patient_id: int, now: dt.datetime, period: str | None = None) -> dic
                    for e in events],
         "daily_notes": [{"date": n["date"], "text": n["text"], "follow_up": json.loads(n["follow_up"] or "[]")}
                         for n in notes if n["text"]] if config.BITACORA_ENABLED else [],
+        "wearable_week": wearable_week(patient_id, end),
+    }
+
+
+# ── Pulsera: la última semana contra los 28 días previos (mediana por noche o por día) ─────────────────────
+WEARABLE_WEEK_DAYS = 7
+# kind → (etiqueta, unidad); el sueño va en horas.
+WEARABLE_WEEK_LABELS = {"sleep_minutes": ("Sueño por noche", "h"), "sleep_awakenings": ("Despertares por noche", ""),
+                        "heart_rate_rest": ("Frecuencia en reposo", "lpm"), "active_minutes": ("Minutos activos por día", "min")}
+
+
+def wearable_week(patient_id: int, end: dt.date) -> dict | None:
+    """Mediana de cada métrica central de la pulsera en los últimos 7 días y en los 28 anteriores. None sin datos."""
+    from app.rules import biometrics
+
+    week_start = end - dt.timedelta(days=WEARABLE_WEEK_DAYS - 1)
+    base_start = week_start - dt.timedelta(days=config.DEVIATION_BASELINE_DAYS)
+    values, sources = biometrics._by_day(patient_id, base_start, end)
+    metrics, used = [], set()
+    for kind in config.WEARABLE_CORE:
+        week = [v for d, v in values.get(kind, {}).items() if d >= week_start]
+        base = [v for d, v in values.get(kind, {}).items() if d < week_start]
+        if not week:
+            continue
+        used |= {s for (k, d), ss in sources.items() if k == kind for s in ss}
+        metrics.append({"kind": kind, "week": statistics.median(week), "week_days": len(week),
+                        "baseline": statistics.median(base) if base else None, "baseline_days": len(base)})
+    if not metrics:
+        return None
+    return {"week_start": week_start.isoformat(), "week_end": end.isoformat(), "baseline_start": base_start.isoformat(),
+            "baseline_end": (week_start - dt.timedelta(days=1)).isoformat(), "sources": sorted(used),
+            "simulated": "simulado" in used, "metrics": metrics}
+
+
+def _num(x: float) -> str:
+    return fmt_int(x) if round(x, 1) == round(x) else fmt_dec(x)
+
+
+def present_wearable(raw: dict | None) -> dict | None:
+    """La semana de la pulsera como strings ("6,1" horas, "3" despertares) con su rótulo."""
+    if not raw:
+        return None
+
+    def value(kind: str, v: float | None) -> str | None:
+        if v is None:
+            return None
+        return fmt_dec(v / 60) if kind == "sleep_minutes" else _num(v)
+
+    rotulo = "pulsera · simulado" if raw["simulated"] else "pulsera"
+    return {
+        "label": "según la pulsera (simulado)" if raw["simulated"] else "según la pulsera",
+        "rotulo": rotulo, "simulated": raw["simulated"],
+        "week": f"{_ddmm(raw['week_start'])} al {_ddmm(raw['week_end'])}",
+        "baseline": f"{_ddmm(raw['baseline_start'])} al {_ddmm(raw['baseline_end'])}",
+        "metrics": [{"kind": m["kind"], "label": WEARABLE_WEEK_LABELS[m["kind"]][0], "unit": WEARABLE_WEEK_LABELS[m["kind"]][1],
+                     "week": value(m["kind"], m["week"]), "baseline": value(m["kind"], m["baseline"]),
+                     "week_days": str(m["week_days"]), "baseline_days": str(m["baseline_days"])}
+                    for m in raw["metrics"]],
     }
 
 
@@ -145,6 +203,15 @@ def _range(values: list[float], fmt, suffix: str = "") -> str | None:
         return None
     lo, hi = fmt(min(values)), fmt(max(values))
     return f"{lo}{suffix}" if lo == hi else f"{lo}–{hi}{suffix}"
+
+
+# La etiqueta como sustantivo, para contar ("7 relatos sobre actuar los sueños", no "de que actúa los sueños").
+_SYMPTOM_NOUNS = {"actua_suenos": "actuar los sueños"}
+
+
+def symptom_noun(symptom: str) -> str:
+    label = taxonomy.symptom_label(symptom)
+    return _SYMPTOM_NOUNS.get(symptom) or (label[4:] if label.startswith("que ") else label)
 
 
 def _label(role: str, name: str | None, relation: str | None) -> str:
@@ -202,7 +269,8 @@ def present(raw: dict) -> dict:
     for ev in out_events:
         if not ev["negated"]:
             by_symptom.setdefault((ev["symptom"], bool(ev["reserved"])), []).append(ev)
-    event_counts = [{"symptom": sym, "symptom_label": taxonomy.symptom_label(sym), "domain_label": evs[0]["domain_label"],
+    event_counts = [{"symptom": sym, "symptom_label": taxonomy.symptom_label(sym), "symptom_noun": symptom_noun(sym),
+                     "domain_label": evs[0]["domain_label"],
                      "count": str(len(evs)),
                      "dates": _join(sorted({ev["date"] or ev["told_date"] for ev in evs}, key=lambda d: (d[3:], d[:2]))),
                      "reserved": reserved}
@@ -268,6 +336,7 @@ def present(raw: dict) -> dict:
                     "reserved": a["reserved"]} for a in raw.get("alerts", [])],
         "events": out_events,
         "bitacora": _bitacora(raw.get("daily_notes") or []),
+        "wearable_week": present_wearable(raw.get("wearable_week")),
     }
 
 
