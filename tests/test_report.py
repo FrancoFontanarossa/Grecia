@@ -15,8 +15,8 @@ _REAL_REQUEST = report.request_regeneration   # antes de que el fixture autouse 
 
 RAW = json.loads((Path(__file__).resolve().parent.parent / "scripts/fixtures/report_facts_semana.json").read_text())
 FACTS = report_facts.present(RAW)
-SUMMARY = ("En el período 20/09 al 17/10, a 25 días del cambio de pramipexol, Marta contó dos episodios en que Juan "
-           "hablaba con gente que no estaba. Después de la toma de las 16, los pasos bajaron en 3 tardes. "
+SUMMARY = ("En el período 20/09 al 17/10, a 25 días del cambio de pramipexol. Hay un tema para hablar en privado "
+           "(tema 1). Después de la toma de las 16, los pasos bajaron en 3 tardes. "
            "Marta contó 3 noches con despertares. Pasos: 15 de 28 días en la meta de 4.000.")
 
 
@@ -147,6 +147,9 @@ def _with(**topic0):
 @pytest.mark.parametrize("bad, why", [
     ({**GOOD, "summary": SUMMARY.replace("15 de 28", "99 de 28")}, "número que no está"),
     ({**GOOD, "summary": SUMMARY.replace("los pasos bajaron en 3 tardes", "bajaron a unos 390 pasos")}, "aproxima"),
+    ({**GOOD, "summary": SUMMARY.replace("Hay un tema para hablar en privado (tema 1).", "Hay algo privado.")},
+     "falta la frase del tema reservado"),
+    ({**GOOD, "summary": SUMMARY + " Marta contó que hablaba con alguien que no estaba."}, "cuenta el contenido"),
     (_with(narrative="Marta contó que «hablaba con alguien que no existe»."), "cita no literal"),
     (_with(narrative="Laura dijo «anoche hablaba con alguien que no estaba»."), "cita con otro nombre"),
     (_with(narrative="«anoche hablaba con alguien que no estaba», según el registro."), "cita sin nombre"),

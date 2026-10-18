@@ -119,6 +119,47 @@ def _texts(t: _Topic) -> list[str]:
     return [t.title, t.narrative, t.question, *t.observed]
 
 
+_PRIVATE_WORDS = ("alucin", "delir", "gente que no", "alguien que no", "personas que no", "confund", "confusion",
+                  "impuls", "apuest", "compuls", "sexual", "deseo")
+
+
+def private_sentence(indices: list[int]) -> str:
+    """La única frase del resumen sobre lo reservado (CLAUDE.md §6.4)."""
+    if len(indices) == 1:
+        return f"Hay un tema para hablar en privado (tema {indices[0]})."
+    nums = ", ".join(str(i) for i in indices[:-1]) + f" y {indices[-1]}"
+    return f"Hay {len(indices)} temas para hablar en privado (temas {nums})."
+
+
+def check_private_summary(out: "_Output", events: dict) -> None:
+    """Con un tema reservado, el resumen solo dice que existe: ni su contenido, ni quién lo contó, ni cuándo."""
+    reserved_ids = {i for i, e in events.items() if e.get("reserved")}
+    indices = [n for n, t in enumerate(out.topics, 1)
+               if t.reserved or set(t.evidence_ids) & reserved_ids]
+    if not indices:
+        return
+    summary, folded = out.summary, _fold(out.summary)
+    sentence = private_sentence(indices)
+    if sentence not in summary:
+        raise ValueError(f"el resumen tiene que decir, tal cual: «{sentence}»")
+    rest = _fold(summary.replace(sentence, " "))
+    private = [events[i] for t in (out.topics[n - 1] for n in indices) for i in t.evidence_ids if i in events]
+    public = [e for i, e in events.items() if i not in reserved_ids]
+    leaks = [w for w in _PRIVATE_WORDS if w in rest]
+    leaks += [e["quote"] for e in private if _fold(e["quote"]) in rest]
+    leaks += [t.title for n, t in enumerate(out.topics, 1) if n in indices and _fold(t.title) in rest]
+    public_dates = {d for e in public for d in (e.get("date"), e.get("told_date")) if d}
+    leaks += [d for e in private for d in (e.get("date"), e.get("told_date"))
+              if d and d not in public_dates and d in rest]
+    public_speakers = {e.get("speaker_label") for e in public}
+    leaks += [e["speaker_label"] for e in private
+              if e.get("speaker_label") and e["speaker_label"] not in public_speakers
+              and _fold(e["speaker_label"].split(",")[0]) in rest]
+    if leaks:
+        raise ValueError(f"el resumen cuenta algo del tema reservado ({leaks[0]!r}); solo puede decir «{sentence}»")
+    del folded
+
+
 def check(out: _Output, facts: dict) -> None:
     """Forma y fidelidad que exige el código. ValueError → reintento."""
     words = len(out.summary.split())
@@ -145,6 +186,7 @@ def check(out: _Output, facts: dict) -> None:
                 raise ValueError(f"{where}: pone una franja ({word}) que no está en los eventos")
 
     check_text(out.summary, "resumen", all_text)
+    check_private_summary(out, events)
     for t in out.topics:
         unknown = set(t.evidence_ids) - events.keys()
         if unknown:
