@@ -107,8 +107,8 @@ async def _safe_analyze(entry_id: int, person: dict, raw_text: str, audio_path, 
     try:
         return await asyncio.wait_for(_analyze(entry_id, person, raw_text, audio_path, response, timing),
                                       ANALYZE_TIMEOUT)
-    except Exception:   # incluye TimeoutError
-        log.exception("falló el análisis de la entrada %s: queda guardada cruda", entry_id)
+    except Exception as exc:   # incluye TimeoutError
+        log.error("falló el análisis de la entrada %s (%s): queda guardada cruda", entry_id, type(exc).__name__)
         response.setdefault("error", AI_ERROR)
         response.setdefault("error_code", "ia")
         return raw_text

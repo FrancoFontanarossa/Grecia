@@ -101,10 +101,10 @@ async def red_backup(text: str, rules_result: RedResult | None, *, meds: list[st
         block = next(b for b in response.content if b.type == "tool_use" and b.name == TOOL_NAME)
         out = _ModelOutput.model_validate(block.input)
     except (anthropic.AnthropicError, RuntimeError, ValueError, ValidationError, StopIteration) as exc:
-        log.error("red_backup falló; mandan las reglas: %s", exc)
+        log.error("red_backup falló; mandan las reglas (%s)", type(exc).__name__)
         return BackupVerdict(escalate=False, suspected_rule=None, reason=f"error: {exc}")
     if out.is_red and out.suspected_rule is None:
         # Solo puede subir: se escala igual y quien llama usa el texto fijo genérico.
-        log.warning("red_backup dijo rojo sin regla: %s", out.reason)
+        log.warning("red_backup dijo rojo sin regla")
     return BackupVerdict(escalate=out.is_red, suspected_rule=out.suspected_rule if out.is_red else None,
                          reason=out.reason)

@@ -292,8 +292,8 @@ async def _runner(patient_id: int) -> None:
             try:
                 await report(patient_id)
                 log.info("informe del paciente %s regenerado", patient_id)
-            except Exception:
-                log.exception("no se pudo regenerar el informe del paciente %s", patient_id)
+            except Exception as exc:
+                log.error("no se pudo regenerar el informe del paciente %s (%s)", patient_id, type(exc).__name__)
     finally:
         _runners.pop(patient_id, None)
 

@@ -71,7 +71,7 @@ async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseMode
             return parsed
         except (ValidationError, ValueError) as exc:
             last = exc
-            log.warning("%s inválido (intento %s/%s): %s", tool["name"], attempt, MAX_ATTEMPTS, exc)
+            log.warning("%s inválido (intento %s/%s, %s)", tool["name"], attempt, MAX_ATTEMPTS, type(exc).__name__)
     raise LLMError(f"{tool['name']} no validó después de {MAX_ATTEMPTS} intentos: {last}")
 
 

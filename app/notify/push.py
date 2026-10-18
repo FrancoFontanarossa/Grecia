@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 
 from pywebpush import WebPushException, webpush
 
@@ -36,11 +37,12 @@ async def send_push(subscription: dict, title: str, body: str, url: str) -> bool
         return True
     except WebPushException as exc:
         if exc.status_code in (404, 410):
-            log.info("Suscripción vencida (%s), se borra: %s", exc.status_code, subscription.get("endpoint"))
+            log.info("suscripción vencida (%s), se borra: …%s", exc.status_code, (subscription.get("endpoint") or "")[-8:])
             await asyncio.to_thread(db.delete_subscription, subscription["endpoint"])
         else:
-            log.warning("Falló la push: %s", exc)
+            log.warning("falló la push (%s, …%s)", exc.status_code, (subscription.get("endpoint") or "")[-8:])
         return False
     except Exception:
-        log.exception("Error inesperado al mandar la push")
+        log.error("error inesperado al mandar la push (%s, …%s)", type(sys.exc_info()[1]).__name__,
+                  (subscription.get("endpoint") or "")[-8:])
         return False

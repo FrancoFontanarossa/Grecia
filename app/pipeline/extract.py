@@ -217,7 +217,8 @@ async def extract(entry: Entry, *, patient_name: str = "el paciente",
             output = _parse(response, entry.raw_text)
         except (ValidationError, ValueError) as exc:
             last_error = exc
-            log.warning("Extracción inválida (intento %s/%s, entrada %s): %s", attempt, MAX_ATTEMPTS, entry.id, exc)
+            log.warning("extracción inválida (intento %s/%s, entrada %s, %s)", attempt, MAX_ATTEMPTS, entry.id,
+                        type(exc).__name__)
             continue
         return [to_event(ev, entry) for ev in output.events]
     raise ExtractionError(f"La extracción no validó después de {MAX_ATTEMPTS} intentos: {last_error}")

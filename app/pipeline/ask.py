@@ -95,7 +95,7 @@ async def ask(trigger: Trigger, context: PromptContext) -> QuestionText:
         out = await llm.call_tool(prompt(), TOOL, user_message(trigger, context), _Output,
                                   check=lambda o: check(o, trigger), max_tokens=2048)
     except llm.LLMError as exc:
-        log.error("ask falló; pregunta fija del banco para %s: %s", trigger.rule_id, exc)
+        log.error("ask falló; pregunta fija del banco para %s (%s)", trigger.rule_id, type(exc).__name__)
         return question_bank.proactive(trigger.rule_id, context.patient_name, context.recipient_role,
                                        baseline_label=baseline_label(trigger))
     return QuestionText(question=out.question.strip(), options=[o.strip() for o in out.options])
