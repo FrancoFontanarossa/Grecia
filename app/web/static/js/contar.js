@@ -188,8 +188,11 @@
                 self.phase = "escribir"; self.error = "Escribilo como querés que quede."; return;
               }
               var tr = data.transcript || (data.detail && data.detail.transcript) || "";
+              var code = data.error_code || (data.detail && data.detail.code);
               self.transcript = tr;
-              if (isAudio && !tr && r.res.status < 500) self._fail("no-escuche", TEXTS.notHeard);
+              if (code === "no_se_escucho") self._fail("no-escuche", TEXTS.notHeard);
+              else if (code === "ia") self._fail("ia", TEXTS.aiFailed);
+              else if (isAudio && !tr && r.res.status < 500) self._fail("no-escuche", TEXTS.notHeard);
               else self._fail("ia", TEXTS.aiFailed);
               return;
             }
@@ -205,16 +208,18 @@
         data.entry_id = id;
         try { sessionStorage.setItem("ec_entry_" + id, JSON.stringify(data)); if (opts.questionId) sessionStorage.setItem("ec_q_" + id, "1"); } catch (e) {}
         this.transcript = data.transcript || (this._blob ? "" : this.text);
-        // entries.py devuelve 200 con `error` si falla la IA: el relato crudo ya quedó guardado.
-        if (data.error && !(data.understood || []).length) {
-          if (this._blob && !data.transcript) { this._fail("no-escuche", TEXTS.notHeard); return; }
-          this._fail("ia", TEXTS.aiFailed); return;
-        }
+        // El rojo manda, aunque la extracción haya fallado.
         if (data.red) {
           var rojo = (data.alerts || []).filter(function (a) { return a.lane === "rojo"; })[0];
           try { sessionStorage.setItem("ec_red_" + id, JSON.stringify(data.red)); } catch (e) {}
           location.assign("/casa/emergencia/" + (rojo ? rojo.id : "0") + "?entry=" + id);
           return;
+        }
+        // entries.py responde 200 con error_code (comentario de Guada en el #8); el relato ya quedó guardado.
+        if (data.error_code === "no_se_escucho") { this._fail("no-escuche", TEXTS.notHeard); return; }
+        if (data.error_code === "ia" || (data.error && !(data.understood || []).length)) {
+          if (!data.error_code && this._blob && !data.transcript) { this._fail("no-escuche", TEXTS.notHeard); return; }
+          this._fail("ia", TEXTS.aiFailed); return;
         }
         if (this._blob && !this.transcript && !(data.understood || []).length) {
           this._fail("no-escuche", TEXTS.notHeard); return;
