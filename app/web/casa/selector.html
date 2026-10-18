@@ -32,7 +32,7 @@
       {% set neuro = people | selectattr("role", "equalto", "neurologo") | first %}
       <a href="/neuro/informe/{{ patient_id }}" hx-boost="false"
          @click="{% if neuro %}EC.person.set({{ neuro.id }}, {{ patient_id }}, 'neurologo'){% endif %}"
-         style="display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; border-radius: 16px; background: #FFFFFF; border: 1px solid var(--color-borde-chip); color: var(--color-tinta); font-size: 17px; text-decoration: none">
+         style="display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; border-radius: var(--radius-card); background: #FFFFFF; border: 1px solid var(--color-borde-chip); color: var(--color-tinta); font-size: 17px; text-decoration: none">
         {{ icon("monitor", 22) }}
         Soy del equipo médico
       </a>

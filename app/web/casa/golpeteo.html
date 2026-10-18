@@ -12,7 +12,7 @@
   <template x-if="phase === 'ready'">
     <div style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1">
       {% if desde_pregunta %}<div class="nota nota--chica" style="color: var(--color-tinta)">Gracias por contarlo. Si tenés ganas, hacemos el juego y lo anotamos junto con tu respuesta.</div>{% endif %}
-      <h1 style="font-size: 30px; line-height: 1.2; font-weight: 700">Tocá los dos círculos, uno y otro, lo más rápido que puedas.</h1>
+      <h1 style="font-size: 30px; line-height: 1.2; font-weight: 600">Tocá los dos círculos, uno y otro, lo más rápido que puedas.</h1>
       <p style="font-size: 19px; color: var(--color-tinta-suave); line-height: 1.4">Usá un solo dedo, el índice de la mano que prefieras. Apoyá el teléfono en la mesa.</p>
       <div style="display: flex; justify-content: center; gap: 40px; padding: 24px 0">
         <div style="width: 120px; height: 120px; border-radius: 60px; background: var(--color-pino-claro)"></div>
@@ -27,8 +27,8 @@
   <template x-if="phase === 'playing'">
     <div style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1; user-select: none; -webkit-user-select: none">
       <div class="fila-entre" style="align-items: baseline">
-        <div style="display: flex; flex-direction: column"><div style="font-size: 16px; color: var(--color-tinta-suave)">Quedan</div><div style="font-size: 48px; font-weight: 700; font-variant-numeric: tabular-nums" x-text="left"></div></div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end"><div style="font-size: 16px; color: var(--color-tinta-suave)">Toques</div><div style="font-size: 48px; font-weight: 700; font-variant-numeric: tabular-nums" x-text="count"></div></div>
+        <div style="display: flex; flex-direction: column"><div style="font-size: 16px; color: var(--color-tinta-suave)">Quedan</div><div style="font-size: 48px; font-weight: 600; font-variant-numeric: tabular-nums" x-text="left"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end"><div style="font-size: 16px; color: var(--color-tinta-suave)">Toques</div><div style="font-size: 48px; font-weight: 600; font-variant-numeric: tabular-nums" x-text="count"></div></div>
       </div>
       <div class="espaciador"></div>
       <div class="fila-entre" style="padding-bottom: 40px; touch-action: none">
@@ -64,10 +64,10 @@
   {# ---------- resultado ---------- #}
   <template x-if="phase === 'done'">
     <div style="display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
-      <h1 style="font-size: 32px; font-weight: 700">¡Listo, {{ person.name }}!</h1>
+      <h1 style="font-size: 32px; font-weight: 600">¡Listo, {{ person.name }}!</h1>
       <div class="card" style="padding: 20px; gap: 6px">
         <div style="font-size: 17px; color: var(--color-tinta-suave)">Hoy</div>
-        <div style="font-size: 44px; font-weight: 700"><span x-text="EC.fmtDec1(result.metrics.taps_per_s)"></span> <span style="font-size: 20px; font-weight: 400; color: var(--color-tinta-suave)">toques por segundo</span></div>
+        <div style="font-size: 44px; font-weight: 600"><span x-text="EC.fmtDec1(result.metrics.taps_per_s)"></span> <span style="font-size: 20px; font-weight: 400; color: var(--color-tinta-suave)">toques por segundo</span></div>
         <div style="font-size: 17px; color: var(--color-tinta-suave)"><span x-text="count"></span> toques en 20 segundos</div>
       </div>
       <div class="card" style="padding: 20px; gap: 12px">

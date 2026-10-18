@@ -26,7 +26,7 @@
   {# ---------- listo: iOS pidió un toque ---------- #}
   <template x-if="phase === 'listo'">
     <div style="display: flex; flex-direction: column; align-items: center; gap: 18px">
-      <button type="button" class="voz__boton" style="box-shadow: 0 0 0 14px rgba(255,255,255,0.14)" @click="empezar()" aria-label="Tocá para empezar">
+      <button type="button" class="voz__boton" @click="empezar()" aria-label="Tocá para empezar">
         {{ icon("mic", 72, width=1.7) }}
       </button>
       <div class="grabando__terminar">Tocá para empezar</div>
@@ -78,14 +78,14 @@
   </template>
   <template x-if="phase === 'error'">
     <div style="align-self: stretch; display: flex; flex-direction: column; gap: 12px">
-      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 700" @click="reintentar()"
+      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 600" @click="reintentar()"
               x-text="errorKind === 'sin-permiso' ? 'Escribir en vez de hablar' : (errorKind === 'ia' ? 'Volver al inicio' : 'Probar de nuevo')"></button>
       <button type="button" x-show="errorKind !== 'sin-permiso'" class="btn btn--claro" style="align-self: center" @click="escribir()">Escribir en vez de hablar</button>
     </div>
   </template>
   <template x-if="phase === 'escribir'">
     <div style="align-self: stretch">
-      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 700" @click="enviarTexto()" :disabled="!text.trim()">Listo</button>
+      <button type="button" class="btn btn--grande" style="background: #FFFFFF; color: var(--color-tinta); font-weight: 600" @click="enviarTexto()" :disabled="!text.trim()">Listo</button>
     </div>
   </template>
 

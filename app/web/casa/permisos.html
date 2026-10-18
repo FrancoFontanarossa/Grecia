@@ -4,14 +4,14 @@
 {% block content %}
 <main class="pantalla" style="gap: 18px" x-data='permisos({{ patient_id }}, {{ consents | tojson }})'>
   <div style="display: flex; align-items: center; gap: 8px">
-    <a href="/casa" aria-label="Volver" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--color-tinta)">{{ icon("chevron-izquierda", 26, width=2.2) }}</a>
-    <h1 style="font-size: 30px; font-weight: 700; line-height: 1.15">Qué le avisamos a tu familia</h1>
+    <a href="/casa" aria-label="Volver" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-boton); color: var(--color-tinta)">{{ icon("chevron-izquierda", 26, width=2.2) }}</a>
+    <h1 style="font-size: 30px; font-weight: 600; line-height: 1.15">Qué le avisamos a tu familia</h1>
   </div>
   <p style="font-size: 19px; color: var(--color-tinta-suave); line-height: 1.4">Lo decidís vos. Lo podés cambiar cuando quieras.</p>
 
   {% for rid, rows in by_person %}
   <div class="card" style="padding: 6px 18px; gap: 0">
-    <div style="font-size: 22px; font-weight: 700; padding: 12px 0 4px">{{ rows[0].recipient_name }}</div>
+    <div style="font-size: 22px; font-weight: 600; padding: 12px 0 4px">{{ rows[0].recipient_name }}</div>
     {% for c in rows %}
     <label style="display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 8px 0; {% if not loop.last %}border-bottom: 1px solid var(--color-linea-suave);{% endif %}">
       <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px">

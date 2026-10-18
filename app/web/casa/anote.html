@@ -5,7 +5,7 @@
 <main class="pantalla" style="gap: 20px" x-data='anote({{ entry_id }}, {{ domain_labels | tojson }})'>
   <div class="check-grande">{{ icon("check", 34, width=2.4) }}</div>
 
-  <h1 style="font-size: 32px; line-height: 1.15; font-weight: 700">Gracias, {{ person.name }}. Anoté esto:</h1>
+  <h1 style="font-size: 32px; line-height: 1.15; font-weight: 600">Gracias, {{ person.name }}. Anoté esto:</h1>
 
   <div style="display: flex; flex-direction: column; gap: 12px">
     <template x-if="loading">
@@ -33,7 +33,7 @@
 
   <div class="espaciador"></div>
 
-  <div style="font-size: 20px; font-weight: 700; text-align: center">¿Está bien así?</div>
+  <div style="font-size: 20px; font-weight: 600; text-align: center">¿Está bien así?</div>
   <div class="grilla-2">
     <a href="/casa/contar?corregir={{ entry_id }}" class="btn btn--secundario" onclick="EC.mic.acquire()">Corregir</a>
     <button type="button" class="btn btn--primario" @click="confirmar()">Sí, está bien</button>

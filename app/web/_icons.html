@@ -1,6 +1,6 @@
 {# Íconos de trazo (lucide), tal cual los de design/screens/. Uso: {% from "_icons.html" import icon %} {{ icon("mic", 30) }} #}
 {% macro icon(name, size=24, stroke="currentColor", width=2, style="") -%}
-<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="{{ stroke }}" stroke-width="{{ width }}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"{% if style %} style="{{ style }}"{% endif %}>
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="{{ stroke }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"{% if style %} style="{{ style }}"{% endif %}>
 {%- if name == "casa" -%}<path d="M3 11l9-7 9 7"></path><path d="M5.5 9.5V20h13V9.5"></path><path d="M9.5 20v-5a2.5 2.5 0 0 1 5 0v5"></path>
 {%- elif name == "chevron-derecha" -%}<path d="M9 6l6 6-6 6"></path>
 {%- elif name == "chevron-izquierda" -%}<path d="M15 6l-6 6 6 6"></path>

@@ -6,13 +6,13 @@
       x-data="contar({ personId: {{ person.id }}, questionId: {{ question_id or 'null' }}, correctId: {{ correct_id or 'null' }}, startMode: '{{ start_mode }}', family: true, backUrl: '/casa' })">
 
   <div style="display: flex; align-items: center; gap: 8px">
-    <a href="/casa" aria-label="Volver" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--color-tinta)">{{ icon("chevron-izquierda", 24, width=2.2) }}</a>
-    <h1 style="font-size: 26px; font-weight: 700">Contar algo de {{ patient.name }}</h1>
+    <a href="/casa" aria-label="Volver" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-boton); color: var(--color-tinta)">{{ icon("chevron-izquierda", 24, width=2.2) }}</a>
+    <h1 style="font-size: 26px; font-weight: 600">Contar algo de {{ patient.name }}</h1>
   </div>
 
   {# ---------- ¿cuándo pasó? (OccurredHint del contrato) ---------- #}
   <div style="display: flex; flex-direction: column; gap: 10px" x-show="phase !== 'resultado'">
-    <div style="font-size: 17px; font-weight: 700" id="cuando">¿Cuándo pasó?</div>
+    <div style="font-size: 17px; font-weight: 600" id="cuando">¿Cuándo pasó?</div>
     <div class="chips" role="group" aria-labelledby="cuando">
       {% for value, label in hints %}
       <button type="button" class="chip-when" :aria-pressed="hint === '{{ value }}' ? 'true' : 'false'"
@@ -27,7 +27,7 @@
     <div class="card" style="gap: 14px; align-items: center; padding: 20px 16px">
       <div class="fila-entre" style="align-self: stretch">
         <div style="font-size: 15px; color: var(--color-tinta-suave)">Te escucho</div>
-        <div style="font-size: 14px; color: var(--color-pino); font-weight: 700" x-text="mmss">0:00</div>
+        <div style="font-size: 14px; color: var(--color-pino); font-weight: 600" x-text="mmss">0:00</div>
       </div>
       <div class="onda" aria-hidden="true" style="height: 80px">
         <template x-for="(h, i) in bars" :key="i"><div class="onda__barra" style="background: var(--color-pino)" :style="'height:' + h + 'px; background: var(--color-pino)'"></div></template>
@@ -39,7 +39,7 @@
   <template x-if="phase === 'procesando'">
     <div class="card" style="align-items: center; gap: 14px; padding: 24px 16px" role="status" aria-live="polite">
       <div class="indicador indicador--pino"></div>
-      <div style="font-size: 20px; font-weight: 700" x-text="progress"></div>
+      <div style="font-size: 20px; font-weight: 600" x-text="progress"></div>
       <div x-show="slow" style="font-size: 17px; text-align: center">Está tardando un poco más. No cierres la app.</div>
     </div>
   </template>
@@ -47,7 +47,7 @@
   {# ---------- error ---------- #}
   <template x-if="phase === 'error'">
     <div class="card" role="alert" style="gap: 10px">
-      <div style="font-size: 19px; font-weight: 700; line-height: 1.35" x-text="error"></div>
+      <div style="font-size: 19px; font-weight: 600; line-height: 1.35" x-text="error"></div>
       <div x-show="transcript" style="font-size: 17px; line-height: 1.45" x-text="'«' + transcript + '»'"></div>
     </div>
   </template>
@@ -55,7 +55,7 @@
   {# ---------- escribir ---------- #}
   <template x-if="phase === 'escribir'">
     <div style="display: flex; flex-direction: column; gap: 8px">
-      <label for="texto-familia" style="font-size: 17px; font-weight: 700">Contalo con tus palabras</label>
+      <label for="texto-familia" style="font-size: 17px; font-weight: 600">Contalo con tus palabras</label>
       <textarea id="texto-familia" class="caja-texto" x-model="text" placeholder="Por ejemplo: anoche se levantó dos veces medio confundido."></textarea>
       <div x-show="error" x-text="error" style="font-size: 16px; color: var(--color-tinta-suave)"></div>
     </div>
@@ -67,7 +67,7 @@
       <div class="card" style="gap: 10px">
         <div class="fila-entre">
           <div style="font-size: 15px; color: var(--color-tinta-suave)">Lo que dijiste</div>
-          <div style="font-size: 14px; color: var(--color-pino); font-weight: 700" x-show="seconds" x-text="mmss"></div>
+          <div style="font-size: 14px; color: var(--color-pino); font-weight: 600" x-show="seconds" x-text="mmss"></div>
         </div>
         <div style="font-size: 18px; line-height: 1.45" x-text="'«' + (transcript || text) + '»'"></div>
       </div>
@@ -104,7 +104,7 @@
   </template>
   <template x-if="phase === 'grabando' || phase === 'pidiendo'">
     <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario" style="min-height: 68px; border-radius: 20px; font-size: 18px" @click="descartar()">Cancelar</button>
+      <button type="button" class="btn btn--secundario" style="min-height: 68px; border-radius: var(--radius-card); font-size: 18px" @click="descartar()">Cancelar</button>
       <button type="button" class="btn btn--familia btn--rojo" @click="terminar()" :disabled="phase !== 'grabando'">
         <span style="width: 20px; height: 20px; border-radius: 5px; background: #FFFFFF; display: inline-block"></span>
         Terminar
@@ -113,21 +113,21 @@
   </template>
   <template x-if="phase === 'escribir'">
     <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario btn--chico" style="min-height: 64px; border-radius: 18px; font-size: 18px" @click="empezar()">Grabar</button>
-      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: 18px; font-size: 19px" @click="enviarTexto()" :disabled="!text.trim()">Guardar</button>
+      <button type="button" class="btn btn--secundario btn--chico" style="min-height: 64px; border-radius: var(--radius-card); font-size: 18px" @click="empezar()">Grabar</button>
+      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: var(--radius-card); font-size: 19px" @click="enviarTexto()" :disabled="!text.trim()">Guardar</button>
     </div>
   </template>
   <template x-if="phase === 'error'">
     <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario" style="min-height: 64px; border-radius: 18px; font-size: 18px" @click="escribir()">Escribir</button>
-      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: 18px; font-size: 19px" @click="reintentar()"
+      <button type="button" class="btn btn--secundario" style="min-height: 64px; border-radius: var(--radius-card); font-size: 18px" @click="escribir()">Escribir</button>
+      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: var(--radius-card); font-size: 19px" @click="reintentar()"
               x-text="errorKind === 'ia' ? 'Volver' : 'Probar de nuevo'"></button>
     </div>
   </template>
   <template x-if="phase === 'resultado'">
     <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario" style="min-height: 64px; border-radius: 18px; font-size: 18px" @click="regrabar()">Regrabar</button>
-      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: 18px; font-size: 19px" @click="guardar()">Guardar</button>
+      <button type="button" class="btn btn--secundario" style="min-height: 64px; border-radius: var(--radius-card); font-size: 18px" @click="regrabar()">Regrabar</button>
+      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: var(--radius-card); font-size: 19px" @click="guardar()">Guardar</button>
     </div>
   </template>
 </main>
