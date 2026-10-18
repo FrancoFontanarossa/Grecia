@@ -80,7 +80,7 @@ Etiquetas de sección en mayúsculas: 14 / 700, `letter-spacing: 1px`, `tinta-su
 | `WeekBars` | 7 barras con día debajo (13). Llegó a la meta: `bio`; no llegó: `bio-suave`. Leyenda con cuadraditos de 12. |
 | `UnderstoodCard` | "Anoté esto": tarjeta con metadato arriba (15 `tinta-suave`: "Hoy, 16:40 · Movimiento") y la frase `plain` del evento (21, interlineado 1,35). |
 | `Note` | Fondo `superficie-suave`, radio 16, ícono pino + texto 16–17. |
-| `ReservedToggle` | `<label>` con checkbox de 26 (`accent-color: pino`), título 17/700 "Solo para el equipo médico" y ayuda 14 "Juan no ve el detalle de esto. Ve que lo contaste." |
+| `ReservedToggle` | `<label>` con checkbox de 26 (`accent-color: pino`), título 17/700 "Solo lo ve el equipo médico." y ayuda 14 "Juan no recibe nada de esto." |
 | `Avatar` | Círculo de 60 con inicial 26/700. Juan: `pino`/blanco. Marta: `pino-claro`/`pino`. Laura: `bio-claro`/`bio-texto`. |
 | `Logo` | Cuadrado redondeado `pino` (radio 12–16) con casa de trazo blanco + "entrecasa" en minúscula 26–36/700, `letter-spacing: -0.3px`. |
 

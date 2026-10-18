@@ -89,8 +89,8 @@
 
     {# ---------- solo para el equipo médico ---------- #}
     <label class="fila fila--sep" x-show="phase !== 'error'" style="cursor: pointer">
-      <span class="tx"><span class="a" style="display: block; font-size: 17px">Solo para el equipo médico</span><span class="b" style="display: block; font-size: 14px">{{ patient.name }} ve que lo contaste, no el detalle.</span></span>
-      <span class="switch"><input type="checkbox" x-model="reserved" :disabled="phase === 'procesando' || phase === 'resultado'" aria-label="Solo para el equipo médico"><span></span></span>
+      <span class="tx"><span class="a" style="display: block; font-size: 17px">Solo lo ve el equipo médico.</span><span class="b" style="display: block; font-size: 14px">{{ patient.name }} no recibe nada de esto.</span></span>
+      <span class="switch"><input type="checkbox" x-model="reserved" :disabled="phase === 'procesando' || phase === 'resultado'" aria-label="Solo lo ve el equipo médico"><span></span></span>
     </label>
 
     {# ---------- botones ---------- #}
