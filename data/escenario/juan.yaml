@@ -1,0 +1,260 @@
+# Escenario de la demo: cuatro semanas en la casa de Juan (docs/PULIDO.md §2).
+# Personas ficticias. Los relatos los escribió el equipo, parafraseados de foros (nunca copiados), y se cargan
+# con scripts/precorrer_semana.py por el pipeline real con el reloj de demo (source="precorrer"). Nada de lo que
+# sale de acá (eventos, avisos, preguntas, episodios, informe) se escribe a mano.
+#
+# Semanas (PULIDO §2):
+#   20/09–03/10  base: constipación, "dormir duermo pero me levanto a orinar", rigidez matinal. Juan minimiza ("es la edad").
+#   22/09        suben el pramipexol (dato del esquema, lo carga data/seed.py).
+#   04/10–10/10  sueños muy vívidos, habla y patea dormido; mareo al pararse. Marta lo nota de noche; Juan dice "el calor".
+#   11/10–16/10  tardes con menos pasos después de la toma de las 16 (13, 15 y 16: inyectados por el seed); el jueves
+#                Juan lo explica; Marta cuenta que "hablaba con alguien que no estaba"; Laura nota que habla más lento;
+#                el viernes casi se cae en el baño. Las tres voces, con la discrepancia a la vista.
+#
+# Cuidado al editar (presupuesto: 1 pregunta por día para Juan, CLAUDE.md §6.5):
+#   - El 13 y el 16 Juan no tiene que explicar la tarde antes de las 18:05 (así se le pregunta por la caída);
+#     el 15 sí, antes de las 18 ("me sentí trabado").
+#   - El 13 y el 16 a la mañana no puede quedar un síntoma no reservado contado 2 veces en 7 días solo por la
+#     familia (P-REPITE le preguntaría a Juan y se comería el cupo del día).
+#   - Nada el sábado 17 antes de la caída en vivo.
+#
+# Campos: cuando (hora de Montevideo) · quien (juan | marta | laura) · modalidad (cómo lo contó en la historia;
+# el script lo carga como texto) · cuando_paso (occurred_hint del contrato: ahora | esta_manana | esta_tarde |
+# anoche | ayer) · reservado (el interruptor "Solo para el equipo médico") · texto.
+
+paciente: 1
+personas: { juan: 1, marta: 2, laura: 3 }
+fin: "2026-10-16 23:00"          # el reloj queda acá al terminar
+ticks:
+  semana_demo: { desde: "2026-10-11", hasta: "2026-10-16", horas: [8, 22] }   # cada hora a los :05
+  resto: [9, 14, 21]                                                          # antes: tres ticks por día
+
+relatos:
+  # ---------------------------------------------------------------- semanas 1 y 2: la base
+  - cuando: "2026-09-20 10:30"
+    quien: juan
+    modalidad: audio
+    texto: >
+      Bueno, a ver... dormir duermo, eh. Pero me despierto dos o tres veces para ir al baño a orinar.
+      Es la edad, viste, a todos los de mi edad les pasa.
+
+  - cuando: "2026-09-21 09:15"
+    quien: marta
+    modalidad: texto
+    cuando_paso: esta_manana
+    texto: >
+      Hoy se levantó duro, le costó abrocharse los botones de la camisa y lo tuve que ayudar.
+      Después de la pastilla de las ocho ya andaba mejor.
+
+  - cuando: "2026-09-23 13:20"
+    quien: juan
+    modalidad: audio
+    texto: >
+      Estoy medio trancado del estómago, hace como cuatro días que no voy bien al baño.
+      Igual eso me pasa siempre, es por lo que como.
+
+  - cuando: "2026-09-24 20:40"
+    quien: laura
+    modalidad: texto
+    texto: >
+      Hablé con papá a la noche. Me contó que la doctora le cambió una de las pastillas el martes.
+      Lo noté bien, con ganas de charlar.
+
+  - cuando: "2026-09-26 08:50"
+    quien: juan
+    modalidad: audio
+    cuando_paso: esta_manana
+    texto: >
+      Hoy a la mañana me costó arrancar, tenía las piernas como de madera. A la media hora ya caminaba normal. No es nada.
+
+  - cuando: "2026-09-27 11:30"
+    quien: marta
+    modalidad: audio
+    cuando_paso: ayer
+    texto: >
+      Ayer fuimos a lo de la nena y caminó bien, sin problema, hasta subió la escalera solo.
+      Lo único, que de noche se levanta mucho al baño.
+
+  - cuando: "2026-09-29 18:30"
+    quien: juan
+    modalidad: audio
+    cuando_paso: esta_tarde
+    texto: >
+      Fui hasta la plaza y volví caminando con los nietos. Me cansé un poco a la vuelta, pero bien.
+
+  - cuando: "2026-10-01 09:00"
+    quien: marta
+    modalidad: texto
+    cuando_paso: anoche
+    texto: >
+      No, dormir durmió, pero se levantó tres veces a orinar. Una de esas se quedó un rato sentado en la
+      cama porque le costaba pararse.
+
+  - cuando: "2026-10-02 21:15"
+    quien: juan
+    modalidad: audio
+    texto: >
+      Del estómago sigo igual, eh, no mejoré nada. Y la mano derecha me tiembla más cuando estoy nervioso,
+      eso sí. Hoy con el partido, imaginate.
+
+  - cuando: "2026-10-03 12:00"
+    quien: laura
+    modalidad: texto
+    texto: >
+      Mamá me dice que papá anda bien, que lo que le preocupa es que no va al baño. Le dije que tome más agua.
+
+  # ---------------------------------------------------------------- semana 3: de noche pasa algo
+  - cuando: "2026-10-04 08:30"
+    quien: marta
+    modalidad: audio
+    cuando_paso: anoche
+    texto: >
+      Anoche hablaba dormido, fuerte, como discutiendo con alguien, y en un momento tiró una patada que casi me agarra.
+      Lo desperté y no se acordaba de nada. Nunca le había pasado así.
+
+  - cuando: "2026-10-05 10:40"
+    quien: juan
+    modalidad: audio
+    cuando_paso: anoche
+    texto: >
+      Dormí raro. Soñé que estaba en el taller y me peleaba con un cliente, pero clarito, como si fuera de verdad.
+      Debe ser el calor que hace en la pieza.
+
+  - cuando: "2026-10-06 19:10"
+    quien: juan
+    modalidad: audio
+    cuando_paso: esta_tarde
+    texto: >
+      Me paré rápido del sillón y se me nubló todo, me tuve que agarrar de la mesa. Un segundito nomás, eh.
+      Con este calor me pasa.
+
+  - cuando: "2026-10-07 08:15"
+    quien: marta
+    modalidad: audio
+    cuando_paso: anoche
+    texto: >
+      Otra vez a la madrugada se movía como si estuviera corriendo y gritaba. Le toqué el hombro y se despertó
+      todo transpirado. Yo ya duermo con miedo de que se caiga de la cama.
+
+  - cuando: "2026-10-08 22:00"
+    quien: laura
+    modalidad: texto
+    texto: >
+      Por teléfono papá me contó que anda soñando mucho, dice que son como películas. No le dio importancia,
+      se reía.
+
+  - cuando: "2026-10-09 11:00"
+    quien: marta
+    modalidad: texto
+    cuando_paso: esta_manana
+    texto: >
+      Esta mañana cuando se levantó de la cama se mareó y se tuvo que volver a sentar. Él dice que es el calor,
+      pero si hace frío.
+
+  - cuando: "2026-10-10 17:30"
+    quien: juan
+    modalidad: texto
+    cuando_paso: esta_tarde
+    texto: >
+      Hoy anduve bien, salí a caminar un rato largo. Mareos no, hoy no tuve ninguno.
+
+  # ---------------------------------------------------------------- semana 4: la semana de la demo
+  - cuando: "2026-10-11 10:00"
+    quien: juan
+    modalidad: audio
+    cuando_paso: anoche
+    texto: >
+      Dormí bastante bien. Me desperté dos veces para ir al baño, nada más.
+
+  - cuando: "2026-10-12 08:40"
+    quien: marta
+    modalidad: audio
+    cuando_paso: anoche
+    texto: >
+      Anoche de nuevo hablaba dormido y pataleaba. Ya puse unas almohadas de mi lado, por las dudas.
+
+  - cuando: "2026-10-12 11:15"
+    quien: juan
+    modalidad: audio
+    texto: >
+      Hoy me levanté bien. Fui caminando hasta la plaza a ver a los nietos, y de vuelta me tomé un café en el bar.
+
+  - cuando: "2026-10-13 09:30"
+    quien: juan
+    modalidad: audio
+    cuando_paso: esta_manana
+    texto: >
+      A la mañana me tembló un poco la mano con el mate, nada más. Después se me pasó.
+
+  - cuando: "2026-10-13 21:00"
+    quien: marta
+    modalidad: texto
+    cuando_paso: esta_tarde
+    texto: >
+      Hoy a la tarde lo vi muy quieto en el sillón, no quiso salir a caminar. Le pregunté y me dijo que no tenía ganas.
+
+  - cuando: "2026-10-14 08:20"
+    quien: marta
+    modalidad: audio
+    cuando_paso: anoche
+    texto: >
+      No durmió casi nada. Se levantó cuatro veces al baño y la última ya no se volvió a dormir.
+
+  - cuando: "2026-10-14 10:05"
+    quien: juan
+    modalidad: audio
+    texto: >
+      Duermo bastante bien, me levanto un par de veces al baño nomás. A veces sueño cosas raras, pero nada,
+      no pasa nada.
+
+  - cuando: "2026-10-14 21:40"
+    quien: marta
+    modalidad: audio
+    cuando_paso: anoche
+    reservado: true
+    texto: >
+      Anoche hablaba con alguien que no estaba. Le contestaba y todo, como si hubiera una persona al lado de la cama.
+      Yo creo que es el cansancio, pero me asusté.
+
+  - cuando: "2026-10-15 12:30"
+    quien: laura
+    modalidad: texto
+    texto: >
+      Hablé con papá al mediodía y lo noté que hablaba más lento, como arrastrando las palabras. Mamá dice que debe
+      ser que durmió mal.
+
+  - cuando: "2026-10-15 17:40"
+    quien: juan
+    modalidad: audio
+    cuando_paso: esta_tarde
+    texto: >
+      Después de la pastilla de las cuatro me sentí trabado, me trabé todo, me costó un montón salir a caminar.
+      Así que me quedé en casa.
+
+  - cuando: "2026-10-16 08:10"
+    quien: marta
+    modalidad: texto
+    texto: >
+      Hoy amaneció de buen humor y desayunó con ganas. Leyó el diario en el patio.
+
+  - cuando: "2026-10-16 21:30"
+    quien: juan
+    modalidad: audio
+    cuando_paso: ahora
+    texto: >
+      Recién casi me caigo en el baño, me resbalé y me agarré del lavatorio. No me golpeé, eh, no pasó nada.
+      Y ando medio estreñido estos días, también.
+
+  - cuando: "2026-10-16 22:10"
+    quien: marta
+    modalidad: audio
+    cuando_paso: ahora
+    reservado: true
+    texto: >
+      Otra vez decía que había gente en el patio. Miré y no había nadie. Lo tranquilicé y se durmió.
+
+  - cuando: "2026-10-16 22:30"
+    quien: laura
+    modalidad: texto
+    texto: >
+      Papá me mandó un audio, estaba bien de ánimo. Me contó lo del baño, dice que no fue nada.
