@@ -1,6 +1,9 @@
 # pipeline.report(patient_id, period) -> Report (CLAUDE.md §5.5 y §11). El código calcula los facts
 # (report_facts.build), Sonnet redacta el resumen y los tres temas, el código fuerza `reserved` y descarta ids que no
 # existen, y el verificador (rules.verifier de Franco) borra cifras y citas que no coinciden. Se guarda en `reports`.
+# La neuróloga nunca ve el informe vacío: si después de los intentos la salida solo falla reglas blandas, se guarda
+# limpia por verify_local (cuenta lo borrado); si falla una regla dura o la IA no responde, se guarda un informe
+# mínimo armado por código, sin texto redactado.
 # Regeneración en segundo plano: como mucho una vez cada 30 s por paciente, y gana la última.
 import asyncio
 import json
@@ -27,7 +30,12 @@ log = logging.getLogger("entrecasa.report")
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "report.md"
 SUMMARY_WORDS = (30, 160)
 NARRATIVE_WORDS = 120
+TOPICS = (2, 3)
+ATTEMPTS = 3                     # el informe tiene un intento más que el resto de los usos de llm.call_tool
 REGEN_SECONDS = 30
+MINIMAL_SUMMARY = ("El resumen redactado no está disponible: esta vez la IA no pudo redactarlo cumpliendo las "
+                   "comprobaciones del código. Las cifras de esta página (pasos, medicación, cobertura, lo que no "
+                   "sabemos y alertas) las calcula el código y están al día.")
 VOICES = ("paciente", "cuidador", "familiar")
 
 _nullable_str = {"anyOf": [{"type": "string"}, {"type": "null"}]}
@@ -173,66 +181,109 @@ def _title_part(title: str) -> str | None:
     return "noche" if w.startswith("noch") or w.startswith("noctur") else w.rstrip("s")
 
 
+class HardCheckError(ValueError):
+    """Regla dura: ids que no existen, eventos reservados mezclados con no reservados o el resumen cuenta lo
+    reservado. Esa salida nunca se guarda."""
+
+
+class SoftCheckError(ValueError):
+    """Regla blanda: largo, número de temas, cifras, aproximaciones, franjas, citas y voces. Si se agotan los
+    intentos, la salida se guarda igual y verify_local borra (y cuenta) lo que no cierra."""
+
+
+def _text_problem(text: str, numbers: set[str], evidence_text: str) -> str | None:
+    """Por qué un texto no cumple las reglas de cifras, aproximaciones, explicado y franjas (None si cumple)."""
+    folded = _fold(text)
+    for n in _NUMBER.findall(text):
+        if n not in numbers:
+            return f"el número {n!r} no está en facts"
+    if _APPROX.search(folded):
+        return "aproxima una cifra"
+    if _EXPLAINED.search(folded):
+        return "habla de explicado/sin explicar (decí 'con relato' o 'sin relato')"
+    for word, pattern in _PARTS.items():
+        if pattern.search(folded) and word not in evidence_text:
+            return f"pone una franja ({word}) que no está en los eventos"
+    return None
+
+
+def _evidence_text(evs) -> str:
+    return " ".join(_fold(e["quote"] + " " + (e.get("time") or "")) for e in evs)
+
+
+def _quote_problem(sentence: str, events, labels: dict) -> str | None:
+    """Cada cita: literal de un evento y con el nombre de quien la dijo en la misma frase."""
+    for m in _QUOTED.finditer(sentence):
+        quote = next(g for g in m.groups() if g)
+        owners = [e for e in events if quote in e["quote"]]
+        if not owners:
+            return f"la cita «{quote}» no es literal de ningún evento"
+        names = {labels.get(e["speaker"], e["speaker"]).split(",")[0] for e in owners}
+        if not any(name in sentence for name in names):
+            return f"la cita «{quote}» no dice quién la contó ({', '.join(names)})"
+    return None
+
+
+def _wrong_part_ids(t, events: dict) -> list[int]:
+    """Ids de la evidencia de otra franja que la que nombra el título."""
+    part = _title_part(t.title)
+    if not part:
+        return []
+    return [i for i in t.evidence_ids if i in events and events[i].get("part")
+            and events[i]["part"] not in _TITLE_PARTS[part]]
+
+
 def check(out: _Output, facts: dict) -> None:
-    """Forma y fidelidad que exige el código. ValueError → reintento."""
-    words = len(out.summary.split())
-    if not SUMMARY_WORDS[0] <= words <= SUMMARY_WORDS[1]:
-        raise ValueError(f"el resumen tiene {words} palabras")
-    if len(out.topics) != 3:
-        raise ValueError(f"tienen que ser tres temas, vinieron {len(out.topics)}")
+    """Forma y fidelidad que exige el código. HardCheckError o SoftCheckError (los dos son ValueError) → reintento.
+    Primero las duras: si una falla, el error es duro aunque también fallen blandas."""
     events = {e["id"]: e for e in facts.get("events", [])}
     labels = facts.get("voices", {})
-    numbers = allowed_numbers(facts)
-    all_text = " ".join(_fold(q["quote"] + " " + (q.get("time") or "")) for q in events.values())
 
-    def check_text(text: str, where: str, evidence_text: str) -> None:
-        folded = _fold(text)
-        for n in _NUMBER.findall(text):
-            if n not in numbers:
-                raise ValueError(f"{where}: el número {n!r} no está en facts")
-        if _APPROX.search(folded):
-            raise ValueError(f"{where}: aproxima una cifra")
-        if _EXPLAINED.search(folded):
-            raise ValueError(f"{where}: habla de explicado/sin explicar (decí 'con relato' o 'sin relato')")
-        for word, pattern in _PARTS.items():
-            if pattern.search(folded) and word not in evidence_text:
-                raise ValueError(f"{where}: pone una franja ({word}) que no está en los eventos")
-
-    check_text(out.summary, "resumen", all_text)
-    check_private_summary(out, events)
+    # ── Duras ──
     for t in out.topics:
         unknown = set(t.evidence_ids) - events.keys()
         if unknown:
-            raise ValueError(f"«{t.title}» cita ids que no existen: {sorted(unknown)}")
-        part = _title_part(t.title)
-        if part:
-            other = [i for i in t.evidence_ids if events[i].get("part") and events[i]["part"] not in _TITLE_PARTS[part]]
-            if other:
-                raise ValueError(f"«{t.title}» nombra la {part} pero incluye eventos de otra franja: {other}")
+            raise HardCheckError(f"«{t.title}» cita ids que no existen: {sorted(unknown)}")
         kinds = {bool(events[i].get("reserved")) for i in t.evidence_ids}
         if kinds == {True, False}:
-            raise ValueError(f"«{t.title}» mezcla eventos reservados y no reservados: un tema reservado junta solo "
-                             "eventos reservados")
+            raise HardCheckError(f"«{t.title}» mezcla eventos reservados y no reservados: un tema reservado junta "
+                                 "solo eventos reservados")
+    try:
+        check_private_summary(out, events)
+    except ValueError as exc:
+        raise HardCheckError(str(exc)) from exc
+
+    # ── Blandas ──
+    words = len(out.summary.split())
+    if not SUMMARY_WORDS[0] <= words <= SUMMARY_WORDS[1]:
+        raise SoftCheckError(f"el resumen tiene {words} palabras")
+    if not TOPICS[0] <= len(out.topics) <= TOPICS[1]:
+        raise SoftCheckError(f"tienen que ser dos o tres temas, vinieron {len(out.topics)}")
+    numbers = allowed_numbers(facts)
+    problem = _text_problem(out.summary, numbers, _evidence_text(events.values()))
+    if problem:
+        raise SoftCheckError(f"resumen: {problem}")
+    for t in out.topics:
+        other = _wrong_part_ids(t, events)
+        if other:
+            raise SoftCheckError(f"«{t.title}» nombra la {_title_part(t.title)} pero incluye eventos de otra "
+                                 f"franja: {other}")
         if len(t.narrative.split()) > NARRATIVE_WORDS:
-            raise ValueError(f"el párrafo de «{t.title}» es demasiado largo")
-        evidence_text = " ".join(_fold(events[i]["quote"] + " " + (events[i].get("time") or "")) for i in t.evidence_ids)
+            raise SoftCheckError(f"el párrafo de «{t.title}» es demasiado largo")
+        evidence_text = _evidence_text(events[i] for i in t.evidence_ids)
         for text in _texts(t):
-            check_text(text, f"«{t.title}»", evidence_text)
-        # Cada cita del párrafo: literal de un evento y con el nombre de quien la dijo en la misma frase.
+            problem = _text_problem(text, numbers, evidence_text)
+            if problem:
+                raise SoftCheckError(f"«{t.title}»: {problem}")
         for sentence in re.split(r"(?<=[.;])\s+", t.narrative):
-            for m in _QUOTED.finditer(sentence):
-                quote = next(g for g in m.groups() if g)
-                owners = [e for e in events.values() if quote in e["quote"]]
-                if not owners:
-                    raise ValueError(f"«{t.title}»: la cita «{quote}» no es literal de ningún evento")
-                names = {labels.get(e["speaker"], e["speaker"]).split(",")[0] for e in owners}
-                if not any(name in sentence for name in names):
-                    raise ValueError(f"«{t.title}»: la cita «{quote}» no dice quién la contó ({', '.join(names)})")
+            problem = _quote_problem(sentence, events.values(), labels)
+            if problem:
+                raise SoftCheckError(f"«{t.title}»: {problem}")
         for role, quote in t.voices.items():
             quote = _unquote(quote)
             if quote and not any(quote in e["quote"] for e in events.values() if e["speaker"] == role):
-                raise ValueError(f"«{t.title}»: la voz de {role} («{quote}») no es una cita literal de un evento "
-                                 f"de esa voz; copiá exacta una `quote` de un evento con speaker={role}")
+                raise SoftCheckError(f"«{t.title}»: la voz de {role} («{quote}») no es una cita literal de un "
+                                     f"evento de esa voz; copiá exacta una `quote` de un evento con speaker={role}")
 
 
 def to_report(out: _Output, facts: dict) -> Report:
@@ -250,9 +301,17 @@ def to_report(out: _Output, facts: dict) -> Report:
 
 
 async def generate(facts: dict) -> Report:
-    """Facts → Report verificado. Lanza llm.LLMError si la IA no pudo redactarlo."""
-    out = await llm.call_tool(prompt(), TOOL, user_message(facts), _Output, check=lambda o: check(o, facts),
-                              max_tokens=8000, effort="medium")
+    """Facts → Report verificado. Si después de ATTEMPTS intentos la salida solo falla reglas blandas, usa la última
+    así y la limpia verify_local. Lanza llm.LLMError si la IA no respondió o ninguna salida pasó las reglas duras."""
+    try:
+        out = await llm.call_tool(prompt(), TOOL, user_message(facts), _Output, check=lambda o: check(o, facts),
+                                  max_tokens=8000, effort="medium", attempts=ATTEMPTS)
+    except llm.LLMError as exc:
+        soft = [o for o, err in exc.rejected if isinstance(err, SoftCheckError)]
+        if not soft:
+            raise
+        out = soft[-1]
+        log.warning("informe con reglas blandas sin cumplir: se guarda limpio por el verificador")
     draft = to_report(out, facts)
     if verify is not None:                       # primero rules.verifier de Franco, después el local
         draft = verify(draft, facts, facts.get("events", []))
@@ -262,48 +321,53 @@ async def generate(facts: dict) -> Report:
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 
 
-def _bad_sentence(sentence: str, numbers: set[str], events: list[dict], labels: dict) -> bool:
+def _bad_sentence(sentence: str, numbers: set[str], events: list[dict], labels: dict,
+                  evidence_text: str | None = None) -> bool:
     """Una oración se borra si tiene un número que no está literal en facts, o una cita que no está literal en
-    los eventos dados, o una cita sin el nombre de quien la dijo."""
+    los eventos dados, o una cita sin el nombre de quien la dijo. Con `evidence_text`, también si aproxima una
+    cifra, habla de explicado/sin explicar o pone una franja que no está en esa evidencia."""
     if any(n not in numbers for n in _NUMBER.findall(sentence)):
         return True
-    for m in _QUOTED.finditer(sentence):
-        quote = next(g for g in m.groups() if g)
-        owners = [e for e in events if quote in e["quote"]]
-        if not owners:
-            return True
-        names = {labels.get(e["speaker"], e["speaker"]).split(",")[0] for e in owners}
-        if not any(name in sentence for name in names):
-            return True
-    return False
+    if evidence_text is not None and _text_problem(sentence, numbers, evidence_text):
+        return True
+    return _quote_problem(sentence, events, labels) is not None
 
 
 def verify_local(rep: Report, facts: dict) -> Report:
     """Verificación final en código sobre el texto que se va a guardar (la que hace verdad la frase "Cada cifra se
     verificó… N frases eliminadas" del informe). En el resumen y en cada párrafo borra las oraciones con un número
     que no está literal en facts, una cita que no está literal en un evento de la evidencia (en el resumen, de
-    cualquier evento) o un hablante que no coincide; saca las voces que no son una cita literal de esa voz.
-    Suma lo borrado a removed_count. Se encadena después de rules.verifier de Franco cuando exista."""
+    cualquier evento), un hablante que no coincide, una aproximación, "explicado" o una franja que no está en la
+    evidencia; saca las voces que no son una cita literal de esa voz, lo observado y la pregunta que no cumplen, la
+    evidencia de otra franja que la del título y el tema entero si el título no cumple. Suma lo borrado a
+    removed_count. Se encadena después de rules.verifier de Franco cuando exista."""
     numbers = allowed_numbers(facts)
     events = {e["id"]: e for e in facts.get("events", [])}
     labels = facts.get("voices", {})
     by_label = {v: k for k, v in labels.items()}
     removed = 0
 
-    def clean(text: str, evs: list[dict]) -> str:
+    def clean(text: str, evs: list[dict], evidence_text: str) -> str:
         nonlocal removed
         kept = []
         for sentence in _SENTENCE.split(text.strip()):
-            if sentence and _bad_sentence(sentence, numbers, evs, labels):
+            if sentence and _bad_sentence(sentence, numbers, evs, labels, evidence_text):
                 removed += 1
             elif sentence:
                 kept.append(sentence)
         return " ".join(kept)
 
-    summary = clean(rep.summary, list(events.values()))
+    private_before = [n for n, t in enumerate(rep.topics, 1) if t.reserved]
     topics = []
     for t in rep.topics:
-        evs = [events[i] for i in t.evidence_ids if i in events]
+        wrong = set(_wrong_part_ids(t, events))
+        ids = [i for i in t.evidence_ids if i in events and i not in wrong]
+        removed += len(t.evidence_ids) - len(ids)
+        evs = [events[i] for i in ids]
+        evidence_text = _evidence_text(evs)
+        if _text_problem(t.title, numbers, evidence_text):
+            removed += 1                      # sin título que cierre no hay tema
+            continue
         voices = {}
         for who, quote in t.voices.items():
             role = by_label.get(who, who)
@@ -311,24 +375,72 @@ def verify_local(rep: Report, facts: dict) -> Report:
                 voices[who] = quote
             else:
                 removed += 1
-        topics.append(t.model_copy(update={"narrative": clean(t.narrative, evs), "voices": voices}))
+        observed = [o for o in t.observed if not _text_problem(o, numbers, evidence_text)]
+        removed += len(t.observed) - len(observed)
+        question = t.question
+        if question and _text_problem(question, numbers, evidence_text):
+            question, removed = "", removed + 1
+        topics.append(t.model_copy(update={"narrative": clean(t.narrative, evs, evidence_text), "voices": voices,
+                                           "observed": observed, "question": question, "evidence_ids": ids}))
+
+    summary = rep.summary
+    private_after = [n for n, t in enumerate(topics, 1) if t.reserved]
+    if private_before and private_before != private_after:     # se cayó un tema: la frase privada se renumera
+        new = private_sentence(private_after) if private_after else ""
+        summary = summary.replace(private_sentence(private_before), new)
+    summary = clean(summary, list(events.values()), _evidence_text(events.values()))
     return rep.model_copy(update={"summary": summary, "topics": topics,
                                   "removed_count": rep.removed_count + removed})
 
 
+def minimal_report() -> Report:
+    """El informe sin IA: ningún texto redactado; la página muestra las cifras que calcula el código."""
+    return Report(summary=MINIMAL_SUMMARY, topics=[], removed_count=0)
+
+
+def is_minimal(rep: Report) -> bool:
+    return rep.summary == MINIMAL_SUMMARY and not rep.topics
+
+
 def _store(patient_id: int, period: str, rep: Report) -> int:
+    """`content` lleva además `redaccion`: "ia" o "codigo" (el informe mínimo), para que la web lo rotule."""
+    content = {**json.loads(rep.model_dump_json()), "redaccion": "codigo" if is_minimal(rep) else "ia"}
     with db.connect() as conn:
         cur = conn.execute(
             "INSERT INTO reports (patient_id, period, content, removed_by_verifier, created_at) VALUES (?, ?, ?, ?, ?)",
-            (patient_id, period, rep.model_dump_json(), rep.removed_count, db.to_db(clock.now())))
+            (patient_id, period, json.dumps(content, ensure_ascii=False), rep.removed_count, db.to_db(clock.now())))
         return cur.lastrowid
 
 
+def _latest_written(patient_id: int) -> Report | None:
+    """El último informe redactado por IA del paciente (no el mínimo), si hay."""
+    with db.connect() as conn:
+        rows = conn.execute("SELECT content FROM reports WHERE patient_id = ? ORDER BY id DESC",
+                            (patient_id,)).fetchall()
+    for row in rows:
+        content = json.loads(row["content"])
+        if content.get("redaccion") != "codigo":
+            return Report.model_validate(content)
+    return None
+
+
 async def report(patient_id: int, period: str | None = None) -> Report:
-    """Calcula los facts del período (por defecto, las 4 semanas hasta hoy), redacta, verifica y guarda."""
+    """Calcula los facts del período (por defecto, las 4 semanas hasta hoy), redacta, verifica y guarda. Si la IA
+    no pudo (no respondió o falló una regla dura), conserva el último informe redactado; si no hay ninguno, guarda
+    el informe mínimo: nunca queda sin informe."""
     now = await asyncio.to_thread(clock.now)
     facts = await asyncio.to_thread(report_facts.build, patient_id, now, period)
-    rep = await generate(facts)
+    try:
+        rep = await generate(facts)
+    except Exception as exc:              # solo el tipo: el mensaje puede traer citas con datos de salud
+        previous = await asyncio.to_thread(_latest_written, patient_id)
+        if previous is not None:
+            log.error("informe sin redacción de la IA para el paciente %s (%s): queda el anterior", patient_id,
+                      type(exc).__name__)
+            return previous
+        log.error("informe sin redacción de la IA para el paciente %s (%s): se guarda el mínimo", patient_id,
+                  type(exc).__name__)
+        rep = minimal_report()
     await asyncio.to_thread(_store, patient_id, facts["period"]["label"], rep)
     return rep
 

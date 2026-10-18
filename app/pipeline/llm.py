@@ -19,7 +19,11 @@ _client: anthropic.AsyncAnthropic | None = None
 
 
 class LLMError(Exception):
-    """La llamada falló o la salida no validó después del reintento."""
+    """La llamada falló o la salida no validó después del reintento. `rejected`: las salidas que validaron el schema
+    pero que `check` rechazó, en orden, con su error (el que llama puede decidir usar alguna)."""
+    def __init__(self, message: str, rejected: list[tuple[BaseModel, Exception]] | None = None):
+        super().__init__(message)
+        self.rejected = rejected or []
 
 
 async def _create(**kwargs):
@@ -35,13 +39,15 @@ async def _create(**kwargs):
 
 
 async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseModel], *,
-                    check=None, max_tokens: int = 4096, effort: str = "low") -> BaseModel:
+                    check=None, max_tokens: int = 4096, effort: str = "low",
+                    attempts: int = MAX_ATTEMPTS) -> BaseModel:
     """Pide a Sonnet que responda con `tool` y devuelve la salida validada con `output`.
     `check(parsed)` puede lanzar ValueError para rechazar una salida válida pero que no cumple una regla del código."""
     system = knowledge.system_blocks(prompt)
     last: Exception | None = None
+    rejected: list[tuple[BaseModel, Exception]] = []
     message = content
-    for attempt in range(1, MAX_ATTEMPTS + 1):
+    for attempt in range(1, attempts + 1):
         if last is not None:   # el reintento sabe por qué se rechazó la respuesta anterior
             message = (f"{content}\n<correccion>Tu respuesta anterior fue rechazada por el código: {last}. "
                        f"Respondé de nuevo con la herramienta {tool['name']}, corrigiendo eso.</correccion>")
@@ -58,10 +64,11 @@ async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseMode
                 messages=[{"role": "user", "content": message}],
             )
         except anthropic.AnthropicError as exc:   # el SDK ya reintentó 429/5xx/conexión
-            raise LLMError(f"Falló la llamada a Claude: {exc}") from exc
+            raise LLMError(f"Falló la llamada a Claude: {exc}", rejected) from exc
         if response.stop_reason == "refusal":
-            raise LLMError("El modelo (y el de respaldo) se negaron")
+            raise LLMError("El modelo (y el de respaldo) se negaron", rejected)
         block = next((b for b in response.content if b.type == "tool_use" and b.name == tool["name"]), None)
+        parsed = None
         try:
             if block is None:
                 raise ValueError(f"Sin llamada a {tool['name']} (stop_reason={response.stop_reason})")
@@ -71,8 +78,10 @@ async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseMode
             return parsed
         except (ValidationError, ValueError) as exc:
             last = exc
-            log.warning("%s inválido (intento %s/%s, %s)", tool["name"], attempt, MAX_ATTEMPTS, type(exc).__name__)
-    raise LLMError(f"{tool['name']} no validó después de {MAX_ATTEMPTS} intentos: {last}")
+            if parsed is not None:
+                rejected.append((parsed, exc))
+            log.warning("%s inválido (intento %s/%s, %s)", tool["name"], attempt, attempts, type(exc).__name__)
+    raise LLMError(f"{tool['name']} no validó después de {attempts} intentos: {last}", rejected)
 
 
 _WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]

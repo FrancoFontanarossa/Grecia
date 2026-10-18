@@ -1,7 +1,11 @@
 {% set m = r.meta %}
 {% set rep = r.report %}
 {# Informe v2 (rescatado de #27, sobrio). Cobertura, desde_el_cambio, lo_que_no_sabemos, chart_headline,
-   habitual_band y verification_note los calcula el código (app/api/report.py); si no vienen, el bloque se oculta. #}
+   habitual_band y verification_note los calcula el código (app/api/report.py). Cobertura, desde el cambio y lo que no
+   sabemos se muestran en cualquier estado del informe (listo, sin_redaccion, pendiente, ejemplo). Con sin_redaccion
+   (informe mínimo, sin IA) no se dice "Redactado con IA" ni "Sin datos en el período". #}
+{% set sin_ia = r.report_status in ("sin_redaccion", "pendiente") %}
+{% if r.report_status == "pendiente" %}{% set verif = "Las cifras de esta página las calcula el código; el texto redactado todavía no está." %}{% endif %}
 {% set verif = r.verification_note or m.verification_note
    or ("Cada cifra se verificó contra los datos: " ~ rep.removed_count ~ " " ~ ("frase eliminada" if rep.removed_count == 1 else "frases eliminadas") ~ " por no coincidir. No es un diagnóstico.") %}
 {% if r.report_simulated %}
@@ -13,7 +17,7 @@
   <div>
     <h1>{{ m.patient.name }} · Informe para la consulta</h1>
     <div class="inf-enc__sub">Período <b class="num">{{ m.period.start | ddmm }} al {{ m.period.end | ddmm }}</b> · consulta del {{ m.visit.date | dia_largo }} {{ m.visit.date | ddmm }} con la {{ m.visit.doctor }}
-      {% if r.cobertura and r.cobertura.texto %}<br>Cobertura: <span class="num">{{ r.cobertura.texto }}</span>{% endif %}</div>
+      <br>Cobertura: <span class="num">{{ r.cobertura.texto if r.cobertura and r.cobertura.texto else "todavía no hay datos para calcularla" }}</span></div>
   </div>
   <dl class="inf-kv num">
     {% for med in m.medications %}
@@ -29,6 +33,8 @@
     <h2 class="inf-h2">En un minuto</h2>
     {% if r.report_status == "pendiente" %}
     <p class="inf-minuto" role="status">Estamos preparando el informe con los datos del período. Se actualiza solo en unos segundos.</p>
+    {% elif sin_ia %}
+    <p class="inf-minuto" role="status">{{ rep.summary or "El resumen redactado no está disponible. Las cifras de esta página las calcula el código y están al día." }}</p>
     {% else %}
     <p class="inf-minuto">{{ rep.summary or "Sin datos en el período." }}</p>
     {% endif %}
@@ -72,7 +78,7 @@
         {% endif %}
       </article>
       {% else %}
-      <p class="inf-par">{{ "Los temas aparecen cuando el informe esté listo." if r.report_status == "pendiente" else "Sin datos en el período." }}</p>
+      <p class="inf-par">{% if r.report_status == "pendiente" %}Los temas aparecen cuando el informe esté listo.{% elif sin_ia %}Los temas redactados no están disponibles en este informe. Los datos de pasos, medicación, cobertura, lo que no sabemos y alertas de esta página sí están al día.{% else %}Sin datos en el período.{% endif %}</p>
       {% endfor %}
     </div>
   </div>
@@ -129,15 +135,24 @@
       </table>
       <div class="inf-s">Antes: {{ dc.antes.dias }} días; después: {{ dc.despues.dias }}. Lo calcula el código.</div>
     </section>
+    {% else %}
+    <section>
+      <h4>Desde el cambio de medicación</h4>
+      <p class="inf-s">Todavía no hay datos para compararlo.</p>
+    </section>
     {% endif %}
 
     {% set nos = r.lo_que_no_sabemos %}
-    {% if nos and nos.textos %}
     <section>
       <h4>Lo que no sabemos</h4>
+      {% if nos and nos.textos %}
       <ul class="inf-l">{% for t in nos.textos %}<li>{{ t }}</li>{% endfor %}</ul>
+      {% elif nos %}
+      <p class="inf-s">El código no encontró huecos para señalar en el período.</p>
+      {% else %}
+      <p class="inf-s">Todavía no hay datos para calcularlo.</p>
+      {% endif %}
     </section>
-    {% endif %}
 
     {# Dos líneas: rojos con fecha; síntomas nuevos juntos. La sugerencia a Juan (A3-sugerencia) no va acá. #}
     {% set rojos = m.alerts | selectattr("lane", "equalto", "rojo") | list %}
@@ -157,6 +172,6 @@
 </div>
 
 <div class="inf-pie">
-  <span>Redactado con IA a partir de relatos y datos del teléfono. {{ verif }} No sugiere cambios de medicación.</span>
+  <span>{% if sin_ia %}{{ verif }} No es un diagnóstico ni sugiere cambios de medicación.{% else %}Redactado con IA a partir de relatos y datos del teléfono. {{ verif }} No sugiere cambios de medicación.{% endif %}</span>
   {% if m.generated_at %}<span class="num">Generado el {{ m.generated_at | ddmm }} a las {{ m.generated_at | hora }}</span>{% endif %}
 </div>
