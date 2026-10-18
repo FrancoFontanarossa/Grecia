@@ -76,14 +76,20 @@ def prompt() -> str:
     return knowledge.strip_comment(PROMPT_PATH.read_text(encoding="utf-8"))
 
 
+def _problem(text: str) -> str | None:
+    if re.search(r"\d", text):
+        return f"un motivo tiene cifras (las pone el código): {text!r}"
+    if FORBIDDEN.search(_fold(text)):
+        return f"un motivo diagnostica, habla de medicación o de causa: {text!r}"
+    return None
+
+
 def check(plan: DailyPlan) -> None:
     """Reglas del código sobre lo que escribió el modelo. ValueError → reintento."""
-    texts = [h.reason for h in plan.hypotheses] + [a.reason for a in plan.actions]
-    for text in texts:
-        if re.search(r"\d", text):
-            raise ValueError(f"un motivo tiene cifras (las pone el código): {text!r}")
-        if FORBIDDEN.search(_fold(text)):
-            raise ValueError(f"un motivo diagnostica, habla de medicación o de causa: {text!r}")
+    for text in [h.reason for h in plan.hypotheses] + [a.reason for a in plan.actions]:
+        problem = _problem(text)
+        if problem:
+            raise ValueError(problem)
     # La nota no se valida acá: rules.note borra la frase con cifras ajenas o palabras prohibidas (medicación,
     # diagnóstico, causa) sin perder el resto del plan.
 
@@ -98,5 +104,20 @@ async def daily_plan(digest: dict) -> DailyPlan:
         return await llm.call_tool(prompt(), TOOL, user_message(digest), DailyPlan, check=check,
                                    max_tokens=4096, effort="medium")
     except llm.LLMError as exc:
+        rejected = [o for o, _ in getattr(exc, "rejected", []) if isinstance(o, DailyPlan)]
+        if rejected:
+            log.warning("daily_plan sin validar para el paciente %s: se rescata la última salida sin lo que falla",
+                        digest.get("patient_id"))
+            return salvage(rejected[-1])
         log.error("daily_plan falló para el paciente %s: plan vacío (%s)", digest.get("patient_id"), exc)
         return DailyPlan()
+
+
+def salvage(plan: DailyPlan) -> DailyPlan:
+    """Si se agotaron los intentos: sin las hipótesis ni las acciones que fallan check (y sin las acciones basadas en
+    hipótesis si se cayó alguna, porque cambian los índices). La nota y los aprendizajes siguen: los verifican
+    rules.note y rules.profile."""
+    hyps = [h for h in plan.hypotheses if not _problem(h.reason)]
+    lost = len(hyps) < len(plan.hypotheses)
+    acts = [a for a in plan.actions if not _problem(a.reason) and not (lost and a.basis.startswith("hipotesis:"))]
+    return plan.model_copy(update={"hypotheses": hyps, "actions": acts})

@@ -225,3 +225,15 @@ def test_una_nota_que_nombra_un_medicamento_no_tira_el_plan():
     daily_plan_pipeline.check(plan)
     clean, removed = note_rules.verify_note(plan.note, DIGEST)
     assert removed == 1 and clean.text == "La tarde fue más quieta [episodio:3]."
+
+
+def test_si_se_agotan_los_intentos_se_rescata_la_nota_sin_lo_que_falla():
+    """Corrida real del 16/10: un motivo con "las 16" tiraba el plan entero, nota incluida."""
+    from app.models import Hypothesis
+    bad = Hypothesis(condition="relato_dominio:motor", metric="pasos_franja:16-18", lag_days=0, direction="menos",
+                     reason="la tarde después de la toma de las 16 parece más quieta")
+    plan = DailyPlan(note=DailyNote(text="La tarde fue más quieta [episodio:3]."), hypotheses=[bad],
+                     actions=[PlannedAction(kind="golpeteo", at="16:30", to_role="paciente", reason="Un juego",
+                                            basis="hipotesis:0", evidence_ids=["episodio:3"])])
+    saved = daily_plan_pipeline.salvage(plan)
+    assert saved.note == plan.note and saved.hypotheses == [] and saved.actions == []
