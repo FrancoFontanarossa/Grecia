@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 
 import pytest
 
@@ -152,3 +153,73 @@ def test_export_csv_does_not_touch_db_and_imports_the_same(env, tmp_path):
     assert rows("SELECT sum(value) AS total FROM biometrics") == [{"total": 28 * 900}]
     assert rows("SELECT window_start, window_end FROM biometric_syncs") == [
         {"window_start": "2026-09-20T00:00:00-03:00", "window_end": "2026-10-18T00:00:00-03:00"}]
+
+
+def sleep_record(start, end, value):
+    return (f'<Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Watch" '
+            f'startDate="{start}" endDate="{end}" value="HKCategoryValueSleepAnalysis{value}"/>')
+
+
+def wearable_export(tmp_path):
+    recs = []
+    d = dt.date(2025, 6, 1)
+    while d <= dt.date(2025, 6, 30):
+        n = d + dt.timedelta(days=1)
+        recs += [sleep_record(f"{d} 23:00:00 -0300", f"{n} 02:00:00 -0300", "AsleepCore"),
+                 sleep_record(f"{n} 02:00:00 -0300", f"{n} 02:10:00 -0300", "Awake"),
+                 sleep_record(f"{n} 02:10:00 -0300", f"{n} 06:40:00 -0300", "AsleepDeep"),
+                 sleep_record(f"{d} 22:50:00 -0300", f"{n} 06:45:00 -0300", "InBed"),
+                 record(f"{n} 00:00:00 -0300", f"{n} 23:59:00 -0300", 58,
+                        type_="HKQuantityTypeIdentifierRestingHeartRate"),
+                 record(f"{n} 03:00:00 -0300", f"{n} 03:01:00 -0300", 14,
+                        type_="HKQuantityTypeIdentifierRespiratoryRate"),
+                 record(f"{n} 04:00:00 -0300", f"{n} 04:01:00 -0300", 16,
+                        type_="HKQuantityTypeIdentifierRespiratoryRate"),
+                 record(f"{d} 10:00:00 -0300", f"{d} 10:05:00 -0300", 0.28,
+                        type_="HKQuantityTypeIdentifierWalkingDoubleSupportPercentage"),
+                 record(f"{d} 11:00:00 -0300", f"{d} 11:05:00 -0300", 3.6,
+                        type_="HKQuantityTypeIdentifierWalkingSpeed"),
+                 record(f"{d} 12:00:00 -0300", f"{d} 12:00:00 -0300", 72,
+                        type_="HKQuantityTypeIdentifierHeartRate")]          # FC suelta: no se manda
+        d = n
+    return write_export(tmp_path / "export.xml", recs)
+
+
+def test_export_wearable_builds_ingest_requests(env, tmp_path):
+    out = tmp_path / "pulsera.jsonl"
+    r = ih.export_wearable(wearable_export(tmp_path), str(out), end=END)
+    assert r["found"]["HKCategoryTypeIdentifierSleepAnalysis"] == 30 * 4
+    assert "HKQuantityTypeIdentifierHeartRate" not in r["found"]
+    first, last = r["days"]
+    assert last == END and (END - r["source_days"][1]).days % 7 == 0
+    bodies = [json.loads(line) for line in out.read_text().splitlines()]
+    assert len(bodies) == r["requests"] and all(b["source"] == "importacion" for b in bodies)
+    night = next(b for b in bodies if b["window_start"].startswith("2026-10-1") and
+                 any(s["type"] == "sleep_minutes" for s in b["samples"]))
+    by_type = {s["type"]: s for s in night["samples"]}
+    assert by_type["sleep_minutes"]["value"] == 450 and by_type["sleep_awakenings"]["value"] == 1
+    assert by_type["resp_rate"]["value"] == 15 and by_type["heart_rate_rest"]["unit"] == "count/min"
+    assert rows("SELECT count(*) AS n FROM biometrics") == [{"n": 0}]        # no toca la base
+
+
+def test_exported_requests_are_accepted_by_the_real_ingest(env, tmp_path, monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from app.api import biometrics
+    from scripts import simular_pulsera
+    out = tmp_path / "pulsera.jsonl"
+    ih.export_wearable(wearable_export(tmp_path), str(out), end=END)
+    monkeypatch.setenv("WEARABLE_TOKEN", "t")
+    app = FastAPI()
+    app.include_router(biometrics.router)
+    bodies = [json.loads(line) for line in out.read_text().splitlines()]
+    results = simular_pulsera.send(TestClient(app), "t", bodies)
+    assert sum(x["stored"] for x in results) == sum(len(b["samples"]) for b in bodies)
+    assert {r["source"] for r in rows("SELECT DISTINCT source FROM biometrics")} == {"importacion"}
+    assert rows("SELECT value FROM biometrics WHERE kind = 'double_support' LIMIT 1") == [{"value": 28.0}]
+
+
+def test_export_wearable_cli(env, tmp_path, capsys):
+    out = tmp_path / "p.jsonl"
+    assert ih.main([wearable_export(tmp_path), "--end", "2026-10-17", "--export-wearable", str(out)]) == 0
+    assert "Registros en la exportación" in capsys.readouterr().out and out.exists()
