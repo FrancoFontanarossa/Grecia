@@ -286,17 +286,23 @@ En `app/config.py`: `claude-haiku-5-5` para extracción y respaldo de rojos si p
 ### Pulsera
 **La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados `simulado`.** Cualquier pulsera (o el simulador) manda a `POST /api/biometrics/wearable` con `X-Device-Token` (`WEARABLE_TOKEN`; si no está, `ATAJO_TOKEN`) el cuerpo `WearablePayload`: `{device: {vendor, model, id}, source, window_start, window_end, samples: [{type, value, unit, start, end}]}`. El código valida tipo, unidad y rango (422 con el motivo), normaliza unidades (horas → minutos de sueño, s → ms de HRV, km/h → m/s), no duplica reenvíos, guarda el `source` del dispositivo (`pulsera` por defecto, `simulado` el simulador, `importacion` lo que viene de Salud) y registra la ventana en `biometric_syncs` con `scope=pulsera`, que **no** cuenta como sync de pasos (§7.3). Los pasos no entran por acá (Atajo o importación). Las fechas se guardan como las manda el dispositivo (sin corrimiento de `DEMO_MODE`).
 
-- **Simulador:** `scripts/simular_pulsera.py` es un cliente HTTP (no toca la base): genera 28 días (20/09–17/10), determinísticos, `device.vendor=simulador`, y los manda un día por pedido. Coherente con `data/escenario/juan.yaml`: base normal; las noches que terminan del 04/10 al 10/10, más despertares y menos sueño; la del 13 al 14, corta (lo que cuenta Marta el 14); las del 12 al 13, 15 al 16 y 16 al 17, normales (esos días la pregunta es la de la tarde); el 13, 15 y 16/10, más temblor de 16 a 18 h.
-- **Datos reales del iPhone:** `data/import_health.py export.xml --end … --export-wearable pulsera.jsonl` saca sueño, FC en reposo, HRV, respiración y marcha de la exportación de Salud con el mismo corrimiento por semanas, en el mismo formato; se mandan con `scripts/simular_pulsera.py --archivo pulsera.jsonl`.
+- **Simulador:** `scripts/simular_pulsera.py` es un cliente HTTP (no toca la base): genera 28 días (20/09–17/10), determinísticos, `device.vendor=simulador`, y los manda un día por pedido. Coherente con `data/escenario/juan.yaml`: base normal; las noches que terminan del 04/10 al 10/10, más despertares y menos sueño; la del 13 al 14, corta (lo que cuenta Marta el 14); las del 12 al 13, 15 al 16 y 16 al 17, normales (esos días la pregunta es la de la tarde). Manda **solo las centrales**.
+- **Datos reales del iPhone:** `data/import_health.py export.xml --end … --export-wearable pulsera.jsonl` saca sueño, FC en reposo, HRV, respiración y marcha de la exportación de Salud con el mismo corrimiento por semanas, en el mismo formato; se mandan con `scripts/simular_pulsera.py --archivo pulsera.jsonl`. **La ingesta se probó con una exportación real de Apple Watch** (`--export-wearable`: 28 pedidos con sueño, FC en reposo, HRV, respiración y marcha).
 
-| Métrica (`kind`) | Cada cuánto | Qué importa |
-|---|---|---|
-| `sleep_minutes` · `sleep_awakenings` | por noche (23 a 7 h; es del día en que se despierta) | menos sueño · más despertares |
-| `heart_rate_rest` · `hrv_ms` · `spo2_pct` · `resp_rate` | por noche | FC más alta · HRV más baja · SpO2 más baja · respiración más alta |
-| `active_minutes` | por día | menos |
-| `tremor_minutes` · `dyskinesia_minutes` | por hora | más |
+**Centrales** (`config.WEARABLE_CORE`; las manda el simulador) y **opcionales** (`config.WEARABLE_OPTIONAL`; la ingesta las acepta, valida y guarda si llegan, pero el simulador no las manda):
 
-`rules.biometrics.daily_summary` compara cada métrica con la mediana de sus 28 días previos con el mismo método que el desvío (z robusto, MAD mínimo del 10% de la mediana, 1% en SpO2; menos de 10 puntos → sin z) y `anomalies` marca |z| ≥ 2,5 en la dirección que importa, con el "por qué" en cifras.
+| Métrica (`kind`) | Tipo | Cada cuánto | Qué importa |
+|---|---|---|---|
+| `sleep_minutes` · `sleep_awakenings` | central | por noche (23 a 7 h; es del día en que se despierta) | menos sueño · más despertares |
+| `heart_rate_rest` | central | por noche | más alta |
+| `active_minutes` | central | por día | menos |
+| `hrv_ms` · `spo2_pct` · `resp_rate` | opcional | por noche | HRV más baja · SpO2 más baja · respiración más alta |
+| `walking_speed` · `walking_asymmetry` · `double_support` · `steadiness` | opcional | por día | más lenta · más asimetría · más doble apoyo · menos estabilidad |
+| `tremor_minutes` · `dyskinesia_minutes` | opcional | — | no se resumen ni se muestran |
+
+Temblor y discinesia: la ingesta los acepta, pero no se simulan ni se muestran; requieren algoritmos validados (StrivePD, Kneu).
+
+`rules.biometrics.daily_summary` compara cada métrica con la mediana de sus 28 días previos con el mismo método que el desvío (z robusto, MAD mínimo del 10% de la mediana, 1% en SpO2; menos de 10 puntos → sin z) y `anomalies` marca |z| ≥ 2,5 en la dirección que importa, con el "por qué" en cifras. Funcionan con cualquier subconjunto: solo aparecen las métricas que llegaron ese día, cada una con su `source`; `describe` arma el texto para el contexto (sin ceros ni vacíos de lo que no llegó).
 
 ---
 
@@ -466,7 +472,7 @@ Funciones (firmas):
 - `rules.lanes.evaluate(patient_id, new_events, *, red=None, speaker_id=None) -> list[Alert]` (`new_events` = ids en `events`; `red` = el `RedResult` del mismo relato; guarda los avisos en `alerts` con sus destinatarios) · `rules.consent.recipients(alert, speaker_id=None) -> list[Person]` (`speaker_id` = quien lo contó: R4 y lo reservado)
 - `rules.games.score(taps: list[TapEvent], *, patient_id, taken_at=None) -> GameResult` (`taken_at` = `clock.now()` si no se pasa)
 - `rules.goals.status(patient_id, day) -> GoalDay`
-- `rules.biometrics.daily_summary(patient_id, day) -> dict` (`{day, sources, metrics: {kind: {label, value, baseline_median, baseline_n, z}}}`) · `rules.biometrics.anomalies(patient_id, day) -> list[dict]` (`{kind, label, value, baseline_median, baseline_n, z, direction, why}`)
+- `rules.biometrics.daily_summary(patient_id, day) -> dict` (`{day, sources, metrics: {kind: {label, value, source, baseline_median, baseline_n, z}}}`, solo las métricas presentes) · `rules.biometrics.anomalies(patient_id, day) -> list[dict]` (`{kind, label, value, source, baseline_median, baseline_n, z, direction, why}`) · `rules.biometrics.describe(summary) -> str` (texto de `biometric_summary` para explain, ask e informe; `""` si no hay nada) · `config.WEARABLE_CORE` / `WEARABLE_OPTIONAL` (§8)
 - `notify.send(person_id, kind, title, body, url) -> Notification` (guarda en `notifications` y manda la push; las reglas ya decidieron a quién)
 - `pipeline.report(patient_id, period) -> Report` · `rules.verifier.verify(report, facts, sources) -> Report`
 - (P1) `pipeline.daily_review(digest) -> list[PatternCandidate]` · `rules.patterns.verify(candidates, facts) -> list[PatternCandidate]`
@@ -577,7 +583,7 @@ En pantalla: el iPhone de Juan y el de Marta espejados, y la web de la neurólog
 | Reloj | **Acelerado** en la demo |
 | Roles sin login | **Mecanismo de demo** |
 | Emergencias | **Nadie llama**; se muestra el texto fijo |
-| Pulsera | **La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados simulado** |
+| Pulsera | **La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados simulado** (sueño, despertares, FC en reposo y minutos activos; temblor y discinesia no se simulan ni se muestran) |
 | Todo lo de P1 y P2 que no se construyó | **Pendiente**, se dice si preguntan |
 
 ---
@@ -656,3 +662,4 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 20:15 | Reglas en `app/rules/`: firmas de `recipients(alert, speaker_id=None)`, `lanes.evaluate(…, red=, speaker_id=)` con ids de `events`, `games.score(taps, *, patient_id, taken_at=None)`, `red.evaluate` y `red.from_backup`; rutas `POST /api/alerts/{id}/ack`, `POST /admin/seed` y `POST /admin/import_steps` | Franco |
 | 00:45 | Pulsera simulada (`source=simulado`, `POST /admin/seed_wearable`, `biometric_syncs.scope`), `rules.biometrics` (resumen diario y anomalías con z robusto) y P-SUENO; contrato: `BiometricKind` con las métricas nuevas y `PromptContext.biometric_summary` opcional | Franco |
 | 01:00 | Corrección de la pulsera: la ingesta es real (`POST /api/biometrics/wearable`, `WearablePayload`, `source` del dispositivo); el simulador (`scripts/simular_pulsera.py`) la usa por HTTP y sale `/admin/seed_wearable`; la noche del 13 al 14 es corta; `import_health --export-wearable` para datos reales del iPhone; domingo: seed → simular_pulsera → precorrer → reloj → snapshot | Franco |
+| 01:15 | Pulsera: centrales (sueño, despertares, FC en reposo, minutos activos; las manda el simulador) y opcionales (se aceptan y guardan si llegan); temblor y discinesia no se simulan ni se muestran (requieren algoritmos validados); `describe` muestra solo lo presente con su source | Juanpe y Franco |

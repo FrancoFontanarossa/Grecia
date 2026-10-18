@@ -46,5 +46,5 @@ En Railway corre un solo proceso (`railway.toml`); la base se carga con `POST /a
 | Reloj | **Acelerado** en la demo |
 | Roles sin login | **Mecanismo de demo** |
 | Emergencias | **Nadie llama**; se muestra el texto fijo |
-| Pulsera | **La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados simulado** |
+| Pulsera | **La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados simulado** (sueño, despertares, FC en reposo y minutos activos; temblor y discinesia no se simulan ni se muestran) |
 | Todo lo de P1 y P2 que no se construyó | **Pendiente**, se dice si preguntan |
