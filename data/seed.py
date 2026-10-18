@@ -31,7 +31,7 @@ CONSENTS = [(JUAN, MARTA), (JUAN, LAURA), (PRUEBA, FAMILIAR_PRUEBA)]   # (pacien
 PERIOD_START = date(2026, 9, 20)       # 4 semanas de historia…
 PERIOD_END = date(2026, 10, 17)        # …hasta el sábado de la semana de la demo
 LEVODOPA_TIMES = ["08:00", "12:00", "16:00", "20:00"]
-PRAMIPEXOL_CHANGED = datetime(2026, 9, 22, tzinfo=config.TZ)
+PRAMIPEXOL_CHANGED = datetime(2026, 10, 3, tzinfo=config.TZ)   # sábado 03/10: la base del escenario queda antes
 GOAL_STEPS = 4000
 
 # Historial del golpeteo: 8 sesiones del 1 al 11/10, a las 10:00 (2 h después de la toma de las 8).
@@ -76,6 +76,9 @@ def _base(conn) -> None:
             (JUAN, "pramipexol", "[]", db.to_db(PRAMIPEXOL_CHANGED), "La Dra. Pereira subió el pramipexol"),
         ],
     )
+    # Si la fila ya estaba (una base cargada antes), el cambio se mueve a la fecha del escenario.
+    conn.execute("UPDATE med_schedule SET changed_at = ? WHERE patient_id = ? AND drug = 'pramipexol'",
+                 (db.to_db(PRAMIPEXOL_CHANGED), JUAN))
     doses, day = [], PERIOD_START
     while day <= PERIOD_END:
         doses += [(JUAN, db.to_db(_at(day, t))) for t in LEVODOPA_TIMES]
