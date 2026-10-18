@@ -23,7 +23,7 @@ def _period(now: dt.datetime) -> tuple[dt.date, dt.date]:
 def _fake_report() -> tuple[Report, dict]:
     """Sin base ni pipeline.report: el informe del lienzo de diseño, rotulado como ejemplo."""
     report = Report(
-        summary=("Desde que se subió el pramipexol, el 22/09, la semana de Juan se mantuvo estable hasta la última: "
+        summary=("Desde que se subió el pramipexol, el 03/10, la semana de Juan se mantuvo estable hasta la última: "
                  "el martes 13, el jueves 15 y el viernes 16 se movió bastante menos en las dos horas siguientes a la toma "
                  "de las 16. El jueves él lo explicó: «me sentí trabado, me costó salir a caminar»; los otros dos días "
                  "quedaron sin explicación. En la misma semana apareció algo nuevo: Marta contó dos veces que Juan ve "
@@ -32,11 +32,11 @@ def _fake_report() -> tuple[Report, dict]:
                  "mantuvo estable."),
         topics=[
             {"title": "Ve personas que no están, de noche",
-             "narrative": ("Es la primera vez en el historial. Aparece a los 22 días del aumento de pramipexol y solo en el "
+             "narrative": ("Es la primera vez en el historial. Aparece a los 11 días del aumento de pramipexol y solo en el "
                            "relato de Marta, que lo cuenta las dos veces de noche y con confusión al despertar. Juan, "
                            "consultado por el sueño en la misma semana, habla de «sueños raros» y no menciona ver a nadie. "
                            "No hay fiebre ni caídas registradas esos días."),
-             "observed": ["Nuevo desde el 22/09", "2 relatos de Marta"],
+             "observed": ["Nuevo desde el 03/10", "2 relatos de Marta"],
              "voices": {"Juan": "Duermo bastante bien. A veces sueño cosas raras.",
                         "Marta, su esposa": "Anoche se levantó dos veces medio confundido, me dijo que había un hombre en el patio."},
              "question": "¿Desde cuándo pasa y qué hace usted cuando los ve?", "evidence_ids": [101, 102, 103], "reserved": True},
@@ -218,7 +218,9 @@ _SYMPTOM_TEXT = {"apatia": "apatía", "sudoracion": "sudoración", "deglucion": 
 
 
 def _symptom_text(symptom: str) -> str:
-    return _SYMPTOM_TEXT.get(symptom, symptom.replace("_", " "))
+    from app import taxonomy
+
+    return _SYMPTOM_TEXT.get(symptom) or taxonomy.symptom_label(symptom)
 
 
 def _days_with_steps(conn, patient_id: int, days: list[dt.date], now: dt.datetime) -> set[dt.date]:
@@ -509,13 +511,14 @@ def build_technical(patient_id: int) -> dict:
 
 WEARABLE_NIGHTLY = ("sleep_minutes", "sleep_awakenings", "heart_rate_rest", "hrv_ms", "spo2_pct", "resp_rate")
 WEARABLE_DAILY = ("active_minutes",)
-WEARABLE_HOURLY = ("tremor_minutes", "dyskinesia_minutes")
+# Temblor y discinesia no se muestran (CLAUDE.md §8: requieren algoritmos validados). La ingesta los acepta, pero la
+# API técnica no los devuelve: por eso no hay series por hora.
+WEARABLE_HOURLY: tuple[str, ...] = ()
 WEARABLE_LABELS = {
     "sleep_minutes": ("Sueño", "min"), "sleep_awakenings": ("Despertares", "veces"),
     "heart_rate_rest": ("Frecuencia cardíaca en reposo", "lpm"), "hrv_ms": ("Variabilidad cardíaca (HRV)", "ms"),
     "spo2_pct": ("Saturación de oxígeno", "%"), "resp_rate": ("Respiración", "rpm"),
-    "active_minutes": ("Minutos activos", "min"), "tremor_minutes": ("Minutos con temblor", "min/h"),
-    "dyskinesia_minutes": ("Minutos con discinesia", "min/h"),
+    "active_minutes": ("Minutos activos", "min"),
 }
 
 
