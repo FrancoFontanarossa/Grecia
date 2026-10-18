@@ -4,7 +4,7 @@
 <div class="fila-entre" style="flex-wrap: wrap; gap: 16px">
   <div style="display: flex; align-items: center; gap: 14px">
     {% if tab != "informe" %}<span class="no-imprimir">{{ volver(href="/neuro/informe/" ~ m.patient.id) }}</span>{% endif %}
-    <a href="/" class="logo__marca" aria-label="Neuro" style="text-decoration: none">{{ icon("casa", 26) }}</a>
+    <a href="/?cambiar=1" hx-boost="false" class="logo__marca" aria-label="Volver al inicio" style="text-decoration: none">{{ icon("casa", 26) }}</a>
     <div style="display: flex; flex-direction: column">
       <div style="font-size: 24px; font-weight: 700">{{ m.patient.name }}</div>
       <div style="font-size: 15px; color: var(--color-tinta-suave)">Período {{ m.period.start | ddmm }} – {{ m.period.end | ddmm }}/{{ m.period.end[:4] }} · consulta del {{ m.visit.date | dia_largo }} {{ m.visit.date | ddmm }} · {{ m.visit.doctor }}</div>

@@ -4,8 +4,9 @@
 <div class="neuro" hx-boost="false" x-data="{ ev: null }" @keydown.escape.window="ev = null">
   {# Informe médico (rescatado de #27): una hoja sobria, sin cielo ni vidrio, acento marino. #}
   <div class="inf-barra no-imprimir">
-    <a href="/" class="inf-barra__marca"><img src="/static/icons/icon-192.png" alt="" class="inf-barra__logo">Neuro · equipo médico</a>
+    <a href="/?cambiar=1" class="inf-barra__marca"><img src="/static/icons/icon-192.png" alt="" class="inf-barra__logo">Neuro · equipo médico</a>
     <span class="inf-barra__acc">
+      <a href="/?cambiar=1" hx-boost="false">Volver al inicio</a>
       <a href="/neuro/tecnica/{{ r.meta.patient.id }}">Vista técnica</a>
       <button type="button" onclick="window.print()">Imprimir</button>
     </span>
