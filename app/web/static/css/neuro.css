@@ -76,7 +76,7 @@
 .inf-dc th { font-weight: 500; color: var(--color-tinta-suave); text-align: right; padding: 0 0 6px 8px; border-bottom: 1px solid var(--color-linea); }
 .inf-dc td { text-align: right; padding: 7px 0 7px 8px; border-bottom: 1px solid var(--color-linea-suave); }
 .inf-dc th:first-child, .inf-dc td:first-child { text-align: left; padding-left: 0; }
-.inf-dc__sin { color: var(--color-tinta-suave); font-style: italic; }
+.inf-dc__sin { color: var(--color-tinta-suave); font-style: italic; white-space: nowrap; }
 .inf-l { margin: 8px 0 0; padding: 0; }
 .inf-l li { font-size: 13.5px; line-height: 1.5; margin: 5px 0 0 16px; }
 .inf-al { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.5; padding: 6px 0; border-bottom: 1px solid var(--color-linea-suave); }
