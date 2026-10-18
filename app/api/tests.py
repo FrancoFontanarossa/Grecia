@@ -22,7 +22,7 @@ def _score(patient_id: int, taps: list[TapEvent]) -> tuple[GameResult, bool]:
     try:
         from app.rules import games  # type: ignore
 
-        return games.score(taps), False
+        return games.score(taps, patient_id=patient_id, taken_at=store.now()), False
     except ImportError:
         pass
     # TODO(contrato): reemplazar cuando exista rules.games.score (con tests y la comparación contra el historial).

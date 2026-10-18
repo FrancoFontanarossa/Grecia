@@ -82,17 +82,17 @@
       var personId = EC.person.get();
       if (!personId) return Promise.reject(new Error("sin-persona"));
       if (!EC.pushSupported) return Promise.reject(new Error("no-soportado"));
-      if (!EC.vapidPublicKey) return Promise.reject(new Error("sin-vapid"));
       // requestPermission va primero y sin await previo, para no perder el gesto en iOS.
+      var reg;
       return Notification.requestPermission().then(function (perm) {
         if (perm !== "granted") throw new Error("permiso-" + perm);
         return navigator.serviceWorker.ready;
-      }).then(function (reg) {
+      }).then(function (r) {
+        reg = r;
+        return EC.push.publicKey();
+      }).then(function (key) {
         return reg.pushManager.getSubscription().then(function (sub) {
-          return sub || reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(EC.vapidPublicKey)
-          });
+          return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
         });
       }).then(function (sub) {
         return fetch("/api/push/subscribe", {
@@ -105,11 +105,21 @@
         return true;
       });
     },
+    /** Clave pública VAPID del servidor (GET /api/push/vapid-public-key, de notify). Nunca claves propias. */
+    publicKey: function () {
+      return fetch("/api/push/vapid-public-key").then(function (r) {
+        if (!r.ok) throw new Error("sin-vapid");
+        return r.json();
+      }).then(function (d) {
+        if (!d.key) throw new Error("sin-vapid");
+        return d.key;
+      });
+    },
     /** Re-sincroniza la suscripción si el permiso ya estaba dado (p. ej. cambió la persona). */
     resync: function () {
       if (EC.push.state() !== "activo") return;
       var personId = EC.person.get();
-      if (!personId || !EC.vapidPublicKey) return;
+      if (!personId) return;
       navigator.serviceWorker.ready.then(function (reg) {
         return reg.pushManager.getSubscription();
       }).then(function (sub) {

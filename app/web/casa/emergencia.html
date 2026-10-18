@@ -31,7 +31,11 @@
     {{ icon("telefono", 28) }} Llamar a emergencias
   </button>
   <div x-show="demoNote" x-cloak class="card" role="status" style="font-size: 17px">Demo: nadie llama. En el piloto, este botón llama a tu emergencia móvil.</div>
+  {% if alert.id %}
+  <button type="button" class="btn btn--secundario" style="min-height: 64px; font-size: 19px" @click="ack({{ alert.id }})" :disabled="acking">Estoy bien</button>
+  {% else %}
   <a href="/casa" class="btn btn--secundario" style="min-height: 64px; font-size: 19px">Volver al inicio</a>
+  {% endif %}
   <p class="rotulo-demo" style="color: var(--color-tinta)">Entrecasa no es un servicio de emergencias.</p>
 </main>
 {% endblock %}
