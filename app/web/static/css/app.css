@@ -290,3 +290,9 @@ a.fila:active, button.fila:active { background: var(--suave); }
   border: 1px solid var(--vidrio-borde); border-radius: 24px; box-shadow: var(--sombra); }
 .tarjeta-aviso .btn { min-height: 52px; font-size: 17px; }
 .tarjeta-aviso .enlace-suave { font-size: 16px; min-height: 44px; }
+/* anillo de la meta (Juan) */
+.anillo-v3 { position: relative; width: 226px; height: 226px; margin: 16px auto 0; }
+.anillo-v3__centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 10px; }
+.anillo-v3__chip { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); }
+/* dock fijo al pie: la acción principal de Juan siempre a la vista, aunque la hoja sea larga */
+.dock--fija { position: sticky; bottom: 0; z-index: 2; background: linear-gradient(180deg, rgba(255,255,255,0) 0%, #FFFFFF 22%); }
