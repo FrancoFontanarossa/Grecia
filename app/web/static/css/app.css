@@ -222,3 +222,31 @@ html:has(.pantalla--roja) { background: var(--color-rojo-fondo); }
 .lista-v2__titulo { font-size: 19px; font-weight: 600; }
 .lista-v2__sub { font-size: 16px; color: var(--color-tinta-suave); margin-top: 2px; }
 .lista-v2__valor { font-size: 22px; font-weight: 700; }
+/* Hoy de Marta v2 */
+.tarjeta-roja { background: var(--color-rojo-fondo); border-radius: var(--radius-card); padding: 18px; display: flex; flex-direction: column; gap: 8px; }
+.tarjeta-roja__etiqueta { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--color-rojo); }
+.tarjeta-roja__titulo { font-size: 22px; font-weight: 700; line-height: 1.25; }
+.tarjeta-roja__texto { font-size: 17px; line-height: 1.45; }
+.tarjeta-roja__boton { display: flex; align-items: center; justify-content: center; min-height: 60px; margin-top: 6px; border-radius: var(--radius-boton); background: var(--color-rojo); color: #FFFFFF; font-size: 19px; font-weight: 600; text-decoration: none; }
+.tarjeta-ambar { background: var(--color-superficie); border: 1.5px solid var(--color-ambar-borde); border-radius: var(--radius-card); padding: 18px; display: flex; flex-direction: column; align-items: flex-start; }
+.tarjeta-ambar__etiqueta { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; color: var(--color-ambar-texto); background: var(--color-ambar-fondo); border-radius: 999px; padding: 5px 11px; }
+.tarjeta-ambar__titulo { font-size: 19px; font-weight: 600; line-height: 1.3; margin-top: 12px; }
+.tarjeta-ambar__texto { font-size: 16px; line-height: 1.45; color: var(--color-tinta-suave); margin-top: 6px; }
+.tarjeta-ambar .chips { margin-top: 10px; }
+.segmentado { display: flex; background: #E3E6EC; border-radius: 14px; padding: 4px; }
+.segmentado button { flex: 1 1 auto; white-space: nowrap; padding: 0 10px; min-height: 44px; border: 0; background: transparent; font-size: 16px; font-weight: 600; color: var(--color-tinta-suave); border-radius: 10px; }
+.segmentado button.activo { background: #FFFFFF; color: var(--color-tinta); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+.dias-v2 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 14px; }
+.dias-v2__dia { text-align: center; font-size: 14px; color: var(--color-tinta-suave); font-weight: 500; }
+.dias-v2__dia--hoy { color: var(--color-tinta); font-weight: 700; }
+.dias-v2__pista { display: block; height: 64px; border-radius: 12px; margin-bottom: 6px; position: relative; background: #E8EBF0; overflow: hidden; }
+.dias-v2__barra { position: absolute; left: 0; right: 0; bottom: 0; background: var(--color-bio); border-radius: 12px; display: flex; justify-content: center; padding-top: 6px; }
+.dias-v2__barra--bajo { background: var(--color-bio-medio); }
+.leyenda-v2 { display: flex; gap: 16px; font-size: 15px; color: var(--color-tinta-suave); margin-top: 10px; }
+.leyenda-v2 span { display: inline-flex; align-items: center; gap: 5px; }
+.leyenda-v2 i { width: 10px; height: 10px; border-radius: 3px; background: var(--color-bio); display: inline-block; }
+.leyenda-v2 .bajo i { background: var(--color-bio-medio); }
+.botones-v2 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+.botones-v2 a { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 60px; border-radius: var(--radius-boton); font-weight: 600; font-size: 18px; text-decoration: none; }
+.botones-v2__pri { background: var(--color-pino); color: #FFFFFF; }
+.botones-v2__sec { background: #FFFFFF; color: var(--color-tinta); border: 1px solid var(--color-linea); }

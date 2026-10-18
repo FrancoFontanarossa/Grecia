@@ -1,28 +1,21 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% from "_icons.html" import icon %}
 {% block title %}Hoy · Entrecasa{% endblock %}
 {% block content %}
-<main class="pantalla pantalla--familia">
-  <div style="display: flex; flex-direction: column; gap: 2px">
-    <div style="font-size: 16px; color: var(--color-tinta-suave)">{{ hoy.now | fecha_larga }}</div>
-    <h1 class="titulo-familia">Hola, {{ hoy.person.name }}</h1>
+{# Hoy de Marta (design/boceto-v2.html). La pestaña vive acá afuera para que el refresco cada 3 s no la reinicie. #}
+<main class="pantalla pantalla--hero" x-data="{ tab: 'semana' }">
+  <div hx-get="/casa?parcial=1" hx-trigger="every 3s" hx-swap="innerHTML" style="display: flex; flex-direction: column; gap: 14px">
+    {% include "casa/marta_hoy_contenido.html" %}
   </div>
 
   {% with dismissible=True, compact=True %}{% include "casa/_avisos.html" %}{% endwith %}
 
-  <div hx-get="/casa?parcial=1" hx-trigger="every 3s" hx-swap="innerHTML" style="display: flex; flex-direction: column; gap: 16px">
-    {% include "casa/marta_hoy_contenido.html" %}
-  </div>
-
   <div class="espaciador"></div>
 
-  <div class="grilla-2-1">
-    <a href="/casa/contar" class="btn btn--primario btn--familia">
-      {{ icon("mic", 26) }}
-      Contar algo
-    </a>
-    <a href="/casa/contar?modo=escribir" class="btn btn--secundario btn--familia-sec">Escribir</a>
+  <div class="botones-v2">
+    <a href="/casa/contar" class="botones-v2__pri">{{ icon("mic", 22, "#FFFFFF", 1.8) }}Contar algo</a>
+    <a href="/casa/contar?modo=escribir" class="botones-v2__sec">Escribir</a>
   </div>
-  <a href="/" style="align-self: center; font-size: 14px; color: var(--color-tinta-suave)">No soy {{ hoy.person.name }}</a>
+  <a href="/" style="align-self: center; font-size: 15px; color: var(--color-tinta-suave); padding: 8px">No soy {{ hoy.person.name }}</a>
 </main>
 {% endblock %}
