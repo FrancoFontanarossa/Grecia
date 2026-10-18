@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Literal, get_args
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, File, Form, HTTPException, UploadFile
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
 from app import notify
@@ -234,4 +234,35 @@ async def correct_entry(entry_id: int, text: str | None = Form(None), audio: Upl
     await _safe_analyze(entry_id, person, raw_text, audio_path, response, timing)
     timing["total"] = time.perf_counter() - t0
     log.info("corrección %s: %s", entry_id, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
+    return response
+
+
+@router.get("/api/entries/{entry_id}")
+async def get_entry(entry_id: int, person_id: int | None = None, ec_person: str | None = Cookie(default=None)):
+    """Lo mismo que devolvió POST /api/entries, armado con lo guardado y sin llamar a la IA. Solo lo ve quien lo
+    contó o el equipo; para cualquier otra persona (por ejemplo Juan ante un relato reservado de Marta) es 404."""
+    viewer_id = person_id if person_id is not None else (int(ec_person) if ec_person and ec_person.isdigit() else None)
+    data = await asyncio.to_thread(db.entry_view, entry_id)
+    viewer = await asyncio.to_thread(db.person_info, viewer_id) if viewer_id is not None else None
+    if (data is None or viewer is None or viewer["patient_id"] != data["entry"]["patient_id"]
+            or (viewer_id != data["entry"]["speaker_id"] and viewer["role"] != "neurologo")):
+        raise HTTPException(404, "No encontramos ese relato.")
+    entry = data["entry"]
+    now = await asyncio.to_thread(db.now)
+    events = [Event.model_validate({**e, "occurred_at": db.from_db(e["occurred_at"]) if e["occurred_at"] else None})
+              for e in data["events"]]
+    understood = [{**u, "reserved": bool(e["reserved"])}
+                  for u, e in zip(extraction.understood(events, now), data["events"])]
+    red = red_rules.evaluate(entry["raw_text"], await asyncio.to_thread(red_rules.patient_meds, entry["patient_id"])) \
+        if entry["raw_text"] else None
+    alerts = [a for a in data["alerts"] if _visible_to(a, viewer)]
+    if red is None:
+        red_alert = next((a for a in alerts if a.lane == "rojo"), None)
+        if red_alert:
+            from app.models import RedResult
+            red = RedResult(rule_id=red_alert.rule_id, missing_criterion=None, text=red_alert.text)
+    response = {"entry_id": entry_id, "transcript": entry["raw_text"], "understood": understood,
+                "red": red.model_dump() if red else None, "alerts": [a.model_dump(mode="json") for a in alerts]}
+    if not entry["raw_text"]:   # audio que no se pudo pasar a texto (no hay columna de estado: ver PR #8)
+        response["error"], response["error_code"] = AI_ERROR, "ia"
     return response

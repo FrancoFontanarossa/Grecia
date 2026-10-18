@@ -124,3 +124,43 @@ def test_alerts_en_la_respuesta_r1_a1_a3(tmp_data_dir, monkeypatch):
     monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([])))
     a3 = client.post("/api/entries", data={"person_id": 2, "text": "hoy estuvo tranquilo"}).json()
     assert {"A3", "A3-sugerencia"} <= {a["rule_id"] for a in a3["alerts"]}
+
+
+# ── GET /api/entries/{id} ──
+
+def test_get_entry_devuelve_lo_guardado_sin_llamar_a_la_ia(tmp_data_dir, monkeypatch, fake_model):
+    clock.set("2026-10-14T21:40:00")
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([ALUCINACION])))
+    posted = client.post("/api/entries", data={"person_id": 2, "text": "anoche hablaba con alguien que no estaba"}).json()
+    calls = len(extract._call_model.calls)
+
+    got = TestClient(app, cookies={"ec_person": "2"}).get(f"/api/entries/{posted['entry_id']}").json()
+
+    assert len(extract._call_model.calls) == calls                       # sin IA
+    assert got["entry_id"] == posted["entry_id"] and got["transcript"] == posted["transcript"]
+    assert [u["plain"] for u in got["understood"]] == [u["plain"] for u in posted["understood"]]
+    assert got["understood"][0]["domain_label"] == "Alucinaciones y confusión" and got["understood"][0]["reserved"] is True
+    assert {a["rule_id"] for a in got["alerts"]} == {a["rule_id"] for a in posted["alerts"]}
+
+
+def test_get_entry_juan_no_ve_un_relato_reservado_de_marta(tmp_data_dir, monkeypatch):
+    monkeypatch.setattr(extract, "_call_model", FakeModel(tool_response([ALUCINACION])))
+    eid = client.post("/api/entries", data={"person_id": 2, "text": "anoche hablaba con alguien que no estaba"}).json()["entry_id"]
+    assert TestClient(app, cookies={"ec_person": "1"}).get(f"/api/entries/{eid}").status_code == 404
+    assert client.get(f"/api/entries/{eid}?person_id=3").status_code == 404           # Laura tampoco
+    assert client.get(f"/api/entries/{eid}").status_code == 404                        # sin identificar
+    assert client.get(f"/api/entries/{eid}?person_id=2").status_code == 200            # quien lo contó
+    with base.connect() as conn:
+        conn.execute("INSERT INTO people (id, patient_id, role, name, relation) VALUES (4, 1, 'neurologo', 'Dra. Pereira', 'neuróloga')")
+    assert client.get(f"/api/entries/{eid}?person_id=4").status_code == 200            # el equipo
+    assert client.get("/api/entries/999?person_id=2").status_code == 404
+
+
+def test_get_entry_rojo_y_audio_sin_transcribir(tmp_data_dir, monkeypatch):
+    rojo = client.post("/api/entries", data={"person_id": 2, "text": "se golpeó la cabeza y toma apixabán"}).json()
+    got = client.get(f"/api/entries/{rojo['entry_id']}?person_id=2").json()
+    assert got["red"]["rule_id"] == "R1" and [a["rule_id"] for a in got["alerts"]] == ["R1"]
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    eid = client.post("/api/entries", data={"person_id": 2}, files={"audio": ("a.m4a", b"\x00", "audio/mp4")}).json()["entry_id"]
+    got = client.get(f"/api/entries/{eid}?person_id=2").json()
+    assert got["transcript"] == "" and got["error_code"] == "ia"

@@ -68,6 +68,25 @@ def reset_for_correction(entry_id: int, *, raw_text: str, modality: str, audio_p
     return n_events, n_alerts
 
 
+def entry_view(entry_id: int, window_seconds: int = 120) -> dict | None:
+    """Entrada, sus eventos y los avisos que dejó (los del paciente creados mientras se procesaba)."""
+    import json
+    from app.models import Alert
+    with db.connect() as conn:
+        entry = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
+        if entry is None:
+            return None
+        events = [dict(r) for r in conn.execute("SELECT * FROM events WHERE entry_id = ? ORDER BY id", (entry_id,))]
+        start = db.from_db(entry["created_at"])
+        rows = conn.execute("SELECT * FROM alerts WHERE patient_id = ? AND created_at >= ? AND created_at <= ? ORDER BY id",
+                            (entry["patient_id"], entry["created_at"],
+                             db.to_db(start + dt.timedelta(seconds=window_seconds)))).fetchall()
+    alerts = [Alert.model_validate({**dict(r), "recipients": json.loads(r["recipients"] or "[]"),
+                                    "created_at": db.from_db(r["created_at"]),
+                                    "acked_at": db.from_db(r["acked_at"]) if r["acked_at"] else None}) for r in rows]
+    return {"entry": dict(entry), "events": events, "alerts": alerts}
+
+
 def get_entry(entry_id: int) -> dict | None:
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
