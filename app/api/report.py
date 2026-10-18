@@ -87,6 +87,7 @@ def build_report(patient_id: int) -> dict:
 
     # ---------------------------------------------------------- informe redactado (pipeline.report + verificador)
     generated_at = None
+    verification_note = None
     rep = store.latest_report(patient_id) if real else None
     if rep and rep.get("content"):
         report = Report.model_validate(rep["content"])
@@ -97,6 +98,11 @@ def build_report(patient_id: int) -> dict:
                     for i, r in store.evidence(ids).items()}
         report_simulated = False
         report_status = "listo"
+        if rep["content"].get("redaccion") == "codigo":
+            # Informe mínimo (pipeline.report): la IA no pudo redactarlo; las cifras del código se muestran igual.
+            report_status = "sin_redaccion"
+            verification_note = ("Este informe no tiene texto redactado por IA: lo que se ve son datos y cifras "
+                                 "calculados por código.")
     elif real:
         # Base real sin informe todavía (pipeline.report lo genera en segundo plano): vacío, nunca el de ejemplo.
         report, evidence = Report(summary="", topics=[], removed_count=0), {}
@@ -163,7 +169,9 @@ def build_report(patient_id: int) -> dict:
         "lo_que_no_sabemos": unknowns(patient_id, start, end, now) if real else None,
         "simulated": report_simulated or not real,
         "report_simulated": report_simulated,
-        "report_status": report_status,     # listo | pendiente (base real, sin informe aún) | ejemplo (sin base)
+        "report_status": report_status,     # listo | sin_redaccion (informe mínimo, sin IA) | pendiente (base real,
+                                            # sin informe aún) | ejemplo (sin base)
+        "verification_note": verification_note,
     }
 
 

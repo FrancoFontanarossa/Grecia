@@ -22,8 +22,14 @@
 {# ---------- resumen ---------- #}
 <div class="card-neuro" style="padding: 24px 26px; gap: 12px">
   <div class="etiqueta-seccion">Resumen de las {{ (m.period.days / 7) | round | int }} semanas</div>
+  {% if r.report_status == "pendiente" %}
+  <p style="font-size: 18px; line-height: 1.6; max-width: 900px" role="status">Estamos preparando el informe con los datos del período. Se actualiza solo en unos segundos.</p>
+  {% elif r.report_status == "sin_redaccion" %}
+  <p style="font-size: 18px; line-height: 1.6; max-width: 900px">{{ rep.summary }}</p>
+  {% else %}
   <p style="font-size: 18px; line-height: 1.6; max-width: 900px">{{ rep.summary or "Sin datos en el período." }}</p>
   <div style="font-size: 14px; color: var(--color-tinta-suave)">Las cifras de este resumen salen de los datos; las frases entre comillas, de los relatos.</div>
+  {% endif %}
 </div>
 
 {# ---------- pasos por día ---------- #}
@@ -117,7 +123,7 @@
       {% endif %}
     </div>
     {% else %}
-    <div class="card-neuro" style="padding: 22px">Sin datos en el período.</div>
+    <div class="card-neuro" style="padding: 22px">{% if r.report_status == "pendiente" %}Los temas aparecen cuando el informe esté listo.{% elif r.report_status == "sin_redaccion" %}Los temas redactados no están disponibles en este informe. Los datos de pasos, medicación y alertas de esta página sí están al día.{% else %}Sin datos en el período.{% endif %}</div>
     {% endfor %}
   </div>
 
@@ -143,7 +149,8 @@
       {% if not ambar %}<div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--verde">Ámbar</div>Ninguno</div>{% endif %}
     </div>
     <div style="background: var(--color-superficie-suave); border-radius: 16px; padding: 14px 16px; font-size: 14px; line-height: 1.5; color: var(--color-tinta-suave)">
-      Redactado con IA a partir de relatos y datos. Cada cifra se verificó contra los datos: {{ rep.removed_count }} {{ "frase eliminada" if rep.removed_count == 1 else "frases eliminadas" }} por no coincidir. No es un diagnóstico ni sugiere cambios de medicación.
+      {% if r.verification_note %}{{ r.verification_note }} No es un diagnóstico ni sugiere cambios de medicación.
+      {% else %}Redactado con IA a partir de relatos y datos. Cada cifra se verificó contra los datos: {{ rep.removed_count }} {{ "frase eliminada" if rep.removed_count == 1 else "frases eliminadas" }} por no coincidir. No es un diagnóstico ni sugiere cambios de medicación.{% endif %}
       {% if m.generated_at %}<br>Generado {{ m.generated_at | dia_corto }} {{ m.generated_at[8:10] | int }}, {{ m.generated_at | hora }}.{% endif %}
     </div>
   </div>
