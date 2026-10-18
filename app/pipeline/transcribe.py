@@ -37,7 +37,7 @@ class NotHeard(TranscriptionError):
 # ("Medicamentos: levodopa…", "la vida de alguien que vive con Parkinson"): eso también es "no te escuché".
 _SILENCE_HALLUCINATIONS = ("subtitulos realizados", "amara.org", "gracias por ver", "suscribete", "subtitulado por",
                            "relato en espanol", "vida diaria de una persona", "vive con parkinson",
-                           "persona con parkinson", "medicamentos:", "levodopa, carbidopa")
+                           "persona con parkinson", "medicamentos levodopa", "levodopa carbidopa pramipexol")
 
 
 _FILLERS = re.compile(r"^(?:\s*(?:m+|h+m+|e+h*|a+h*|o+h*|u+h*m*)\s*)*$")
