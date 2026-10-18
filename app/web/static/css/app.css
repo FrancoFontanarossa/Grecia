@@ -182,3 +182,111 @@ html:has(.pantalla--roja) { background: var(--color-rojo-fondo); }
 }
 .rotulo-demo { font-size: 14px; color: var(--color-tinta-suave); text-align: center; }
 .toast { position: fixed; left: 16px; right: 16px; top: max(16px, env(safe-area-inset-top)); z-index: 60; background: var(--color-tinta); color: #FFFFFF; padding: 14px 16px; border-radius: 16px; font-size: 17px; max-width: 448px; margin: 0 auto; }
+
+/* ================================================================ v3.1 (design/v3/pantallas-v31.html)
+   Componentes reutilizables: cielo, vidrio, hoja, fila, pil, chip, circ, btn (.p/.s/.j), dock y tipografía.
+   Las pantallas usan estas clases; nada de estilos sueltos salvo medidas puntuales del mockup. */
+html:has(.app) { background: var(--fondo); }
+.app { min-height: 100dvh; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column;
+  padding-top: calc(env(safe-area-inset-top) + 12px); color: var(--tinta); }
+.cont { flex: none; padding: 6px 22px 0; position: relative; }
+.dock { padding: 14px 20px calc(20px + env(safe-area-inset-bottom)); margin-top: auto; }
+.top { display: flex; align-items: center; justify-content: space-between; min-height: 46px; gap: 10px; }
+
+/* cielo: el gradiente mide lo que una pantalla de iPhone; más abajo sigue el fondo */
+.cielo { background-color: var(--fondo); background-repeat: no-repeat; background-size: 100% 844px; background-image:
+  radial-gradient(90% 45% at 8% 0%, rgba(140,178,236,.95) 0%, rgba(140,178,236,0) 70%),
+  radial-gradient(80% 40% at 100% 6%, rgba(206,222,247,1) 0%, rgba(206,222,247,0) 70%),
+  linear-gradient(180deg, #B3CBF0 0%, #D3E1F6 34%, #E9EFF8 58%, var(--fondo) 80%); }
+.cielo-rojo { background-color: #FEF7F6; background-repeat: no-repeat; background-size: 100% 844px; background-image:
+  radial-gradient(90% 45% at 10% 0%, rgba(240,170,160,.85) 0%, rgba(240,170,160,0) 70%),
+  linear-gradient(180deg, #F5CFC9 0%, #FAE4E0 36%, #FDF2F0 66%, #FEF7F6 100%); }
+html:has(.cielo-rojo) { background: #FEF7F6; }
+
+/* vidrio y hoja */
+.vidrio { background: var(--vidrio); -webkit-backdrop-filter: blur(24px) saturate(1.3); backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--vidrio-borde); border-radius: 24px; box-shadow: var(--sombra); }
+.vidrio--ambar { background: rgba(255,248,238,.85); }
+.hoja { flex: 1; margin-top: 18px; background: var(--sup); border-radius: 32px 32px 0 0; box-shadow: 0 -6px 30px rgba(20,40,80,.06);
+  display: flex; flex-direction: column; padding-top: 10px; }
+.asa { width: 38px; height: 5px; border-radius: 3px; background: #D6DCE5; margin: 0 auto 6px; flex: none; }
+.hoja .rot { font-size: 14px; color: var(--tinta3); text-align: center; margin: 6px 0 4px; }
+
+/* tipografía */
+.marca { font-size: 19px; font-weight: 600; letter-spacing: -.02em; color: var(--tinta); text-decoration: none; }
+.marca i { font-style: normal; color: var(--azul); }
+.fecha { font-size: 15px; font-weight: 500; color: var(--tinta2); }
+.lt { font-size: 34px; line-height: 40px; font-weight: 600; letter-spacing: -.028em; }
+.lt .tenue { display: block; color: var(--tenue); font-weight: 500; }
+.lt--29 { font-size: 29px; line-height: 35px; }
+.etq { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--tinta2); font-weight: 500; }
+.etq::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .8; flex: none; }
+.liviano { font-weight: 300; letter-spacing: -.045em; line-height: 1; font-variant-numeric: tabular-nums; }
+.cuerpo { font-size: 17px; line-height: 24px; }
+.cuerpo-j { font-size: 20px; line-height: 27px; }
+.cap { font-size: 15px; line-height: 20px; color: var(--tinta2); }
+
+/* filas: 72 px, separador con sangría; con .pil la fila entera es tocable */
+.fila { display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 12px 20px; position: relative;
+  color: var(--tinta); text-decoration: none; background: none; border: 0; width: 100%; text-align: left; font: inherit; }
+.fila + .fila::before { content: ""; position: absolute; top: 0; left: 20px; right: 20px; height: 1px; background: var(--sep); }
+a.fila, button.fila { cursor: pointer; touch-action: manipulation; }
+a.fila:active, button.fila:active { background: var(--suave); }
+.fila .tx { flex: 1; min-width: 0; }
+.fila .a { font-size: 19px; font-weight: 500; line-height: 24px; letter-spacing: -.01em; }
+.fila .b { font-size: 15px; color: var(--tinta3); margin-top: 2px; }
+.fila .v { font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fila--alta { min-height: 88px; }
+.ic { flex: none; width: 46px; height: 46px; border-radius: 50%; background: var(--suave); display: grid; place-items: center; color: var(--azul-osc); }
+.pil { flex: none; display: inline-flex; align-items: center; height: 42px; padding: 0 18px; border-radius: 999px;
+  background: var(--azul-t); color: var(--azul-osc); font-size: 16px; font-weight: 600; white-space: nowrap; }
+.pil--chica { height: 30px; padding: 0 12px; font-size: 14px; }
+.avatar-v3 { flex: none; width: 54px; height: 54px; border-radius: 50%; background: var(--azul-t); color: var(--azul-osc);
+  display: grid; place-items: center; font-size: 22px; font-weight: 600; }
+.avatar-v3--paciente { background: var(--marino); color: #FFFFFF; }
+
+/* botones */
+.circ { flex: none; width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.85); display: grid; place-items: center;
+  box-shadow: 0 2px 8px rgba(20,40,80,.08); border: 0; color: var(--tinta); text-decoration: none; position: relative; }
+.circ::after { content: ""; position: absolute; inset: -9px; }   /* zona de toque de 64 px */
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 999px;
+  background: rgba(255,255,255,.75); border: 1px solid rgba(255,255,255,.9); font-size: 15px; font-weight: 600; color: var(--tinta); white-space: nowrap; }
+.chip--chico { height: 32px; font-size: 14px; padding: 0 12px; }
+.chip--rojo { background: var(--rojo); color: #FFFFFF; border-color: var(--rojo); }
+.punto-v3 { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 62px; border-radius: 999px; border: 0;
+  font: 600 18px var(--font); text-decoration: none; letter-spacing: -.01em; padding: 0 20px; cursor: pointer; touch-action: manipulation; }
+.btn.p { background: var(--marino); color: #FFFFFF; box-shadow: 0 8px 20px rgba(15,29,51,.22); }
+.btn.s { background: var(--suave); color: var(--tinta); }
+.btn.b { background: rgba(255,255,255,.85); color: var(--tinta); }
+.btn.r { background: var(--rojo); color: #FFFFFF; box-shadow: 0 8px 20px rgba(196,41,28,.28); }
+.btn.j { min-height: 76px; font-size: 21px; }
+.btn:disabled { opacity: .5; }
+.btn .mic { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.14); display: grid; place-items: center; flex: none; }
+.txtbtn { display: block; width: 100%; text-align: center; font-size: 17px; font-weight: 600; color: var(--tinta2); padding: 14px 0; min-height: 52px;
+  background: none; border: 0; text-decoration: none; font-family: inherit; }
+.pie-rol { display: block; text-align: center; font-size: 14px; color: var(--tinta2); padding: 12px 0; text-decoration: none; }
+
+/* selector en píldora (¿cuándo pasó?) */
+.segm { display: flex; padding: 4px; border-radius: 999px; overflow-x: auto; scrollbar-width: none; }
+.segm::-webkit-scrollbar { display: none; }
+.segm button { flex: 1 0 auto; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: none;
+  font: 500 16px var(--font); color: var(--tinta2); white-space: nowrap; }
+.segm button[aria-pressed="true"] { background: var(--marino); color: #FFFFFF; font-weight: 600; }
+
+/* switch */
+.switch { flex: none; position: relative; width: 51px; height: 31px; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 16px; background: #D6DCE5; transition: background .2s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; left: 2px; top: 2px; width: 27px; height: 27px; border-radius: 50%; background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .2s; }
+.switch input:checked + span { background: #34A853; }
+.switch input:checked + span::after { transform: translateX(20px); }
+.switch input:focus-visible + span { outline: 2px solid var(--azul); outline-offset: 2px; }
+
+/* tarjeta de avisos (activar notificaciones), en vidrio */
+.tarjeta-aviso { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; font-size: 16px; line-height: 22px; color: var(--tinta);
+  background: var(--vidrio); -webkit-backdrop-filter: blur(24px) saturate(1.3); backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--vidrio-borde); border-radius: 24px; box-shadow: var(--sombra); }
+.tarjeta-aviso .btn { min-height: 52px; font-size: 17px; }
+.tarjeta-aviso .enlace-suave { font-size: 16px; min-height: 44px; }
