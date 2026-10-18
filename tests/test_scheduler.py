@@ -80,8 +80,7 @@ def test_explicado_no_molesta(at_1805, pushes, monkeypatch):
                     question_id=None, occurred_hint=None, reserved_requested=False, source="app")
     monkeypatch.setattr(llm, "_create", FakeSonnet({"explained": True, "by": ["fui al dentista"], "reasoning": "x"}))
     assert run_tick(monkeypatch, trigger()) == []
-    [q] = rows("SELECT * FROM questions")
-    assert q["status"] == "descartada" and rows("SELECT status FROM episodes") == [{"status": "explicado"}]
+    assert rows("SELECT * FROM questions") == [] and rows("SELECT status FROM episodes") == [{"status": "explicado"}]
     assert pushes == [] and rows("SELECT * FROM notifications") == []
     assert run_tick(monkeypatch, trigger()) == []          # tampoco lo vuelve a evaluar
 
@@ -166,3 +165,33 @@ def test_tick_now_es_idempotente(at_1805, pushes, monkeypatch):
         return await asyncio.gather(scheduler.tick_now(), scheduler.tick_now())
     first, second = asyncio.run(twice())
     assert sorted([len(first), len(second)]) == [0, 1] and len(rows("SELECT * FROM questions")) == 1
+
+
+
+def test_desvio_sin_presupuesto_igual_guarda_el_episodio(at_1805, pushes, monkeypatch):
+    """Si otra pregunta ya gastó el presupuesto del día, el desvío queda como episodio (cuenta para A3 e informe)."""
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    otro = trigger(rule_id="P-REPITE", facts={}, why="x")
+    run_tick(monkeypatch, otro)                                     # gasta la pregunta de Juan
+    monkeypatch.setattr(llm, "_create", FakeSonnet({"explained": False, "by": [], "reasoning": "x"}))
+    assert run_tick(monkeypatch, trigger()) == []
+    assert rows("SELECT status, question_id FROM episodes") == [{"status": "sin_pregunta", "question_id": None}]
+
+
+def test_disparador_de_texto_no_se_repite_en_7_dias(tmp_data_dir, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    repite = trigger(rule_id="P-REPITE", facts={}, why="x")
+    clock.set("2026-10-14T09:00:00")
+    assert len(run_tick(monkeypatch, repite)) == 1
+    for day in ("15", "16", "17"):
+        clock.set(f"2026-10-{day}T09:00:00")
+        assert run_tick(monkeypatch, repite) == []
+    clock.set("2026-10-21T09:05:00")
+    assert len(run_tick(monkeypatch, repite)) == 1
+
+
+def test_el_desvio_va_primero_en_el_tick(at_1805, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    sent = run_tick(monkeypatch, trigger(rule_id="P-REPITE", facts={}, why="x"), trigger())
+    [q] = rows("SELECT rule_id FROM questions WHERE id = %d" % sent[0])
+    assert q["rule_id"] == "P-DESVIO" and len(sent) == 1           # la única pregunta del día es la del desvío

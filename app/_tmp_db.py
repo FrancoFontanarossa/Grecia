@@ -161,6 +161,12 @@ def questions_on_day(to_person_id: int, day: dt.date, *, rule_id: str | None = N
         return conn.execute(sql, args).fetchone()[0]
 
 
+def questions_since(to_person_id: int, rule_id: str, since: dt.datetime) -> int:
+    with db.connect() as conn:
+        return conn.execute("SELECT count(*) FROM questions WHERE to_person_id = ? AND rule_id = ? AND sent_at >= ?",
+                            (to_person_id, rule_id, db.to_db(since))).fetchone()[0]
+
+
 def episode_for_dose(patient_id: int, dose_time: dt.datetime) -> dict | None:
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM episodes WHERE patient_id = ? AND dose_time = ?",

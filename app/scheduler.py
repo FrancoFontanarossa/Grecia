@@ -38,55 +38,64 @@ def _dose_time(trigger: Trigger) -> dt.datetime | None:
     return raw if isinstance(raw, dt.datetime) else dt.datetime.fromisoformat(str(raw))
 
 
+REPEAT_DAYS = 7   # un disparador de texto no vuelve a preguntarle lo mismo a la misma persona antes de esto
+
+
 def _already_handled(trigger: Trigger, now: dt.datetime) -> bool:
     dose = _dose_time(trigger)
-    if dose is not None and db.episode_for_dose(trigger.patient_id, dose):
-        return True
-    return db.questions_on_day(trigger.to_person_id, now.date(), rule_id=trigger.rule_id) > 0
+    if dose is not None:
+        return db.episode_for_dose(trigger.patient_id, dose) is not None
+    since = now - dt.timedelta(days=REPEAT_DAYS)
+    return db.questions_since(trigger.to_person_id, trigger.rule_id, since) > 0
 
 
 async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
-    """Procesa un disparador. Devuelve el id de la pregunta enviada, o None si no se preguntó."""
+    """Procesa un disparador. Devuelve el id de la pregunta enviada, o None si no se preguntó.
+    Desvío (con toma): siempre se explica y se guarda el episodio; el presupuesto solo decide si se pregunta.
+    Disparadores de texto: como mucho uno por regla y persona cada REPEAT_DAYS, y sin gastar IA si no hay presupuesto."""
     if await asyncio.to_thread(db.person_role, trigger.to_person_id) is None:
         log.warning("%s para una persona que no existe (%s): se ignora", trigger.rule_id, trigger.to_person_id)
         return None
     if await asyncio.to_thread(_already_handled, trigger, now):
         return None
-    # El presupuesto se mira antes de explain para no gastar una llamada a la IA si igual no se va a preguntar.
-    if not await asyncio.to_thread(budget_allow, trigger.to_person_id, "pregunta", now):
+    dose = _dose_time(trigger)
+    if dose is None and not await asyncio.to_thread(budget_allow, trigger.to_person_id, "pregunta", now):
         log.info("presupuesto: no se pregunta %s a %s", trigger.rule_id, trigger.to_person_id)
         return None
 
     ctx = await context_builder.build(trigger, now)
     explanation: Explanation = await explain_pipeline.explain(trigger, ctx)
-    dose = _dose_time(trigger)
     deviation = ctx.deviation.model_dump(mode="json") if ctx.deviation else None
 
-    if explanation.explained:
-        await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id, to_person_id=trigger.to_person_id,
-                                rule_id=trigger.rule_id, question="", why=trigger.why, options=[],
-                                status="descartada", sent_at=now)
+    async def save_episode(status: str, question_id: int | None) -> None:
         if dose is not None:
             await asyncio.to_thread(db.insert_episode, patient_id=trigger.patient_id, dose_time=dose,
-                                    deviation=deviation, explanation=explanation.model_dump(), question_id=None,
-                                    status="explicado")
-        log.info("%s explicado por lo que ya contaron: %s", trigger.rule_id, explanation.reasoning)
-        if dose is not None:
+                                    deviation=deviation, explanation=explanation.model_dump(),
+                                    question_id=question_id, status=status)
             await _episode_alerts(trigger.patient_id)
+
+    if explanation.explained:
+        if dose is None:   # marca para no volver a evaluarlo (los desvíos se marcan con el episodio)
+            await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id,
+                                    to_person_id=trigger.to_person_id, rule_id=trigger.rule_id, question="",
+                                    why=trigger.why, options=[], status="descartada", sent_at=now)
+        log.info("%s explicado por lo que ya contaron: %s", trigger.rule_id, explanation.reasoning)
+        await save_episode("explicado", None)
+        return None
+
+    if dose is not None and not await asyncio.to_thread(budget_allow, trigger.to_person_id, "pregunta", now):
+        log.info("presupuesto: desvío de las %s sin pregunta para %s", f"{dose:%H:%M}", trigger.to_person_id)
+        await save_episode("sin_pregunta", None)
         return None
 
     text = await ask_pipeline.ask(trigger, ctx)
     qid = await asyncio.to_thread(db.insert_question, patient_id=trigger.patient_id,
                                   to_person_id=trigger.to_person_id, rule_id=trigger.rule_id, question=text.question,
                                   why=trigger.why, options=text.options, status="enviada", sent_at=now)
-    if dose is not None:
-        await asyncio.to_thread(db.insert_episode, patient_id=trigger.patient_id, dose_time=dose, deviation=deviation,
-                                explanation=explanation.model_dump(), question_id=qid, status="preguntado")
     title = f"{ctx.patient_name}, una pregunta de hoy" if ctx.recipient_role == "paciente" else "Una pregunta de hoy"
     await notify.send(trigger.to_person_id, "pregunta", title, text.question, f"/casa/pregunta/{qid}")
     log.info("pregunta %s (%s) enviada a %s", qid, trigger.rule_id, trigger.to_person_id)
-    if dose is not None:
-        await _episode_alerts(trigger.patient_id)
+    await save_episode("preguntado", qid)
     return qid
 
 
@@ -103,7 +112,8 @@ async def tick() -> list[int]:
         now = await asyncio.to_thread(clock.now)
         for patient in await asyncio.to_thread(db.patients):
             triggers = await asyncio.to_thread(evaluate, patient["id"], now)
-            for trigger in triggers:
+            # Primero los desvíos: si hay pregunta del día, es para lo que midió el teléfono.
+            for trigger in sorted(triggers, key=lambda t: _dose_time(t) is None):
                 try:
                     qid = await handle(trigger, now)
                 except Exception:
