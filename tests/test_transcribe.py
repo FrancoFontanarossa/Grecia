@@ -87,3 +87,17 @@ def test_transcripcion_vacia_es_error(tmp_data_dir, monkeypatch):
     path = t.save_audio(b"audio", "audio/ogg")
     with pytest.raises(t.TranscriptionError):
         asyncio.run(t.transcribe(path))
+
+
+@pytest.mark.parametrize("eco", ["Medicamentos: levodopa, carbidopa, pramipexol, apixabán.",
+                                 "La vida de alguien que vive con Parkinson",
+                                 "Relato en español rioplatense sobre la vida diaria de una persona con Parkinson."])
+def test_el_eco_del_prompt_es_no_te_escuche(eco):
+    assert t.unintelligible(eco)
+
+
+@pytest.mark.parametrize("real", ["Anoche hablaba con alguien que no estaba. Debe ser el cansancio.",
+                                  "Se cayó en el baño, se golpeó la cabeza y toma apixabán.",
+                                  "Desde que le subieron el pramipexol duerme peor, dice que es por el Parkinson."])
+def test_un_relato_real_no_es_eco(real):
+    assert not t.unintelligible(real)

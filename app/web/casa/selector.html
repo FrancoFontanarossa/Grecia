@@ -1,59 +1,48 @@
 ﻿{% extends "base.html" %}
-{% from "_icons.html" import icon, logo %}
+{% from "_icons.html" import icon %}
 {% block title %}¿Quién sos? · Entrecasa{% endblock %}
 {% block content %}
-<main class="pantalla" style="padding-top: max(64px, calc(env(safe-area-inset-top) + 16px)); gap: 28px" x-data="selector()">
-  {{ logo() }}
-
+{# v3.1 · 1 ¿Quién sos? (design/v3/pantallas-v31.html): cielo arriba, hoja blanca con una fila por persona. #}
+<main class="app cielo" x-data="selector()">
   <template x-if="!elegida">
-    <div style="display: flex; flex-direction: column; gap: 28px; flex-grow: 1">
-      <div style="display: flex; flex-direction: column; gap: 8px">
-        <h1 class="titulo-juan">¿Quién sos?</h1>
-        <p style="font-size: 18px; color: var(--color-tinta-suave); line-height: 1.4">Elegilo una vez. Este teléfono se va a acordar.</p>
-        {% if is_test %}<p class="pildora" style="align-self: flex-start">Paciente de prueba</p>{% endif %}
+    <div style="flex: 1; display: flex; flex-direction: column">
+      <div class="cont">
+        <div class="top"><span class="marca">entrecasa<i>.</i></span>{% if is_test %}<span class="chip chip--chico">Paciente de prueba</span>{% endif %}</div>
+        <h1 class="lt" style="margin-top: 26px">¿Quién sos?<span class="tenue">Elegilo una vez.</span></h1>
+        <p class="cuerpo" style="color: var(--tinta2); margin-top: 10px">Este teléfono se va a acordar.</p>
       </div>
-
-      <div style="display: flex; flex-direction: column; gap: 14px">
+      <div class="hoja" style="margin-top: 30px">
+        <div class="asa"></div>
         {% for p in people if p.role != "neurologo" %}
-        <button type="button" class="card-enlace {% if p.role == 'paciente' %}card-enlace--activa{% endif %}"
-                @click="elegir({{ p.id }}, {{ p.patient_id }}, '{{ p.role }}', '{{ p.name }}')">
-          <div class="avatar avatar--{{ p.role }}">{{ p.name[0] }}</div>
-          <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1">
-            <div class="card-enlace__nombre">{{ p.name }}</div>
-            <div class="card-enlace__rel">{{ p.relation_label }}</div>
-          </div>
-          {{ icon("chevron-derecha", 26, "var(--color-pino)" if p.role == "paciente" else "var(--color-tinta-suave)", 2.2) }}
+        <button type="button" class="fila fila--alta" @click="elegir({{ p.id }}, {{ p.patient_id }}, '{{ p.role }}', '{{ p.name }}')">
+          <span class="avatar-v3{% if p.role == 'paciente' %} avatar-v3--paciente{% endif %}" aria-hidden="true">{{ p.name[0] }}</span>
+          <span class="tx"><span class="a" style="display: block; font-size: 21px; font-weight: 600">{{ p.name }}</span><span class="b" style="display: block">{{ p.relation_label }}</span></span>
+          <span class="pil">Entrar</span>
         </button>
         {% endfor %}
-      </div>
-
-      <div class="espaciador"></div>
-
-      {% set neuro = people | selectattr("role", "equalto", "neurologo") | first %}
-      <a href="/neuro/informe/{{ patient_id }}" hx-boost="false"
-         @click="{% if neuro %}EC.person.set({{ neuro.id }}, {{ patient_id }}, 'neurologo'){% endif %}"
-         style="display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; border-radius: 16px; background: #FFFFFF; border: 1px solid var(--color-borde-chip); color: var(--color-tinta); font-size: 17px; text-decoration: none">
-        {{ icon("monitor", 22) }}
-        Soy del equipo médico
-      </a>
-      <div style="display: flex; flex-direction: column; gap: 6px">
-        <p class="rotulo-demo">Demo: sin contraseña. En el piloto, cada persona entra con su enlace.</p>
-        <p class="rotulo-demo">Entrecasa no es un servicio de emergencias.</p>
+        {% set neuro = people | selectattr("role", "equalto", "neurologo") | first %}
+        <a href="/neuro/informe/{{ patient_id }}" hx-boost="false" class="fila"
+           @click="{% if neuro %}EC.person.set({{ neuro.id }}, {{ patient_id }}, 'neurologo'){% endif %}">
+          <span class="tx"><span class="a" style="font-size: 17px; color: var(--tinta2)">Soy del equipo médico</span></span>
+          <svg width="9" height="15" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.5L7.5 7.5L1.5 13.5" stroke="#8C96A5" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        </a>
+        <div class="dock"><p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3)">Versión de demostración: sin contraseña.<br>Entrecasa no es un servicio de emergencias.</p></div>
       </div>
     </div>
   </template>
 
   <template x-if="elegida">
-    <div style="display: flex; flex-direction: column; gap: 22px; flex-grow: 1">
-      <div style="display: flex; flex-direction: column; gap: 8px">
-        <h1 class="titulo-juan" x-text="'Hola, ' + nombre"></h1>
-        <p style="font-size: 18px; color: var(--color-tinta-suave); line-height: 1.4">Este teléfono ya sabe quién sos.</p>
+    <div style="flex: 1; display: flex; flex-direction: column">
+      <div class="cont">
+        <div class="top"><span class="marca">entrecasa<i>.</i></span></div>
+        <h1 class="lt" style="margin-top: 26px"><span x-text="'Hola, ' + nombre + '.'"></span><span class="tenue">Este teléfono ya sabe quién sos.</span></h1>
+        <div style="margin-top: 18px">{% with dismissible=False, compact=False %}{% include "casa/_avisos.html" %}{% endwith %}</div>
       </div>
-      {% with dismissible=False, compact=False %}{% include "casa/_avisos.html" %}{% endwith %}
-      <div class="espaciador"></div>
-      <a href="/casa" class="btn btn--primario btn--grande">Seguir</a>
-      <button type="button" class="enlace-suave" style="align-self: center" @click="elegida = false">No soy yo</button>
-      <p class="rotulo-demo">Entrecasa no es un servicio de emergencias.</p>
+      <div class="dock">
+        <a href="/casa" class="btn p j">Seguir</a>
+        <button type="button" class="txtbtn" @click="elegida = false">No soy yo</button>
+        <p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3)">Entrecasa no es un servicio de emergencias.</p>
+      </div>
     </div>
   </template>
 </main>

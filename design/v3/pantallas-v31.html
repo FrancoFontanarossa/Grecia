@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrecasa, pantallas v3.1</title>
+<style>
+@font-face{font-family:"PreviewSF";src:url("preview.woff2") format("woff2");font-weight:100 900}
+:root{
+  /* v3.1: cielo, vidrio y marino */
+  --cielo-a:#9FBFEE; --cielo-b:#C7DAF5; --cielo-c:#E6EEF9; --fondo:#F3F6FA;
+  --vidrio:rgba(255,255,255,.62); --vidrio-borde:rgba(255,255,255,.8);
+  --sup:#FFFFFF; --sep:#E7EBF1; --suave:#EEF3FA;
+  --tinta:#0E1A2B; --tinta2:#46536A; --tenue:#56657E; --tinta3:#6E7C93;
+  --marino:#0F1D33; --azul:#2F6FD6; --azul-osc:#1E4FA3; --azul-t:#E3EDFB;
+  --ambar:#B45309; --ambar-t:#FFF4E5; --rojo:#C4291C; --rojo-t:#FDECEA; --ok:#1E7A45;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","PreviewSF",system-ui,sans-serif;
+  --sombra:0 1px 2px rgba(20,40,80,.04),0 10px 30px rgba(20,40,80,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#D7DDE6;font-family:var(--font);color:var(--tinta);-webkit-font-smoothing:antialiased;padding:40px 28px 80px}
+.num{font-variant-numeric:tabular-nums}
+.cab{max-width:1720px;margin:0 auto 26px}
+.cab h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.cab p{font-size:15px;color:#3E444C;line-height:1.5;max-width:92ch;margin-top:6px}
+.grid{max-width:1720px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,390px);gap:44px 36px;justify-content:center}
+.nombre{text-align:center;font-size:14px;font-weight:600;color:#2C3138;margin-top:16px}
+.nombre span{display:block;font-weight:400;color:#5A616A;font-size:13px;margin-top:2px}
+
+/* teléfono */
+.tel{width:390px;height:844px;border-radius:52px;box-shadow:0 0 0 10px #101214,0 24px 60px rgba(0,0,0,.25);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.isla{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:120px;height:34px;background:#000;border-radius:20px;z-index:9}
+.estado{height:54px;flex:none}
+.cont{flex:none;padding:6px 22px 0;position:relative}
+.dock{padding:14px 20px 34px;margin-top:auto}
+
+/* cielo */
+.cielo{background:
+  radial-gradient(90% 45% at 8% 0%,rgba(140,178,236,.95) 0%,rgba(140,178,236,0) 70%),
+  radial-gradient(80% 40% at 100% 6%,rgba(206,222,247,1) 0%,rgba(206,222,247,0) 70%),
+  linear-gradient(180deg,#B3CBF0 0%,#D3E1F6 34%,#E9EFF8 58%,var(--fondo) 80%)}
+.cielo-rojo{background:
+  radial-gradient(90% 45% at 10% 0%,rgba(240,170,160,.85) 0%,rgba(240,170,160,0) 70%),
+  linear-gradient(180deg,#F5CFC9 0%,#FAE4E0 36%,#FDF2F0 66%,#FEF7F6 100%)}
+
+/* vidrio y hoja */
+.vidrio{background:var(--vidrio);-webkit-backdrop-filter:blur(24px) saturate(1.3);backdrop-filter:blur(24px) saturate(1.3);border:1px solid var(--vidrio-borde);border-radius:24px;box-shadow:var(--sombra)}
+.hoja{flex:1;margin-top:18px;background:var(--sup);border-radius:32px 32px 0 0;box-shadow:0 -6px 30px rgba(20,40,80,.06);display:flex;flex-direction:column;padding-top:10px}
+.asa{width:38px;height:5px;border-radius:3px;background:#D6DCE5;margin:0 auto 6px}
+.hoja .rot{font-size:14px;color:var(--tinta3);text-align:center;margin:6px 0 4px}
+
+/* tipografía */
+.marca{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.marca i{font-style:normal;color:var(--azul)}
+.fecha{font-size:15px;font-weight:500;color:var(--tinta2)}
+.lt{font-size:34px;line-height:40px;font-weight:600;letter-spacing:-.028em}
+.lt .tenue{display:block;color:var(--tenue);font-weight:500}
+.etq{display:inline-flex;align-items:center;gap:8px;font-size:15px;color:var(--tinta2);font-weight:500}
+.etq::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.8}
+.liviano{font-weight:300;letter-spacing:-.045em;line-height:1}
+.cuerpo{font-size:17px;line-height:24px}
+.cuerpo-j{font-size:20px;line-height:27px}
+.cap{font-size:15px;line-height:20px;color:var(--tinta2)}
+
+/* filas */
+.fila{display:flex;align-items:center;gap:14px;min-height:72px;padding:12px 20px;position:relative}
+.fila+.fila::before{content:"";position:absolute;top:0;left:20px;right:20px;height:1px;background:var(--sep)}
+.fila .tx{flex:1;min-width:0}
+.fila .a{font-size:19px;font-weight:500;line-height:24px;letter-spacing:-.01em}
+.fila .b{font-size:15px;color:var(--tinta3);margin-top:2px}
+.fila .v{font-size:21px;font-weight:500}
+.ic{flex:none;width:46px;height:46px;border-radius:50%;background:var(--suave);display:grid;place-items:center}
+.pil{flex:none;display:inline-flex;align-items:center;height:42px;padding:0 18px;border-radius:999px;background:var(--azul-t);color:var(--azul-osc);font-size:16px;font-weight:600}
+
+/* botones */
+.circ{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.85);display:grid;place-items:center;box-shadow:0 2px 8px rgba(20,40,80,.08)}
+.chip{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.9);font-size:15px;font-weight:600;color:var(--tinta)}
+.btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;height:62px;border-radius:999px;border:0;font:600 18px var(--font);text-decoration:none;letter-spacing:-.01em}
+.btn.p{background:var(--marino);color:#fff;box-shadow:0 8px 20px rgba(15,29,51,.22)}
+.btn.s{background:var(--suave);color:var(--tinta)}
+.btn.j{height:76px;font-size:21px}
+.btn .mic{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center}
+.txtbtn{display:block;text-align:center;font-size:17px;font-weight:600;color:var(--tinta2);padding:14px 0 0}
+.top{display:flex;align-items:center;justify-content:space-between;min-height:46px}
+</style>
+</head>
+<body>
+<div class="cab">
+  <h1>Entrecasa · pantallas v3.1</h1>
+  <p>Mismo sistema y misma organización que v3, ahora con el lenguaje visual de las referencias. Fondo de cielo celeste que se aclara hacia abajo, tarjetas de vidrio esmerilado, números grandes en peso liviano, un anillo para la meta y una hoja blanca que sube desde abajo con las filas. Los botones principales son píldoras azul marino. Ámbar y rojo quedan solo para avisos. Los textos se mantienen oscuros sobre fondo claro para que Juan los lea bien.</p>
+</div>
+
+<div class="grid">
+
+<!-- 1 SELECTOR -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span class="marca">entrecasa<i>.</i></span></div>
+    <div class="lt" style="margin-top:26px">¿Quién sos?<span class="tenue">Elegilo una vez.</span></div>
+    <p class="cuerpo" style="color:var(--tinta2);margin-top:10px">Este teléfono se va a acordar.</p>
+  </div>
+  <div class="hoja" style="margin-top:30px">
+    <div class="asa"></div>
+    <div class="fila" style="min-height:88px"><span style="width:54px;height:54px;border-radius:50%;background:var(--marino);color:#fff;display:grid;place-items:center;font-size:22px;font-weight:600">J</span><div class="tx"><div class="a" style="font-size:21px;font-weight:600">Juan</div><div class="b">Soy el paciente</div></div><span class="pil">Entrar</span></div>
+    <div class="fila" style="min-height:88px"><span style="width:54px;height:54px;border-radius:50%;background:var(--azul-t);color:var(--azul-osc);display:grid;place-items:center;font-size:22px;font-weight:600">M</span><div class="tx"><div class="a" style="font-size:21px;font-weight:600">Marta</div><div class="b">Esposa de Juan</div></div><span class="pil">Entrar</span></div>
+    <div class="fila" style="min-height:88px"><span style="width:54px;height:54px;border-radius:50%;background:var(--azul-t);color:var(--azul-osc);display:grid;place-items:center;font-size:22px;font-weight:600">L</span><div class="tx"><div class="a" style="font-size:21px;font-weight:600">Laura</div><div class="b">Hija de Juan, en Salto</div></div><span class="pil">Entrar</span></div>
+    <div class="fila"><div class="tx"><div class="a" style="font-size:17px;color:var(--tinta2)">Soy del equipo médico</div></div><svg width="9" height="15" viewBox="0 0 9 15"><path d="M1.5 1.5L7.5 7.5L1.5 13.5" stroke="#AEB6C2" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+    <div class="dock"><p class="cap" style="text-align:center;font-size:14px;color:var(--tinta3)">Versión de demostración: sin contraseña.<br>Entrecasa no es un servicio de emergencias.</p></div>
+  </div>
+</div><div class="nombre">1 · ¿Quién sos?<span>Cielo arriba, hoja blanca con una fila por persona</span></div></div>
+
+<!-- 2 JUAN INICIO -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span class="marca">entrecasa<i>.</i></span><span class="fecha">Sáb 17 oct</span></div>
+    <div class="lt" style="margin-top:12px">Buenas tardes, Juan.<span class="tenue">Así va tu día.</span></div>
+    <div style="position:relative;width:226px;height:226px;margin:16px auto 0">
+      <svg width="226" height="226" viewBox="0 0 226 226">
+        <defs><linearGradient id="g1" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#1E4FA3"/><stop offset="1" stop-color="#5C8FE0"/></linearGradient></defs>
+        <circle cx="113" cy="113" r="98" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="12" stroke-linecap="round" stroke-dasharray="461.8 615.8" transform="rotate(135 113 113)"/>
+        <circle cx="113" cy="113" r="98" fill="none" stroke="url(#g1)" stroke-width="12" stroke-linecap="round" stroke-dasharray="461.8 615.8" transform="rotate(135 113 113)"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:10px">
+        <span class="etq" style="font-size:14px">Tus pasos</span>
+        <span class="num liviano" style="font-size:60px;margin-top:8px">4.060</span>
+        <span class="cap" style="margin-top:6px">de 4.000</span>
+      </div>
+      <span class="chip" style="position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E7A45" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Llegaste a tu meta</span>
+    </div>
+  </div>
+  <div class="hoja">
+    <div class="asa"></div>
+    <div class="fila" style="padding-top:16px;padding-bottom:16px;align-items:center">
+      <div class="tx"><div style="font-size:14px;font-weight:600;color:var(--azul-osc)">Una pregunta de hoy</div><div style="font-size:19px;line-height:25px;font-weight:500;margin-top:3px">A la tarde caminaste menos. ¿Pasó algo?</div></div>
+      <span class="pil">Responder</span>
+    </div>
+    <div class="fila"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E4FA3" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><div class="tx"><div class="a">Próxima toma</div><div class="b">Levodopa</div></div><div class="v num">20:00</div></div>
+    <div class="fila"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E4FA3" stroke-width="1.8"><circle cx="8" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></svg></span><div class="tx"><div class="a">Juego</div><div class="b">20 segundos</div></div><span class="pil">Jugar</span></div>
+    <div class="dock"><a class="btn p j"><span class="mic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>Contame cómo estás</a></div>
+  </div>
+</div><div class="nombre">2 · Inicio de Juan<span>El anillo de la meta vuelve, como en la referencia</span></div></div>
+
+<!-- 3 GRABANDO -->
+<div><div class="tel cielo" style="background:radial-gradient(70% 40% at 50% 42%,#DCE8FA 0%,rgba(220,232,250,0) 70%),linear-gradient(180deg,#C6D9F5 0%,#E6EEF9 45%,#F1F5FA 100%)"><div class="isla"></div><div class="estado"></div>
+  <div class="cont" style="flex:1;display:flex;flex-direction:column">
+    <div class="top"><span class="circ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E4FA3" stroke-width="2.2" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>Te escucho</span><span style="width:46px"></span></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div style="position:relative;width:230px;height:230px;display:grid;place-items:center">
+        <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.75) 0%,rgba(255,255,255,0) 70%)"></div>
+        <svg style="position:absolute;inset:0" width="230" height="230" viewBox="0 0 230 230"><path fill="none" stroke="#9CC4B8" stroke-width="1.6" d="M115 22 C130 22 134 30 147 33 C160 36 168 32 178 41 C188 50 184 59 191 70 C198 81 207 86 207 101 C207 115 199 120 199 134 C199 148 207 154 200 167 C193 180 183 177 173 187 C163 197 164 206 150 210 C136 214 129 207 115 207 C101 207 94 214 80 210 C66 206 67 197 57 187 C47 177 37 180 30 167 C23 154 31 148 31 134 C31 120 23 115 23 101 C23 86 32 81 39 70 C46 59 42 50 52 41 C62 32 70 36 83 33 C96 30 100 22 115 22Z"/></svg>
+        <div style="width:150px;height:150px;border-radius:50%;background:
+          radial-gradient(circle at 34% 30%,#FFFFFF 0%,rgba(255,255,255,0) 32%),
+          radial-gradient(circle at 70% 72%,#7FB2F0 0%,rgba(127,178,240,0) 55%),
+          radial-gradient(circle at 30% 75%,#C9B8F5 0%,rgba(201,184,245,0) 50%),
+          linear-gradient(140deg,#5D9BEA,#2F6FD6 55%,#8CC3F5);box-shadow:0 18px 40px rgba(47,111,214,.28),inset 0 -10px 24px rgba(15,29,51,.18)"></div>
+      </div>
+      <div class="num liviano" style="font-size:46px;margin-top:22px">0:14</div>
+      <p class="cuerpo-j" style="text-align:center;margin-top:14px;color:var(--tinta2)">Contá con tus palabras.<br>Si pasó otro día, decí cuándo.</p>
+    </div>
+  </div>
+  <div class="dock" style="margin-top:0;display:flex;flex-direction:column;align-items:center">
+    <span style="width:104px;height:104px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 0 0 12px rgba(255,255,255,.45),0 10px 26px rgba(20,40,80,.12)"><span style="width:32px;height:32px;border-radius:8px;background:var(--rojo)"></span></span>
+    <span style="font-size:18px;font-weight:600;margin-top:16px">Tocá para terminar</span>
+  </div>
+</div><div class="nombre">3 · Grabando<span>La esfera muestra que escucha; tocar para terminar</span></div></div>
+
+<!-- 4 ANOTÉ ESTO -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span style="width:56px;height:56px;border-radius:50%;background:linear-gradient(140deg,#4F8BE4,#1E4FA3);display:grid;place-items:center;box-shadow:0 10px 24px rgba(30,79,163,.28)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></div>
+    <div class="lt" style="margin-top:18px">Anoté esto.<span class="tenue" style="font-size:22px;line-height:29px;margin-top:6px">Lo va a ver la Dra. Pereira en tu consulta del 28.</span></div>
+  </div>
+  <div class="hoja" style="margin-top:24px">
+    <div class="asa"></div>
+    <div class="rot">2 cosas que entendí</div>
+    <div class="fila" style="align-items:flex-start;padding-top:18px;padding-bottom:18px"><div class="tx"><span class="pil" style="height:30px;padding:0 12px;font-size:14px">Hoy a la tarde · Movimiento</span><div class="cuerpo-j" style="margin-top:10px">Después de la pastilla de las 4 te sentiste trabado y te costó salir a caminar.</div></div></div>
+    <div class="fila" style="align-items:flex-start;padding-top:18px;padding-bottom:18px"><div class="tx"><span class="pil" style="height:30px;padding:0 12px;font-size:14px">Estos días · Cuerpo</span><div class="cuerpo-j" style="margin-top:10px">Andás medio estreñido.</div></div></div>
+    <div class="dock"><a class="btn p j">Está bien así</a><a class="btn s" style="margin-top:10px">Corregir</a></div>
+  </div>
+</div><div class="nombre">4 · Anoté esto<span>Confirmar es lo principal; corregir, lo secundario</span></div></div>
+
+<!-- 5 PREGUNTA -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span class="circ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span class="chip">Una pregunta de hoy</span><span style="width:46px"></span></div>
+    <div class="lt" style="font-size:29px;line-height:35px;margin-top:18px">A la tarde caminaste menos que otras tardes. ¿Pasó algo?</div>
+    <div class="vidrio" style="margin-top:16px;padding:16px 18px">
+      <div class="etq" style="font-size:14px">Por qué te pregunto · de 16 a 18 h</div>
+      <svg width="314" height="74" viewBox="0 0 314 74" style="display:block;margin-top:6px">
+        <line x1="6" y1="48" x2="308" y2="48" stroke="#C9D6E8" stroke-width="2" stroke-linecap="round"/>
+        <line x1="170" y1="48" x2="262" y2="48" stroke="#2F6FD6" stroke-opacity=".35" stroke-width="10" stroke-linecap="round"/>
+        <line x1="40" y1="20" x2="40" y2="48" stroke="#0E1A2B" stroke-width="1.5"/>
+        <circle cx="40" cy="48" r="8" fill="#fff" stroke="#0E1A2B" stroke-width="2"/>
+        <rect x="8" y="2" width="76" height="22" rx="11" fill="#0E1A2B"/>
+        <text x="46" y="17" text-anchor="middle" font-family="-apple-system,PreviewSF,sans-serif" font-size="13" font-weight="600" fill="#fff">Hoy 273</text>
+        <text x="216" y="72" text-anchor="middle" font-family="-apple-system,PreviewSF,sans-serif" font-size="13" fill="#46536A">Lo habitual 1.100 a 1.400</text>
+      </svg>
+      <p class="cap" style="font-size:13px;margin-top:4px;color:var(--tinta3)">Pasos medidos por tu teléfono. No es un diagnóstico.</p>
+    </div>
+  </div>
+  <div class="hoja">
+    <div class="asa"></div>
+    <div class="fila"><div class="tx"><div class="a">Estaba duro, me costó moverme</div></div></div>
+    <div class="fila"><div class="tx"><div class="a">Me sentí bien, solo no salí</div></div></div>
+    <div class="fila"><div class="tx"><div class="a">No me acuerdo</div></div></div>
+    <div class="dock" style="padding-top:6px"><a class="btn p j"><span class="mic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>Contalo con tu voz</a><a class="txtbtn">Ahora no</a></div>
+  </div>
+</div><div class="nombre">5 · Pregunta<span>El porqué como una línea con su marca, como en la referencia</span></div></div>
+
+<!-- 6 JUEGO -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont" style="flex:1;display:flex;flex-direction:column">
+    <div class="top"><span class="circ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span class="chip">Juego de 20 segundos</span><span style="width:46px"></span></div>
+    <div class="lt" style="font-size:29px;line-height:35px;margin-top:18px">Tocá los dos círculos,<span class="tenue">uno y otro.</span></div>
+    <div class="vidrio" style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;padding:16px 0">
+      <div style="text-align:center"><div class="etq" style="font-size:14px">Quedan</div><div class="num liviano" style="font-size:44px;margin-top:6px">12<span style="font-size:18px;font-weight:400;letter-spacing:0"> s</span></div></div>
+      <div style="text-align:center;border-left:1px solid rgba(14,26,43,.08)"><div class="etq" style="font-size:14px">Toques</div><div class="num liviano" style="font-size:44px;margin-top:6px">38</div></div>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:space-between;padding:0 2px">
+      <div style="width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 35%),linear-gradient(140deg,#4F8BE4,#1E4FA3);display:grid;place-items:center;color:#fff;font-size:19px;font-weight:600;box-shadow:0 16px 34px rgba(30,79,163,.3)">Tocá acá</div>
+      <div style="width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.5);border:2px dashed #AFC0D8;display:grid;place-items:center;color:var(--tinta3);font-size:16px">después acá</div>
+    </div>
+  </div>
+  <div class="dock" style="margin-top:0"><p class="cap" style="text-align:center">Lo anotamos para tu neuróloga.<br>No es un diagnóstico.</p></div>
+</div><div class="nombre">6 · Juego (jugando)<span>El que hay que tocar: lleno y con texto, no solo color</span></div></div>
+
+<!-- 7 MARTA -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span class="marca">entrecasa<i>.</i></span><span class="circ"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="1.8" stroke-linecap="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg></span></div>
+    <div class="lt" style="margin-top:12px">Hola, Marta.<span class="tenue">Juan tuvo una semana en orden.</span></div>
+    <div class="vidrio" style="margin-top:16px;padding:18px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div><div class="etq" style="font-size:14px">Meta de pasos</div><div class="num liviano" style="font-size:46px;margin-top:8px">5<span style="font-size:22px;font-weight:400;letter-spacing:-.01em"> de 7 días</span></div></div>
+        <span class="chip" style="height:32px;font-size:14px;padding:0 12px;color:var(--ok)"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok)"></span>En orden</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:14px;align-items:end;height:56px">
+        <i style="height:86%;border-radius:8px;background:linear-gradient(180deg,#4F8BE4,#1E4FA3)"></i><i style="height:94%;border-radius:8px;background:linear-gradient(180deg,#4F8BE4,#1E4FA3)"></i><i style="height:60%;border-radius:8px;background:rgba(30,79,163,.18)"></i><i style="height:90%;border-radius:8px;background:linear-gradient(180deg,#4F8BE4,#1E4FA3)"></i><i style="height:58%;border-radius:8px;background:rgba(30,79,163,.18)"></i><i style="height:84%;border-radius:8px;background:linear-gradient(180deg,#4F8BE4,#1E4FA3)"></i><i style="height:88%;border-radius:8px;background:linear-gradient(180deg,#4F8BE4,#1E4FA3)"></i>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:6px;text-align:center;font-size:12px;color:var(--tinta3)"><span>dom</span><span>lun</span><span>mar</span><span>mié</span><span>jue</span><span>vie</span><span style="color:var(--tinta);font-weight:600">sáb</span></div>
+    </div>
+    <div class="vidrio" style="margin-top:12px;padding:18px 20px;background:rgba(255,248,238,.85)">
+      <span class="etq" style="color:var(--ambar);font-weight:600;font-size:14px">Algo para mirar</span>
+      <div style="font-size:18px;line-height:24px;font-weight:600;margin-top:8px">Contaste que Juan habló con alguien que no estaba.</div>
+      <p class="cuerpo" style="margin-top:6px;color:#4A4236;font-size:16px;line-height:22px">Es la primera vez. Ya está en el resumen para el 28. Si aparece fiebre o confusión, llamá a la emergencia móvil.</p>
+    </div>
+  </div>
+  <div class="dock" style="display:grid;grid-template-columns:1fr 112px;gap:10px"><a class="btn p"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Contar algo</a><a class="btn" style="background:rgba(255,255,255,.85);color:var(--tinta)">Escribir</a></div>
+</div><div class="nombre">7 · Hoy de Marta<span>Estado en una frase, la semana en un vistazo y el aviso</span></div></div>
+
+<!-- 8 FAMILIA CONTAR -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span class="circ"><svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="#0E1A2B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3L3 10l6 7"/></svg></span><span class="chip">Contar algo de Juan</span><span style="width:46px"></span></div>
+    <div class="lt" style="font-size:29px;line-height:35px;margin-top:16px">¿Cuándo pasó?</div>
+    <div class="vidrio" style="display:flex;padding:4px;border-radius:999px;margin-top:12px">
+      <span style="flex:1;text-align:center;padding:11px 0;font-size:16px;font-weight:500;color:var(--tinta2)">Hoy</span>
+      <span style="flex:1;text-align:center;padding:11px 0;font-size:16px;font-weight:600;background:var(--marino);color:#fff;border-radius:999px">Anoche</span>
+      <span style="flex:1;text-align:center;padding:11px 0;font-size:16px;font-weight:500;color:var(--tinta2)">Ayer</span>
+      <span style="flex:1;text-align:center;padding:11px 0;font-size:16px;font-weight:500;color:var(--tinta2)">Otro día</span>
+    </div>
+    <div class="vidrio" style="margin-top:12px;padding:16px 18px"><div class="etq" style="font-size:14px">Lo que dijiste</div><p class="cuerpo" style="margin-top:6px;color:#2A3446">«Anoche hablaba con alguien que no estaba. Debe ser el cansancio.»</p></div>
+  </div>
+  <div class="hoja">
+    <div class="asa"></div>
+    <div class="rot">Lo que entendimos</div>
+    <div class="fila" style="align-items:flex-start;padding-top:14px;padding-bottom:16px"><div class="tx"><span class="pil" style="height:30px;padding:0 12px;font-size:14px">Anoche · Alucinaciones y confusión</span><div class="cuerpo" style="margin-top:8px">Juan habló con alguien que no estaba. Vos pensás que fue el cansancio.</div></div></div>
+    <div class="fila"><div class="tx"><div class="a" style="font-size:17px">Solo para el equipo médico</div><div class="b" style="font-size:14px">Juan ve que lo contaste, no el detalle.</div></div><span style="flex:none;width:51px;height:31px;border-radius:16px;background:#34A853;position:relative"><span style="position:absolute;right:2px;top:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></span></div>
+    <div class="dock" style="display:grid;grid-template-columns:120px 1fr;gap:10px;padding-top:8px"><a class="btn s">Regrabar</a><a class="btn p">Guardar</a></div>
+  </div>
+</div><div class="nombre">8 · Contar algo (familia)<span>Cuándo, lo dicho, lo entendido y la privacidad</span></div></div>
+
+<!-- 9 LAURA -->
+<div><div class="tel cielo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span class="marca">entrecasa<i>.</i></span><span class="fecha">Desde Salto</span></div>
+    <div class="lt" style="margin-top:12px">Papá esta semana.<span class="tenue">Todo tranquilo.</span></div>
+    <div class="vidrio" style="margin-top:16px;padding:18px 20px">
+      <div class="etq" style="font-size:14px">Hoy</div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:8px"><span class="num liviano" style="font-size:52px">4.060</span><span style="font-size:18px;color:var(--tinta2)">pasos</span></div>
+      <div style="font-size:17px;font-weight:600;margin-top:6px">Llegó a su meta.</div>
+      <a class="btn p" style="margin-top:14px;height:54px;font-size:17px">Mandale un audio</a>
+    </div>
+  </div>
+  <div class="hoja">
+    <div class="asa"></div>
+    <div class="fila"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E4FA3" stroke-width="2" stroke-linecap="round"><path d="M4 18h16M7 15V9M12 15V6M17 15v-4"/></svg></span><div class="tx"><div class="a" style="font-size:17px">Meta de pasos</div></div><div class="v num" style="font-size:17px">5 de 7 días</div></div>
+    <div class="fila"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E4FA3" stroke-width="2" stroke-linecap="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><div class="tx"><div class="a" style="font-size:17px">Noches</div></div><div class="v" style="font-size:17px">3 con despertares</div></div>
+    <div class="fila"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E4FA3" stroke-width="2" stroke-linecap="round"><path d="M5 5h14v10H9l-4 4z"/></svg></span><div class="tx"><div class="a" style="font-size:17px">Contaron algo</div></div><div class="v num" style="font-size:17px">14 veces</div></div>
+    <div class="dock" style="padding-top:4px"><p class="cap" style="text-align:center;font-size:14px;color:var(--tinta3)">Próxima consulta: miércoles 28 con la Dra. Pereira.<br>Te avisamos de logros y de cualquier rojo.</p></div>
+  </div>
+</div><div class="nombre">9 · Resumen de Laura<span>Lo positivo arriba; el resto, tranquilo</span></div></div>
+
+<!-- 10 EMERGENCIA -->
+<div><div class="tel cielo-rojo"><div class="isla"></div><div class="estado"></div>
+  <div class="cont">
+    <div class="top"><span class="chip" style="background:var(--rojo);color:#fff;border-color:var(--rojo)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>Rojo · actuar ahora</span></div>
+    <div class="lt" style="margin-top:16px;color:#2A0E0B">Llamá ahora a la emergencia móvil.</div>
+    <p class="cuerpo-j" style="margin-top:10px;color:#3D1A16">Juan se golpeó la cabeza y toma un anticoagulante. Necesita que lo vea un médico ahora.</p>
+  </div>
+  <div class="hoja">
+    <div class="asa"></div>
+    <div class="rot">Mientras llega</div>
+    <div class="fila"><span style="flex:none;width:34px;height:34px;border-radius:50%;background:var(--rojo-t);color:var(--rojo);display:grid;place-items:center;font-weight:700">1</span><div class="tx"><div class="a" style="font-size:18px">No lo muevas si le duele el cuello.</div></div></div>
+    <div class="fila"><span style="flex:none;width:34px;height:34px;border-radius:50%;background:var(--rojo-t);color:var(--rojo);display:grid;place-items:center;font-weight:700">2</span><div class="tx"><div class="a" style="font-size:18px">Quedate con él y mirá si responde.</div></div></div>
+    <div class="fila"><span style="flex:none;width:34px;height:34px;border-radius:50%;background:var(--rojo-t);color:var(--rojo);display:grid;place-items:center;font-weight:700">3</span><div class="tx"><div class="a" style="font-size:18px">Tené a mano sus remedios.</div></div></div>
+    <div class="dock"><a class="btn j" style="background:var(--rojo);color:#fff;box-shadow:0 8px 20px rgba(196,41,28,.28)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Llamar a la emergencia</a><p class="cap" style="text-align:center;margin-top:12px;font-size:14px;color:#6B2A24">Entrecasa no es un servicio de emergencias.</p></div>
+  </div>
+</div><div class="nombre">10 · Emergencia<span>Mismo esqueleto, en rojo</span></div></div>
+
+</div>
+</body>
+</html>

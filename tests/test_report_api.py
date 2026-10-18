@@ -168,3 +168,47 @@ def test_endpoint_devuelve_los_tres_campos(base, monkeypatch):
     # Base real sin informe generado: vacío y "pendiente", nunca el informe de ejemplo del lienzo.
     assert body["report_status"] == "pendiente" and body["report_simulated"] is False
     assert body["report"]["topics"] == [] and body["report"]["summary"] == ""
+
+
+def test_informe_minimo_se_rotula_y_muestra_las_cifras_del_codigo(base, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import clock
+    from app.main import app
+    from app.pipeline import report as pipeline_report
+
+    monkeypatch.setattr(clock, "now", lambda: NOW)
+    store._has_db_cache["checked"] = -1e9
+    pipeline_report._store(1, "20/09 al 17/10", pipeline_report.minimal_report())
+    client = TestClient(app)
+    body = client.get("/api/patients/1/report").json()
+    assert body["report_status"] == "sin_redaccion" and body["report_simulated"] is False
+    assert body["report"]["summary"].startswith("El resumen redactado no está disponible")
+    assert "no tiene texto redactado por IA" in body["verification_note"]
+    assert body["cobertura"]["pasos"]["dias_total"] == 28              # lo del código, igual que con informe
+    assert body["desde_el_cambio"]["medicamento"] == "pramipexol"
+    assert body["lo_que_no_sabemos"]["dias_sin_pasos"] == ["2026-09-23", "2026-09-29"]
+    html = client.get("/neuro/informe/1").text
+    assert "El resumen redactado no está disponible" in html and "Los temas redactados no están disponibles" in html
+    assert "Redactado con IA" not in html and "Sin datos en el período" not in html
+    assert "Pasos por día" in html and "Alertas del período" in html
+
+
+@pytest.mark.parametrize("estado", ["sin_redaccion", "pendiente"])
+def test_cobertura_desde_el_cambio_y_lo_que_no_sabemos_en_cualquier_estado(base, monkeypatch, estado):
+    from fastapi.testclient import TestClient
+
+    from app import clock
+    from app.main import app
+    from app.pipeline import report as pipeline_report
+
+    monkeypatch.setattr(clock, "now", lambda: NOW)
+    store._has_db_cache["checked"] = -1e9
+    if estado == "sin_redaccion":
+        pipeline_report._store(1, "20/09 al 17/10", pipeline_report.minimal_report())
+    client = TestClient(app)
+    assert client.get("/api/patients/1/report").json()["report_status"] == estado
+    html = client.get("/neuro/informe/1").text
+    assert "Cobertura: <span" in html and "Pasos: " in html and "días sincronizados" in html
+    assert "Desde el cambio del " in html and "inf-dc" in html and "Lo que no sabemos" in html
+    assert "Redactado con IA" not in html
