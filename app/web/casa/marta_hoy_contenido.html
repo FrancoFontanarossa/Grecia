@@ -1,23 +1,31 @@
 {% from "_icons.html" import icon %}
-{% for a in hoy.alerts %}
-{% if a.lane == "rojo" %}
+{# Rojos: uno por tarjeta, nunca agrupados. Ámbar: agrupados en una sola tarjeta (CLAUDE.md §6.1). #}
+{% for a in hoy.alerts if a.lane == "rojo" %}
 <a href="/casa/emergencia/{{ a.id }}" class="card" style="background: var(--color-rojo-fondo); text-decoration: none; color: var(--color-tinta)">
   <div class="lane lane--rojo">{{ icon("triangulo", 18, width=2.2) }} Rojo · actuar ahora</div>
   <div style="font-size: 19px; font-weight: 700; line-height: 1.3">{{ a.text }}</div>
 </a>
-{% else %}
+{% endfor %}
+{% set ambar = hoy.alerts | selectattr("lane", "equalto", "ambar") | list %}
+{% if ambar %}
 <div class="card card--ambar">
   <div class="lane lane--ambar">{{ icon("ambar", 18, width=2.2) }} Ámbar · para mirar</div>
-  <div style="font-size: 19px; font-weight: 700; line-height: 1.3">{{ a.text }}</div>
-  <div style="font-size: 16px; line-height: 1.45"><span style="font-weight: 700">Qué podés hacer:</span> {{ a.what_to_do or ("Ya está en el resumen para la " ~ hoy.doctor ~ ".") }}</div>
-  {% if a.evidence %}
+  <div style="font-size: 19px; font-weight: 700; line-height: 1.3">{{ ambar[0].text }}</div>
+  {% if ambar | length > 1 %}
+  <ul style="margin: 0; padding-left: 20px; font-size: 16px; line-height: 1.45">
+    {% for a in ambar[1:] %}<li>{{ a.text }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% set todo = (ambar | selectattr("what_to_do") | map(attribute="what_to_do") | first) %}
+  <div style="font-size: 16px; line-height: 1.45"><span style="font-weight: 700">Qué podés hacer:</span> {{ todo or ("Ya está en el resumen para la " ~ hoy.doctor ~ ".") }}</div>
+  {% set ev = ambar | map(attribute="evidence") | select | sum(start=[]) %}
+  {% if ev %}
   <div class="chips">
-    {% for e in a.evidence %}<span class="chip-evidencia">{{ e.label }}</span>{% endfor %}
+    {% for e in ev %}<span class="chip-evidencia">{{ e.label }}</span>{% endfor %}
   </div>
   {% endif %}
 </div>
 {% endif %}
-{% endfor %}
 
 <div class="card" style="gap: 12px">
   <div class="fila-entre" style="align-items: baseline">
