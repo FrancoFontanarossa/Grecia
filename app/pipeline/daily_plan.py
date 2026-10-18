@@ -7,6 +7,7 @@ import logging
 import re
 from pathlib import Path
 
+from app import config
 from app.models import DailyPlan
 from app.pipeline import knowledge, llm
 from app.taxonomy import _fold
@@ -72,33 +73,86 @@ TOOL = {
 }
 
 
+PROFILE_PROMPT_PATH = PROMPT_PATH.parent / "profile_learnings.md"
+_LEARNING = {
+    "type": "object",
+    "properties": {
+        "kind": {"type": "string", "enum": ["patron", "vocabulario", "costumbre"]},
+        "text": {"type": "string"},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "hypothesis": {"anyOf": [_HYP, {"type": "null"}]},
+        "word": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "domain": {"anyOf": [{"type": "string", "enum": ["motor", "sueno", "neuropsiquiatrico", "animo", "cognitivo",
+                                                          "autonomico", "dolor", "deglucion", "caidas", "impulsos",
+                                                          "sexual", "otro"]}, {"type": "null"}]},
+        "habit": {"anyOf": [{"type": "string", "enum": ["hora", "modalidad"]}, {"type": "null"}]},
+        "role": {"anyOf": [{"type": "string", "enum": ["paciente", "cuidador", "familiar"]}, {"type": "null"}]},
+    },
+    "required": ["kind", "text", "evidence_ids", "hypothesis", "word", "domain", "habit", "role"],
+    "additionalProperties": False,
+}
+
+
+def tool() -> dict:
+    """La herramienta; con PROFILE_ENABLED pide además hasta 3 aprendizajes para el perfil."""
+    if not config.PROFILE_ENABLED:
+        return TOOL
+    schema = TOOL["input_schema"]
+    return {**TOOL, "input_schema": {**schema, "properties": {**schema["properties"],
+                                                              "learnings": {"type": "array", "items": _LEARNING}},
+                                     "required": [*schema["required"], "learnings"]}}
+
+
 def prompt() -> str:
-    return knowledge.strip_comment(PROMPT_PATH.read_text(encoding="utf-8"))
+    text = knowledge.strip_comment(PROMPT_PATH.read_text(encoding="utf-8"))
+    if config.PROFILE_ENABLED:
+        text += "\n\n" + knowledge.strip_comment(PROFILE_PROMPT_PATH.read_text(encoding="utf-8"))
+    return text
+
+
+def _problem(text: str) -> str | None:
+    if re.search(r"\d", text):
+        return f"un motivo tiene cifras (las pone el código): {text!r}"
+    if FORBIDDEN.search(_fold(text)):
+        return f"un motivo diagnostica, habla de medicación o de causa: {text!r}"
+    return None
 
 
 def check(plan: DailyPlan) -> None:
     """Reglas del código sobre lo que escribió el modelo. ValueError → reintento."""
-    texts = [h.reason for h in plan.hypotheses] + [a.reason for a in plan.actions]
-    for text in texts:
-        if re.search(r"\d", text):
-            raise ValueError(f"un motivo tiene cifras (las pone el código): {text!r}")
-        if FORBIDDEN.search(_fold(text)):
-            raise ValueError(f"un motivo diagnostica, habla de medicación o de causa: {text!r}")
-    if plan.note is not None:       # las cifras de la nota las limpia rules.note; lo prohibido se corrige reintentando
-        for text in [plan.note.text] + [p.text for p in plan.note.points] + plan.note.follow_up:
-            if FORBIDDEN.search(_fold(text)):
-                raise ValueError(f"la nota diagnostica, habla de medicación o de causa: {text!r}")
+    for text in [h.reason for h in plan.hypotheses] + [a.reason for a in plan.actions]:
+        problem = _problem(text)
+        if problem:
+            raise ValueError(problem)
+    # La nota no se valida acá: rules.note borra la frase con cifras ajenas o palabras prohibidas (medicación,
+    # diagnóstico, causa) sin perder el resto del plan.
 
 
 def user_message(digest: dict) -> str:
     return ("<resumen>\n" + json.dumps(digest, ensure_ascii=False, indent=1) + "\n</resumen>\n"
-            "Escribí la nota de hoy y planificá mañana con la herramienta planificar_manana.")
+            "Escribí la nota de hoy y planificá mañana con la herramienta planificar_manana."
+            + (" Proponé también los aprendizajes para el perfil (`learnings`)." if config.PROFILE_ENABLED else ""))
 
 
 async def daily_plan(digest: dict) -> DailyPlan:
     try:
-        return await llm.call_tool(prompt(), TOOL, user_message(digest), DailyPlan, check=check,
+        return await llm.call_tool(prompt(), tool(), user_message(digest), DailyPlan, check=check,
                                    max_tokens=4096, effort="medium")
     except llm.LLMError as exc:
+        rejected = [o for o, _ in getattr(exc, "rejected", []) if isinstance(o, DailyPlan)]
+        if rejected:
+            log.warning("daily_plan sin validar para el paciente %s: se rescata la última salida sin lo que falla",
+                        digest.get("patient_id"))
+            return salvage(rejected[-1])
         log.error("daily_plan falló para el paciente %s: plan vacío (%s)", digest.get("patient_id"), exc)
         return DailyPlan()
+
+
+def salvage(plan: DailyPlan) -> DailyPlan:
+    """Si se agotaron los intentos: sin las hipótesis ni las acciones que fallan check (y sin las acciones basadas en
+    hipótesis si se cayó alguna, porque cambian los índices). La nota y los aprendizajes siguen: los verifican
+    rules.note y rules.profile."""
+    hyps = [h for h in plan.hypotheses if not _problem(h.reason)]
+    lost = len(hyps) < len(plan.hypotheses)
+    acts = [a for a in plan.actions if not _problem(a.reason) and not (lost and a.basis.startswith("hipotesis:"))]
+    return plan.model_copy(update={"hypotheses": hyps, "actions": acts})

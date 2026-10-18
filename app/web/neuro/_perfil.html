@@ -1,0 +1,30 @@
+{# Perfil de Juan: "Lo que la app aprendió" (app/api/plan.build_profile_view). Solo con PROFILE_ENABLED y solo en
+   /neuro/tecnica. Lo propone la IA; lo acepta app/rules/profile.py solo con evidencia, y el texto lo arma el código. #}
+<div class="card-neuro" style="padding: 20px 22px; gap: 14px" id="perfil">
+  <div class="fila-entre" style="flex-wrap: wrap; gap: 8px; align-items: baseline">
+    <div style="font-size: 18px; font-weight: 700">Lo que la app aprendió de {{ perfil.name }}</div>
+    <span class="pildora-neuro pildora-neuro--bio">propuesto por IA, aceptado solo con evidencia</span>
+  </div>
+  <div style="font-size: 13px; color: var(--color-tinta-suave)">Patrones (prueba de días con y sin), vocabulario (al menos 2 relatos) y costumbres (recalculadas por el código). Cada noche se vuelven a probar: si dejan de cumplirse, se retiran. Coincidencias en el tiempo, no causas. No es un diagnóstico.</div>
+  {% for i in perfil.active %}
+  <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 0 2px; border-top: 1px solid var(--color-linea-suave)">
+    <div style="font-size: 15px" class="num"><span class="pildora-neuro">{{ i.kind }}</span> {{ i.text }}</div>
+    <div style="font-size: 13px; color: var(--color-tinta-suave)">Alta {{ i.created }} · última confirmación {{ i.confirmed }}</div>
+    <div class="chips">
+      {% for e in i.evidence %}
+      {% if e.anchor %}<a class="chip-ev" href="#{{ e.anchor }}" style="text-decoration: none">{{ e.label }}</a>
+      {% elif e.quote %}<details class="chip-ev" style="cursor: pointer"><summary>{{ e.label }}</summary><div style="padding-top: 6px">«{{ e.quote }}»</div></details>
+      {% else %}<span class="chip-ev">{{ e.label }}</span>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div style="font-size: 15px; color: var(--color-tinta-suave)">Todavía no aprendió nada con evidencia suficiente.</div>
+  {% endfor %}
+  {% if perfil.retired %}
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <div class="etiqueta-seccion">Retirados</div>
+    {% for i in perfil.retired %}<div style="font-size: 14px; color: var(--color-tinta-suave)">{{ i.text }} <strong style="color: var(--color-tinta)">→ {{ i.reason }}</strong></div>{% endfor %}
+  </div>
+  {% endif %}
+</div>

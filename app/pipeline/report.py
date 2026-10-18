@@ -458,6 +458,8 @@ async def report(patient_id: int, period: str | None = None) -> Report:
     """Calcula los facts del período (por defecto, las 4 semanas hasta hoy), redacta, verifica y guarda. Si la IA
     no pudo (no respondió o falló una regla dura), conserva el último informe redactado; si no hay ninguno, guarda
     el informe mínimo: nunca queda sin informe."""
+    from app.rules.profile import CURRENT
+    CURRENT.set(patient_id)                  # perfil del paciente en el prompt del informe (PROFILE_ENABLED)
     now = await asyncio.to_thread(clock.now)
     facts = await asyncio.to_thread(report_facts.build, patient_id, now, period)
     try:

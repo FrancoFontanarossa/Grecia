@@ -59,6 +59,8 @@ async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
         return None
     if await asyncio.to_thread(_already_handled, trigger, now):
         return None
+    from app.rules.profile import CURRENT
+    CURRENT.set(trigger.patient_id)          # perfil del paciente en los prompts de explain y ask (PROFILE_ENABLED)
     dose = _dose_time(trigger)
     if dose is None and not await asyncio.to_thread(budget_allow, trigger.to_person_id, "pregunta", now):
         log.info("presupuesto: no se pregunta %s a %s", trigger.rule_id, trigger.to_person_id)

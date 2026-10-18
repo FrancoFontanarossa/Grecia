@@ -283,10 +283,22 @@ class DailyNote(BaseModel):                 # bitácora de la revisión diaria: 
     follow_up: list[str] = Field(default_factory=list)      # "seguir mirando"
 
 
+class ProfileLearning(BaseModel):           # perfil de Juan: lo propone la IA, lo acepta rules.profile con evidencia
+    kind: Literal["patron", "vocabulario", "costumbre"]
+    text: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    hypothesis: Hypothesis | None = None    # patron: la prueba de días con y sin (rules.plan.test_hypothesis)
+    word: str | None = None                 # vocabulario: la palabra textual…
+    domain: Domain | None = None            # …y el dominio en que la clasificó extract
+    habit: Literal["hora", "modalidad"] | None = None     # costumbre: la recalcula el código…
+    role: Speaker | None = None             # …para esa voz
+
+
 class DailyPlan(BaseModel):                 # salida de la revisión diaria (pipeline.daily_plan)
     hypotheses: list[Hypothesis] = Field(default_factory=list, max_length=3)
     actions: list[PlannedAction] = Field(default_factory=list, max_length=2)
     note: DailyNote | None = None
+    learnings: list[ProfileLearning] = Field(default_factory=list, max_length=3)   # solo con PROFILE_ENABLED
 
 
 class PatternCandidate(BaseModel):          # P1: salida de pipeline.daily_review (sección 7.3 bis)

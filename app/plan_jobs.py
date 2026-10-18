@@ -17,6 +17,7 @@ from app.pipeline import daily_plan as daily_plan_pipeline
 from app.pipeline.digest import build_digest
 from app.rules import budget
 from app.rules import note as note_rules
+from app.rules import profile as profile_rules
 from app.rules import plan as plan_rules
 
 log = logging.getLogger("entrecasa.plan")
@@ -69,9 +70,18 @@ def _save(patient_id: int, plan_date: dt.date, results, scheduled, discarded, no
 async def run_plan(patient_id: int, now: dt.datetime, *, historia: bool = False) -> dict:
     """Revisión diaria: nota del día, hipótesis y plan de mañana, validados y guardados. Con historia=True (noches
     pasadas del precorrido) guarda la nota y las hipótesis, pero no agenda acciones. Devuelve un resumen."""
+    profile_rules.CURRENT.set(patient_id)
     digest = await asyncio.to_thread(build_digest, patient_id, now)
     plan_date = dt.date.fromisoformat(digest["plan_date"])
     plan = await daily_plan_pipeline.daily_plan(digest)
+    profile = None
+    if config.PROFILE_ENABLED:      # perfil: re-probar lo activo y aceptar (con evidencia) lo nuevo; también en historia
+        retired = await asyncio.to_thread(profile_rules.retest, patient_id, now)
+        accepted, rejected = await asyncio.to_thread(profile_rules.consider, plan.learnings, patient_id, now,
+                                                     note_rules.valid_refs(digest))
+        profile = {"aceptados": [a["text"] for a in accepted], "retirados": retired,
+                   "rechazados": [{"tipo": r["kind"], "propuesto": r["proposed"], "motivo": r["reason"]} for r in rejected]}
+        log.info("perfil del paciente %s: %s", patient_id, profile)
     note_removed = None
     if plan.note is not None:
         note, note_removed = note_rules.verify_note(plan.note, digest)
@@ -86,7 +96,7 @@ async def run_plan(patient_id: int, now: dt.datetime, *, historia: bool = False)
     _done.add((patient_id, plan_date.isoformat()))
     summary = {"plan_date": plan_date.isoformat(), "hipotesis": len(results), "pasaron": sum(r.passed for r in results),
                "agendadas": len(scheduled), "descartadas": len(discarded), "historia": historia,
-               "nota": plan.note is not None, "nota_borradas": note_removed}
+               "nota": plan.note is not None, "nota_borradas": note_removed, "perfil": profile}
     log.info("plan del paciente %s: %s", patient_id, summary)
     return summary
 
@@ -121,6 +131,7 @@ async def execute_due(patient_id: int, now: dt.datetime) -> list[int]:
     from app.pipeline import context as context_builder
 
     done = []
+    profile_rules.CURRENT.set(patient_id)
     for a in await asyncio.to_thread(_due, patient_id, now):
         reason, why = a["reason"], a["why"] or ""
         try:

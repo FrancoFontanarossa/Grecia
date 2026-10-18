@@ -93,7 +93,7 @@ async def red_backup(text: str, rules_result: RedResult | None, *, meds: list[st
         return BackupVerdict(escalate=False, suspected_rule=None, reason="sin texto")
     if _SYSTEM is None:
         _SYSTEM = system_prompt()
-    system = knowledge.system_blocks(_SYSTEM)
+    system = knowledge.system_blocks(_SYSTEM, profile=False)   # solo sube: sin perfil
     try:
         response = await _call_model(system, user_message(text, meds or []))
         if response.stop_reason == "refusal":

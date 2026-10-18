@@ -63,6 +63,12 @@ def build_digest(patient_id: int, now: datetime) -> dict:
         pending = [dict(r) for r in conn.execute(
             "SELECT sent_at, rule_id, question FROM questions WHERE patient_id = ? AND status IN ('pendiente', 'enviada') "
             "AND question != '' AND sent_at >= ?", (patient_id, db.to_db(datetime.combine(first14, datetime.min.time(), TZ))))]
+        relatos14 = [dict(r) for r in conn.execute(      # perfil: para ver vocabulario y costumbres entre días
+            "SELECT ev.id, ev.domain, ev.quote, en.created_at, en.modality, p.role FROM events ev "
+            "JOIN entries en ON en.id = ev.entry_id JOIN people p ON p.id = en.speaker_id "
+            "WHERE ev.patient_id = ? AND ev.reserved = 0 AND en.created_at >= ? AND en.created_at < ? "
+            "ORDER BY en.created_at", (patient_id, db.to_db(datetime.combine(first14, datetime.min.time(), TZ)), lo24)
+        )] if config.PROFILE_ENABLED else []
         notes = [dict(r) for r in conn.execute(
             "SELECT date, text, points, follow_up FROM daily_notes WHERE patient_id = ? AND date < ? AND date >= ? "
             "ORDER BY date", (patient_id, today.isoformat(),
@@ -132,6 +138,9 @@ def build_digest(patient_id: int, now: datetime) -> dict:
                              "preguntas_max": config.DAILY_MAX_QUESTIONS,
                              "juegos_usados": used.get("golpeteo", 0), "juegos_max": config.DAILY_MAX_GAME_INVITES},
         "notas_previas": [_note_view(n) for n in notes],
+        **({"relatos_14_dias": [{"ref": f"relato:{r['id']}", "fecha": r["created_at"][:16], "hablante": r["role"],
+                                 "modalidad": r["modality"], "tema": r["domain"], "cita": _short(r["quote"])}
+                                for r in relatos14]} if config.PROFILE_ENABLED else {}),
         "relatos_reservados_omitidos": reservados,
         "fuentes": "pasos del iPhone; sueño y pulso de la pulsera (simulado)",
     }
