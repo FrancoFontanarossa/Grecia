@@ -32,7 +32,7 @@ Los dominios coinciden con los de `app/taxonomy.py`. Entre paréntesis, ejemplos
 
 Muchas personas toman la medicación varias veces por día (Juan, a las 8, 12, 16 y 20). Con los años es común que el efecto de cada toma dure menos y que la persona note **momentos mejores y peores a lo largo del día**: por ejemplo, que antes de la toma siguiente se sienta más lento o trabado, que tarde en "arrancar" a la mañana, o que después de una toma aparezcan movimientos que no controla. Esto se describe con palabras simples y con la hora relativa a la toma ("a la tarde, una hora después de la pastilla de las 16, se quedó duro"). **Entrecasa no dice en qué estado está la persona ni interpreta el porqué**: anota qué pasó, cuándo y en relación con qué toma, y lo lleva a la neuróloga.
 
-Que un síntoma aparezca o cambie **después de un cambio de medicación** (Juan: subida del pramipexol el 22/09/2026) es un dato que el equipo quiere conocer. El código calcula los días desde el cambio; el texto nunca sugiere tocar la medicación.
+Que un síntoma aparezca o cambie **después de un cambio de medicación** (Juan: subida del pramipexol el 03/10/2026) es un dato que el equipo quiere conocer. El código calcula los días desde el cambio; el texto nunca sugiere tocar la medicación.
 
 Los pasos que mide el teléfono sirven para ver si hoy se movió menos que en sus días habituales, comparado solo con él mismo. Menos pasos no es un diagnóstico: puede haber muchas razones (llovió, tuvo visitas, se sintió mal), y por eso primero se intenta explicar con lo que ya contaron y, si no alcanza, se pregunta.
 

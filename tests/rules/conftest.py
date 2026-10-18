@@ -34,3 +34,19 @@ def add_event(entry_id, *, domain, symptom, speaker_role, occurred_at=None, nega
             "VALUES (?, ?, ?, ?, NULL, ?, ?, 0, ?, NULL, ?, 'plain', 0.9, ?, ?)",
             (entry_id, patient_id, domain, symptom, int(negated), db.to_db(occurred_at) if occurred_at else None,
              speaker_role, quote, int(is_new), int(reserved))).lastrowid
+
+
+@pytest.fixture
+def wearable(seeded, monkeypatch):
+    """La pulsera de Juan cargada como en la demo: el simulador la manda por HTTP a la ingesta real."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api import biometrics as biometrics_api
+    from scripts import simular_pulsera
+
+    monkeypatch.setenv("WEARABLE_TOKEN", "pulsera")
+    app = FastAPI()
+    app.include_router(biometrics_api.router)
+    simular_pulsera.send(TestClient(app), "pulsera", simular_pulsera.payloads())
+    return seeded

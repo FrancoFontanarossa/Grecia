@@ -20,7 +20,7 @@ def test_all_tables_created(data_dir):
 def test_biometric_syncs_columns(data_dir):
     with db.connect() as conn:
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(biometric_syncs)")]
-    assert cols == ["id", "patient_id", "window_start", "window_end", "received_at", "n_samples"]
+    assert cols == ["id", "patient_id", "window_start", "window_end", "received_at", "n_samples", "scope"]
 
 
 def test_init_is_idempotent(data_dir):
@@ -75,3 +75,45 @@ def test_patterns_columns(data_dir):
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(patterns)")]
     assert cols == ["id", "patient_id", "day", "kind", "title", "description", "evidence_ids",
                     "suggested_action", "verified", "question_id", "created_at"]
+
+
+OLD_BIOMETRICS = """CREATE TABLE biometrics (id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, kind TEXT NOT NULL,
+    value REAL NOT NULL, start TEXT NOT NULL, "end" TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('atajo','importacion','seed','inyectado')),
+    UNIQUE (patient_id, kind, start, "end", source));
+CREATE TABLE biometric_syncs (id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, window_start TEXT NOT NULL,
+    window_end TEXT NOT NULL, received_at TEXT NOT NULL, n_samples INTEGER NOT NULL);"""
+
+
+def test_migrates_a_db_created_before_the_wearable(tmp_path, monkeypatch):
+    import sqlite3
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    old = sqlite3.connect(tmp_path / "entrecasa.db")
+    old.executescript(OLD_BIOMETRICS)
+    old.execute("INSERT INTO biometrics (patient_id, kind, value, start, \"end\", source) "
+                "VALUES (1, 'steps', 400, '2026-10-13T16:00:00-03:00', '2026-10-13T17:00:00-03:00', 'importacion')")
+    old.execute("INSERT INTO biometric_syncs (patient_id, window_start, window_end, received_at, n_samples) "
+                "VALUES (1, 'a', 'b', 'c', 1)")
+    old.commit()
+    old.close()
+
+    db.init()
+    db.init()                                                   # idempotente
+    with db.connect() as conn:
+        assert [dict(r) for r in conn.execute("SELECT kind, value, source FROM biometrics")] == [
+            {"kind": "steps", "value": 400.0, "source": "importacion"}]
+        conn.execute("INSERT INTO biometrics (patient_id, kind, value, start, \"end\", source) "
+                     "VALUES (1, 'sleep_minutes', 400, 'x', 'y', 'simulado')")
+        conn.execute("INSERT INTO biometrics (patient_id, kind, value, start, \"end\", source) "
+                     "VALUES (1, 'sleep_minutes', 400, 'x', 'y', 'pulsera')")
+        assert conn.execute("SELECT scope FROM biometric_syncs").fetchone()[0] is None
+        indexes = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}
+    assert "ix_biometrics_patient" in indexes
+
+
+def test_unknown_source_still_rejected(data_dir):
+    import sqlite3
+    with pytest.raises(sqlite3.IntegrityError):
+        with db.connect() as conn:
+            conn.execute("INSERT INTO biometrics (patient_id, kind, value, start, \"end\", source) "
+                         "VALUES (1, 'steps', 1, 'x', 'y', 'inventado')")

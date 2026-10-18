@@ -70,12 +70,12 @@ Lo que la consigna exige y nos cambia cosas:
 
 ## 3. Personajes y calendario de la demo (ficticios)
 
-- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el martes 22/09/2026**. **iPhone, sin reloj.** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
+- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el sábado 03/10/2026**. **iPhone, sin reloj.** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
 - **Marta**, su esposa, vive con él. Segunda voz, principal para lo nocturno.
 - **Laura**, su hija, vive en Salto. Recibe logros, rojos y un resumen tranquilo. También puede contar algo.
 - **Dra. Pereira**, la neuróloga: lee el informe en la computadora. Consulta del miércoles 28/10.
 
-**Semana de la demo:** lunes 12 a sábado 17/10/2026, con 4 semanas previas de historia de pasos (20/09 a 17/10). El miércoles 14 son **22 días** desde el cambio de pramipexol (lo calcula el código).
+**Semana de la demo:** lunes 12 a sábado 17/10/2026, con 4 semanas previas de historia de pasos (20/09 a 17/10). El miércoles 14 son **11 días** desde el cambio de pramipexol (lo calcula el código). La base del escenario (20/09 a 02/10) queda antes del cambio.
 
 **Tres caídas de pasos inyectadas** en la ventana de 2 h después de la toma de las 16, con `source=inyectado`: **martes 13** (sin explicación), **jueves 15** (Juan la explica: "me sentí trabado") y **viernes 16** (la tercera en 7 días → A3). Ninguna en las semanas previas, para no ensuciar la línea de base. **En la demo se inyecta una cuarta en vivo, rotulada**, para disparar la notificación delante del jurado.
 
@@ -141,7 +141,7 @@ Diagnóstico, estadio, probabilidad de Parkinson, estado on/off inferido, opcion
 2. Progreso visible: "Escuchando… → Pasando a texto… → Entendiendo lo que contaste…".
 3. Extracción: alucinación · cuidadora · atribución ajena "cansancio" · primera mención · anoche.
 4. "Lo que entendimos" en la pantalla de Marta, con el interruptor "Solo para el equipo médico" activado.
-5. Código: alucinación nueva + 22 días del cambio de pramipexol → **ámbar** al equipo (informe y bandeja de la neuróloga) y a Marta con qué hacer.
+5. Código: alucinación nueva + 11 días del cambio de pramipexol → **ámbar** al equipo (informe y bandeja de la neuróloga) y a Marta con qué hacer.
 6. Canal reservado: **Juan no ve nada de esto** (ni notificación ni detalle).
 
 ### 5.3 Rojo
@@ -183,6 +183,7 @@ Progreso en el anillo de Juan. Al llegar a 4.000: Marta y Laura reciben "Juan ll
 | P-SILENCIO | Días sin contar nada | 2 días sin relatos de ninguna voz | Juan, con pregunta abierta |
 | P-JUEGO | Juego peor que su historial | toques/s < 85% de la mediana de sus últimas 7 sesiones (mínimo 3) | Juan |
 | P-REPITE | Algo que se repite | mismo síntoma contado 2 veces en 7 días por la familia y nunca por Juan; ignora los eventos reservados | Juan, con pregunta suave |
+| P-SUENO | Noche mala según la pulsera (simulada) | a la mañana (8 a 12), `rules.biometrics.anomalies` de ese día con `sleep_awakenings` o `sleep_minutes` fuera de lo normal; why en cifras ("Anoche te despertaste 6 veces; lo habitual son 2.") | Juan |
 | P-PATRON (P1) | Patrón de la revisión diaria | `PatternCandidate` que pasó el verificador, con `suggested_action = preguntar` | El rol que propone, si el presupuesto lo permite |
 
 Cada disparador genera como máximo una `Question`. El texto lo redacta `pipeline.ask`; el "por qué te pregunto" lo arma el código con las cifras. Lo reservado nunca entra al contexto de `explain` ni de `ask` si el destinatario es el paciente.
@@ -282,6 +283,27 @@ En `app/config.py`: `claude-haiku-5-5` para extracción y respaldo de rojos si p
 
 **P1:** `WalkingSpeed`, `WalkingAsymmetryPercentage`, `WalkingDoubleSupportPercentage` y `AppleWalkingSteadiness` en la vista técnica, si están disponibles.
 
+### Pulsera
+**La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados `simulado`.** Cualquier pulsera (o el simulador) manda a `POST /api/biometrics/wearable` con `X-Device-Token` (`WEARABLE_TOKEN`; si no está, `ATAJO_TOKEN`) el cuerpo `WearablePayload`: `{device: {vendor, model, id}, source, window_start, window_end, samples: [{type, value, unit, start, end}]}`. El código valida tipo, unidad y rango (422 con el motivo), normaliza unidades (horas → minutos de sueño, s → ms de HRV, km/h → m/s), no duplica reenvíos, guarda el `source` del dispositivo (`pulsera` por defecto, `simulado` el simulador, `importacion` lo que viene de Salud) y registra la ventana en `biometric_syncs` con `scope=pulsera`, que **no** cuenta como sync de pasos (§7.3). Los pasos no entran por acá (Atajo o importación). Las fechas se guardan como las manda el dispositivo (sin corrimiento de `DEMO_MODE`).
+
+- **Simulador:** `scripts/simular_pulsera.py` es un cliente HTTP (no toca la base): genera 28 días (20/09–17/10), determinísticos, `device.vendor=simulador`, y los manda un día por pedido. Coherente con `data/escenario/juan.yaml`: base normal; las noches que terminan del 04/10 al 10/10, más despertares y menos sueño; la del 13 al 14, corta (lo que cuenta Marta el 14); las del 12 al 13, 15 al 16 y 16 al 17, normales (esos días la pregunta es la de la tarde). Manda **solo las centrales**.
+- **Datos reales del iPhone:** `data/import_health.py export.xml --end … --export-wearable pulsera.jsonl` saca sueño, FC en reposo, HRV, respiración y marcha de la exportación de Salud con el mismo corrimiento por semanas, en el mismo formato; se mandan con `scripts/simular_pulsera.py --archivo pulsera.jsonl`. **La ingesta se probó con una exportación real de Apple Watch** (`--export-wearable`: 28 pedidos con sueño, FC en reposo, HRV, respiración y marcha).
+
+**Centrales** (`config.WEARABLE_CORE`; las manda el simulador) y **opcionales** (`config.WEARABLE_OPTIONAL`; la ingesta las acepta, valida y guarda si llegan, pero el simulador no las manda):
+
+| Métrica (`kind`) | Tipo | Cada cuánto | Qué importa |
+|---|---|---|---|
+| `sleep_minutes` · `sleep_awakenings` | central | por noche (23 a 7 h; es del día en que se despierta) | menos sueño · más despertares |
+| `heart_rate_rest` | central | por noche | más alta |
+| `active_minutes` | central | por día | menos |
+| `hrv_ms` · `spo2_pct` · `resp_rate` | opcional | por noche | HRV más baja · SpO2 más baja · respiración más alta |
+| `walking_speed` · `walking_asymmetry` · `double_support` · `steadiness` | opcional | por día | más lenta · más asimetría · más doble apoyo · menos estabilidad |
+| `tremor_minutes` · `dyskinesia_minutes` | opcional | — | no se resumen ni se muestran |
+
+Temblor y discinesia: la ingesta los acepta, pero no se simulan ni se muestran; requieren algoritmos validados (StrivePD, Kneu).
+
+`rules.biometrics.daily_summary` compara cada métrica con la mediana de sus 28 días previos con el mismo método que el desvío (z robusto, MAD mínimo del 10% de la mediana, 1% en SpO2; menos de 10 puntos → sin z) y `anomalies` marca |z| ≥ 2,5 en la dirección que importa, con el "por qué" en cifras. Funcionan con cualquier subconjunto: solo aparecen las métricas que llegaron ese día, cada una con su `source`; `describe` arma el texto para el contexto (sin ceros ni vacíos de lo que no llegó).
+
 ---
 
 ## 9. Interfaz
@@ -374,7 +396,7 @@ eval/                 # sets/, baseline_lexico.py, run.py, results.md
 tests/
 ```
 
-Variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `ATAJO_TOKEN`, `ADMIN_TOKEN`, `DEMO_MODE=1`. Datos en `DATA_DIR = RAILWAY_VOLUME_MOUNT_PATH` (o `./data` en local): base en `DATA_DIR/entrecasa.db`, audios en `DATA_DIR/audios/`.
+Variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `ATAJO_TOKEN`, `WEARABLE_TOKEN` (opcional; si no, la pulsera usa `ATAJO_TOKEN`), `ADMIN_TOKEN`, `DEMO_MODE=1`. Datos en `DATA_DIR = RAILWAY_VOLUME_MOUNT_PATH` (o `./data` en local): base en `DATA_DIR/entrecasa.db`, audios en `DATA_DIR/audios/`.
 
 ---
 
@@ -399,9 +421,11 @@ class Event(BaseModel):
 
 class RedResult(BaseModel):    rule_id: str; missing_criterion: str | None; text: str
 class BiometricSample(BaseModel):
-    patient_id: int; kind: Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness"]
-    value: float; start: datetime; end: datetime
-    source: Literal["atajo","importacion","seed","inyectado"]
+    patient_id: int; kind: BiometricKind; value: float; start: datetime; end: datetime
+    source: Literal["atajo","importacion","seed","inyectado","simulado","pulsera"]
+BiometricKind = Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness",
+                        "sleep_minutes","sleep_awakenings","heart_rate_rest","hrv_ms","spo2_pct","resp_rate",
+                        "active_minutes","tremor_minutes","dyskinesia_minutes"]      # pulsera (simulada), §8
 class Deviation(BaseModel):    dose_time: datetime; window: str; observed: int; median: float; z: float; pct_change: float
                                baseline: Literal["estrato","combinada"]; baseline_n: int   # base usada (7.3) y sus puntos
 class Trigger(BaseModel):      rule_id: str; patient_id: int; to_person_id: int; facts: dict; why: str   # why con cifras del código
@@ -425,9 +449,13 @@ class Entry(BaseModel):        # campos de la tabla entries (sección 12) + spea
 class ContextEntry(BaseModel): speaker_role: Speaker; text: str; created_at: datetime
 class PromptContext(BaseModel): now: datetime; patient_name: str; recipient_role: Role   # contexto de explain/ask
                                trigger: Trigger; deviation: Deviation | None; recent_entries: list[ContextEntry]
+                               biometric_summary: dict | None = None   # rules.biometrics.daily_summary
 class UnderstoodItem(BaseModel): plain: str; when: str; domain: Domain                   # "Anoté esto"
 class AtajoPayload(BaseModel): window_start: datetime; window_end: datetime             # aware
                                samples: list[{kind, value, start, end}]
+class WearablePayload(BaseModel): device: {vendor, model, id}; window_start: datetime; window_end: datetime
+                               samples: list[{type, value, unit, start, end}]             # type: BiometricKind menos steps
+                               source: Literal["pulsera","simulado","importacion"] = "pulsera"
 class PatternCandidate(BaseModel):   # P1, pero el contrato se congela ahora
     kind: Literal["repeticion","coocurrencia","tras_medicacion","discrepancia_voces","otro"]
     title: str; description: str; evidence_ids: list[int]
@@ -444,6 +472,7 @@ Funciones (firmas):
 - `rules.lanes.evaluate(patient_id, new_events, *, red=None, speaker_id=None) -> list[Alert]` (`new_events` = ids en `events`; `red` = el `RedResult` del mismo relato; guarda los avisos en `alerts` con sus destinatarios) · `rules.consent.recipients(alert, speaker_id=None) -> list[Person]` (`speaker_id` = quien lo contó: R4 y lo reservado)
 - `rules.games.score(taps: list[TapEvent], *, patient_id, taken_at=None) -> GameResult` (`taken_at` = `clock.now()` si no se pasa)
 - `rules.goals.status(patient_id, day) -> GoalDay`
+- `rules.biometrics.daily_summary(patient_id, day) -> dict` (`{day, sources, metrics: {kind: {label, value, source, baseline_median, baseline_n, z}}}`, solo las métricas presentes) · `rules.biometrics.anomalies(patient_id, day) -> list[dict]` (`{kind, label, value, source, baseline_median, baseline_n, z, direction, why}`) · `rules.biometrics.describe(summary) -> str` (texto de `biometric_summary` para explain, ask e informe; `""` si no hay nada) · `config.WEARABLE_CORE` / `WEARABLE_OPTIONAL` (§8)
 - `notify.send(person_id, kind, title, body, url) -> Notification` (guarda en `notifications` y manda la push; las reglas ya decidieron a quién)
 - `pipeline.report(patient_id, period) -> Report` · `rules.verifier.verify(report, facts, sources) -> Report`
 - (P1) `pipeline.daily_review(digest) -> list[PatternCandidate]` · `rules.patterns.verify(candidates, facts) -> list[PatternCandidate]`
@@ -459,6 +488,7 @@ API (JSON; el contrato entre la app y el backend):
 | `GET /api/questions/{id}` | — | `Question` + datos del gráfico del "por qué" |
 | `POST /api/push/subscribe` | `{person_id, subscription}` | `{ok}` |
 | `POST /api/biometrics/atajo` | encabezado `X-Atajo-Token`; `AtajoPayload`: `{window_start, window_end, samples: [{kind, value, start, end}]}` | `{received}` |
+| `POST /api/biometrics/wearable` | encabezado `X-Device-Token`; `WearablePayload` (§8) | `{received, stored, duplicates}`; 422 con el motivo si un tipo, una unidad o un valor no sirve (no se guarda nada) |
 | `POST /api/tests` | `{person_id, type: "golpeteo", taps: [{t_ms, side}]}` | `GameResult` + últimas 6 sesiones |
 | `GET/POST /api/consents/{patient_id}` | interruptores | estado |
 | `POST /api/notifications/{id}/read` | — | `{ok}` |
@@ -471,6 +501,8 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /admin/snapshot` | — | `{ok}` |
 | `POST /admin/restore` | — | `{ok}` |
 | `POST /admin/seed` | — | `{ok, people, …conteos, warnings}`: corre `data/seed.py` (idempotente) |
+| `POST /admin/precorrer` | — | `{started: true}` enseguida; 409 si ya está corriendo. Corre `scripts/precorrer_semana.py` dentro del servidor, en segundo plano, con el scheduler en vivo en pausa (se reanuda al terminar, también si falla) |
+| `GET /admin/precorrer/status` | — | `{running, done, relatos_cargados, ya_estaban, preguntas, errores, informe_generado, informe_tipo, reloj}`; `informe_tipo`: `"ia"` (redactado por la IA), `"minimo"` (armado por código, también va a `errores`) o `null` |
 | `POST /admin/import_steps` | CSV `start,steps` por hora (cuerpo crudo), el de `import_health --export-csv` | `{ok, hours, window_start, window_end}`: `source=importacion` y la ventana en `biometric_syncs`; reemplaza lo importado e inyectado de esa ventana |
 
 ---
@@ -489,8 +521,8 @@ doses              id, patient_id, scheduled_at, confirmed_at?, source   ← se 
 entries            id, patient_id, speaker_id, modality (texto|audio|toque), question_id?, raw_text, audio_path?,
                    occurred_hint?, reserved_requested, corrected, created_at, source
 events             id, entry_id, patient_id, <campos de Event>, minutes_since_dose?, is_new, reserved
-biometrics         id, patient_id, kind, value, start, end, source (atajo|importacion|seed|inyectado)
-biometric_syncs    id, patient_id, window_start, window_end, received_at, n_samples
+biometrics         id, patient_id, kind, value, start, end, source (atajo|importacion|seed|inyectado|simulado|pulsera)
+biometric_syncs    id, patient_id, window_start, window_end, received_at, n_samples, scope?   ← scope NULL = pasos; "pulsera" no cuenta en §7.3
 episodes           id, patient_id, dose_time, deviation (json), explanation (json), question_id?, entry_ids[], test_id?, status
 questions          id, patient_id, to_person_id, rule_id, question, why, options[], url,
                    status (pendiente|enviada|respondida|descartada), sent_at?, answered_entry_id?
@@ -553,6 +585,7 @@ En pantalla: el iPhone de Juan y el de Marta espejados, y la web de la neurólog
 | Reloj | **Acelerado** en la demo |
 | Roles sin login | **Mecanismo de demo** |
 | Emergencias | **Nadie llama**; se muestra el texto fijo |
+| Pulsera | **La ingesta y el procesamiento son reales; los datos de Juan los manda un simulador, rotulados simulado** (sueño, despertares, FC en reposo y minutos activos; temblor y discinesia no se simulan ni se muestran) |
 | Todo lo de P1 y P2 que no se construyó | **Pendiente**, se dice si preguntan |
 
 ---
@@ -584,7 +617,7 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 - **21:00** sede cierra; Railway sigue vivo, llamada abierta.
 - **23:30** congelamos features; otro equipo prueba en el paciente de prueba.
 - **01:00** video de respaldo y a dormir.
-- **Dom 7:30** smoke test y, en este orden: seed → `precorrer_semana.py` → `POST /admin/snapshot` (justo antes de la caída en vivo) → ensayo cronometrado tres veces, con `POST /admin/restore` entre ensayos. **Desde las 8:45 nadie pushea a `main`.**
+- **Dom 7:30** smoke test y, en este orden: seed → `simular_pulsera.py` → `precorrer_semana.py` → reloj → `POST /admin/snapshot` (justo antes de la caída en vivo) → ensayo cronometrado tres veces, con `POST /admin/restore` entre ensayos. **Desde las 8:45 nadie pushea a `main`.**
 
 ---
 
@@ -629,3 +662,8 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 18:45 | Orden del domingo: seed → precorrer → snapshot (justo antes de la caída en vivo) → ensayo, con restore entre ensayos | Guada y Franco |
 | 19:00 | `Deviation` suma `baseline` ("estrato" o "combinada") y `baseline_n`, para que el código arme el "why" según la base usada | Guada y Franco |
 | 20:15 | Reglas en `app/rules/`: firmas de `recipients(alert, speaker_id=None)`, `lanes.evaluate(…, red=, speaker_id=)` con ids de `events`, `games.score(taps, *, patient_id, taken_at=None)`, `red.evaluate` y `red.from_backup`; rutas `POST /api/alerts/{id}/ack`, `POST /admin/seed` y `POST /admin/import_steps` | Franco |
+| 00:45 | Pulsera simulada (`source=simulado`, `POST /admin/seed_wearable`, `biometric_syncs.scope`), `rules.biometrics` (resumen diario y anomalías con z robusto) y P-SUENO; contrato: `BiometricKind` con las métricas nuevas y `PromptContext.biometric_summary` opcional | Franco |
+| 01:00 | Corrección de la pulsera: la ingesta es real (`POST /api/biometrics/wearable`, `WearablePayload`, `source` del dispositivo); el simulador (`scripts/simular_pulsera.py`) la usa por HTTP y sale `/admin/seed_wearable`; la noche del 13 al 14 es corta; `import_health --export-wearable` para datos reales del iPhone; domingo: seed → simular_pulsera → precorrer → reloj → snapshot | Franco |
+| 01:15 | Pulsera: centrales (sueño, despertares, FC en reposo, minutos activos; las manda el simulador) y opcionales (se aceptan y guardan si llegan); temblor y discinesia no se simulan ni se muestran (requieren algoritmos validados); `describe` muestra solo lo presente con su source | Juanpe y Franco |
+| 01:15 | El cambio de pramipexol pasa al sábado 03/10 (el miércoles 14 queda a 11 días): la base del escenario queda antes del cambio y A2 marca solo lo nuevo; volver a correr el seed mueve la fecha si ya estaba | Juanpe y Franco |
+| 01:30 | `POST /admin/precorrer` y `GET /admin/precorrer/status`: el precorrido corre en el servidor de Railway (mismo `run` del script, sin cambios), con el scheduler en vivo en pausa mientras dura | Franco |
