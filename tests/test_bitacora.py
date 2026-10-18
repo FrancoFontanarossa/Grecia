@@ -216,3 +216,12 @@ def test_la_vista_tecnica_muestra_la_bitacora_rotulada(tmp_data_dir, monkeypatch
     html = TestClient(app).get("/neuro/tecnica/1").text
     assert "Bitácora de la IA" in html and "redactado por IA, verificado" in html
     assert "La tarde fue más quieta." in html and "Mirar las tardes" in html
+
+
+def test_una_nota_que_nombra_un_medicamento_no_tira_el_plan():
+    """La frase con medicación la borra rules.note; check() no rechaza el plan entero (corrida real del 16/10)."""
+    plan = DailyPlan(note=DailyNote(text="Casi caída a 13 días del cambio de pramipexol [episodio:3]. "
+                                         "La tarde fue más quieta [episodio:3]."))
+    daily_plan_pipeline.check(plan)
+    clean, removed = note_rules.verify_note(plan.note, DIGEST)
+    assert removed == 1 and clean.text == "La tarde fue más quieta [episodio:3]."

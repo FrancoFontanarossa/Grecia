@@ -84,10 +84,8 @@ def check(plan: DailyPlan) -> None:
             raise ValueError(f"un motivo tiene cifras (las pone el código): {text!r}")
         if FORBIDDEN.search(_fold(text)):
             raise ValueError(f"un motivo diagnostica, habla de medicación o de causa: {text!r}")
-    if plan.note is not None:       # las cifras de la nota las limpia rules.note; lo prohibido se corrige reintentando
-        for text in [plan.note.text] + [p.text for p in plan.note.points] + plan.note.follow_up:
-            if FORBIDDEN.search(_fold(text)):
-                raise ValueError(f"la nota diagnostica, habla de medicación o de causa: {text!r}")
+    # La nota no se valida acá: rules.note borra la frase con cifras ajenas o palabras prohibidas (medicación,
+    # diagnóstico, causa) sin perder el resto del plan.
 
 
 def user_message(digest: dict) -> str:
