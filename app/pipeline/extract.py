@@ -35,6 +35,7 @@ class ExtractedEvent(BaseModel):          # lo que devuelve el modelo; el códig
     symptom: str
     negated: bool
     foreign_attribution: str | None
+    attribution_by: str | None = None        # quién dijo la atribución: quien_cuenta | paciente | otra_persona
     severity: int | None = Field(ge=0, le=4)
     time_said: TimeSaid
     quote: str = Field(min_length=1)
@@ -59,11 +60,12 @@ def tool_schema() -> dict:
             "symptom": {"type": "string", "enum": list(taxonomy.SYMPTOMS)},
             "negated": {"type": "boolean"},
             "foreign_attribution": _nullable({"type": "string"}),
+            "attribution_by": _nullable({"type": "string", "enum": ["quien_cuenta", "paciente", "otra_persona"]}),
             "severity": _nullable({"type": "integer", "enum": [0, 1, 2, 3, 4]}),
             "time_said": {
                 "type": "object",
                 "properties": {
-                    "day": {"type": "string", "enum": ["hoy", "ayer", "anteayer", "dia_semana", "no_dice"]},
+                    "day": {"type": "string", "enum": ["hoy", "ayer", "anteayer", "dia_semana", "no_dice", "habitual"]},
                     "weekday": _nullable({"type": "string", "enum": when.WEEKDAYS}),
                     "part": _nullable({"type": "string", "enum": list(when.PART_TIME)}),
                     "clock": _nullable({"type": "string", "description": "HH:MM, solo si el relato dice la hora"}),
@@ -75,7 +77,7 @@ def tool_schema() -> dict:
             "plain": {"type": "string"},
             "confidence": {"type": "number"},
         },
-        "required": ["domain", "symptom", "negated", "foreign_attribution", "severity", "time_said",
+        "required": ["domain", "symptom", "negated", "foreign_attribution", "attribution_by", "severity", "time_said",
                      "quote", "plain", "confidence"],
         "additionalProperties": False,
     }
@@ -166,6 +168,9 @@ def _parse(response, raw_text: str) -> ExtractionOutput:
     for ev in output.events:
         if ev.quote not in raw_text:
             raise ValueError(f"La cita no está literal en el relato: {ev.quote!r}")
+        if ev.foreign_attribution and ev.attribution_by in ("paciente", "otra_persona") and "vos pens" in ev.plain.lower():
+            raise ValueError(f"La atribución «{ev.foreign_attribution}» la dijo otra persona, pero plain dice "
+                             f"'Vos pensás': nombrá a quien la dijo ({ev.plain!r})")
     return output
 
 
@@ -197,8 +202,11 @@ async def extract(entry: Entry, *, patient_name: str = "el paciente",
     content = user_message(entry, patient_name=patient_name, speaker_name=speaker_name)
     last_error: Exception | None = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
+        message = content if last_error is None else (
+            f"{content}\n<correccion>Tu respuesta anterior fue rechazada por el código: {last_error}. "
+            f"Respondé de nuevo con {TOOL_NAME}, corrigiendo eso.</correccion>")
         try:
-            response = await _call_model(_system_blocks(), content)
+            response = await _call_model(_system_blocks(), message)
         except anthropic.AnthropicError as exc:               # sin key, o el SDK ya reintentó 429/5xx/conexión
             raise ExtractionError(f"Falló la llamada a Claude: {exc}") from exc
         try:

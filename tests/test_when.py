@@ -87,3 +87,11 @@ def test_anoche_a_las_cuatro_es_esta_madrugada():
     assert resolve(TimeSaid(day="ayer", part="noche", clock="04:00"), None, CREATED) == (at(17, 4), False)
     assert resolve(TimeSaid(day="no_dice", clock="04:00"), "anoche", CREATED) == (at(17, 4), False)
     assert resolve(TimeSaid(day="ayer", clock="23:30"), None, CREATED) == (at(16, 23, 30), False)
+
+
+def test_habitual_no_tiene_momento():
+    from app.pipeline.when import part_of
+    assert resolve(TimeSaid(day="habitual"), "anoche", CREATED) == (None, True)
+    assert describe(None, True, CREATED) == "en general"
+    assert part_of(None, True) is None and part_of(at(16, 22), True) == "noche" and part_of(at(16, 12), True) is None
+    assert part_of(at(17, 16, 30), False) == "tarde" and part_of(at(17, 3, 10), False) == "madrugada"

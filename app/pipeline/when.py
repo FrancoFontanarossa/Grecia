@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Day = Literal["hoy", "ayer", "anteayer", "dia_semana", "no_dice"]
+Day = Literal["hoy", "ayer", "anteayer", "dia_semana", "no_dice", "habitual"]
 Weekday = Literal["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
 Part = Literal["madrugada", "manana", "mediodia", "tarde", "noche"]
 
@@ -44,8 +44,11 @@ def _days_back(ts: TimeSaid, today: dt.date) -> int | None:
     return None
 
 
-def resolve(ts: TimeSaid, hint: str | None, created_at: dt.datetime) -> tuple[dt.datetime, bool]:
-    """(occurred_at, time_vague). created_at tiene que ser aware; el resultado queda en su misma zona."""
+def resolve(ts: TimeSaid, hint: str | None, created_at: dt.datetime) -> tuple[dt.datetime | None, bool]:
+    """(occurred_at, time_vague). created_at tiene que ser aware; el resultado queda en su misma zona.
+    Algo habitual ("me levanto un par de veces al baño") no pasó en un momento: occurred_at None y vago."""
+    if ts.day == "habitual":
+        return None, True
     today = created_at.date()
     back = _days_back(ts, today)
     part = ts.part
@@ -72,8 +75,10 @@ def resolve(ts: TimeSaid, hint: str | None, created_at: dt.datetime) -> tuple[dt
     return occurred, clock is None
 
 
-def describe(occurred_at: dt.datetime, time_vague: bool, now: dt.datetime) -> str:
-    """Texto corto para "Anoté esto": "anoche", "hoy 16:30", "ayer a la tarde", "el martes"."""
+def describe(occurred_at: dt.datetime | None, time_vague: bool, now: dt.datetime) -> str:
+    """Texto corto para "Anoté esto": "anoche", "hoy 16:30", "ayer a la tarde", "el martes"; "en general" si es habitual."""
+    if occurred_at is None:
+        return "en general"
     occurred_at = occurred_at.astimezone(now.tzinfo)
     days = (now.date() - occurred_at.date()).days
     t = occurred_at.time()
@@ -103,3 +108,15 @@ def _day_word(occurred_at: dt.datetime, days: int) -> str:
     if 2 < days < 7:
         return f"el {_WEEKDAY_LABEL[occurred_at.weekday()]}"
     return f"el {occurred_at:%d/%m}"
+
+
+def part_of(occurred_at: dt.datetime | None, time_vague: bool) -> str | None:
+    """Franja de un evento: por la hora exacta, o por la hora representativa si es vago. None si no se sabe."""
+    if occurred_at is None:
+        return None
+    t = occurred_at.time()
+    if time_vague:
+        return next((p for p, pt in PART_TIME.items() if pt == t), None)
+    h = t.hour
+    return ("madrugada" if h < 6 else "manana" if h < 12 else "mediodia" if h < 14 else "tarde" if h < 20
+            else "noche")
