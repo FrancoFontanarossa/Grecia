@@ -9,7 +9,7 @@ from app.rules.text import affirmed, fold, mentioned
 
 # Alcance (04:15): Entrecasa no es un botón de pánico. El único efecto de un rojo es este mensaje fijo en la
 # pantalla de quien escribió el relato; en el informe queda marcado con su etiqueta (RED_LABELS).
-RED_MESSAGE = ("Esto puede ser urgente. Entrecasa no es un servicio de emergencias: si es urgente, "
+RED_MESSAGE = ("Esto puede ser urgente. Neuro no es un servicio de emergencias: si es urgente, "
                "llamá a tu emergencia móvil.")
 # VERIFICAR NÚMERO de la Línea Vida antes de la demo (CLAUDE.md §16.8).
 R4_MESSAGE = "Si estás pensando en hacerte daño, llamá a la Línea Vida: 0800 0767 o *0767, las 24 horas."

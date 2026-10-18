@@ -152,7 +152,7 @@
     },
     errorText: function (err) {
       var m = (err && err.message) || "";
-      if (m.indexOf("permiso-denied") === 0) return "Los avisos están bloqueados. Abrí Ajustes › Notificaciones › Entrecasa y activalos.";
+      if (m.indexOf("permiso-denied") === 0) return "Los avisos están bloqueados. Abrí Ajustes › Notificaciones › Neuro y activalos.";
       if (m === "sin-vapid") return "Falta configurar los avisos en el servidor (VAPID).";
       if (m === "no-soportado") return "Este navegador no puede recibir avisos.";
       if (m.indexOf("permiso-") === 0) return "No se activaron los avisos. Podés probar de nuevo cuando quieras.";

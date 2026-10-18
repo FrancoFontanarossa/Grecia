@@ -1,7 +1,7 @@
 ﻿{% extends "base.html" %}
 {% from "_icons.html" import icon %}
 {% from "casa/_nav.html" import volver %}
-{% block title %}Qué ve tu familia · Entrecasa{% endblock %}
+{% block title %}Qué ve tu familia · Neuro{% endblock %}
 {% block content %}
 <main class="pantalla" style="gap: 18px" x-data='permisos({{ patient_id }}, {{ consents | tojson }})'>
   <div>{{ volver() }}</div>
@@ -26,7 +26,7 @@
 
   <div x-show="error" x-cloak x-text="error" role="alert" style="font-size: 17px; color: var(--color-rojo)"></div>
   <div class="espaciador"></div>
-  <div class="nota nota--chica">{{ icon("candado", 20, "var(--color-tinta-suave)") }}<div>Entrecasa no es un servicio de emergencias. Lo que cuentan llega a tu neuróloga en el informe de la consulta.</div></div>
+  <div class="nota nota--chica">{{ icon("candado", 20, "var(--color-tinta-suave)") }}<div>Neuro no es un servicio de emergencias. Lo que cuentan llega a tu neuróloga en el informe de la consulta.</div></div>
   <a href="/casa" class="btn btn--primario btn--grande">Listo</a>
   <a href="/" style="align-self: center; font-size: 16px; color: var(--color-tinta-suave); padding: 4px 8px">Este teléfono no es de {{ person.name }}</a>
 </main>

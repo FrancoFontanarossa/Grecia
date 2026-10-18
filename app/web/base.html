@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{% block title %}Entrecasa{% endblock %}</title>
+<title>{% block title %}Neuro{% endblock %}</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Entrecasa">
+<meta name="apple-mobile-web-app-title" content="Neuro">
 <meta name="theme-color" content="#B3CBF0">
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+<link rel="icon" href="/static/favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 {# SF Pro en Apple (la del sistema, sin descarga); Inter solo como respaldo fuera de Apple. #}
@@ -28,9 +29,21 @@
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 <body hx-boost="true">
+<script>
+  /* Volver: atrás si venimos de una página de la app; si no, el href del botón (/casa o el informe). */
+  window.ecVolver = function (e) {
+    try {
+      if (history.length > 1 && document.referrer && new URL(document.referrer).origin === location.origin) {
+        e.preventDefault(); history.back(); return false;
+      }
+    } catch (_) {}
+    return true;
+  };
+</script>
 {% block content %}{% endblock %}
 {% if simulated %}
 <div class="rotulo-simulado" role="note">Datos de ejemplo: esta parte todavía no está conectada a la base.</div>
 {% endif %}
+<p class="pie-demo no-imprimir">Demo · personas ficticias · pasos reales con fechas corridas · pulsera simulada</p>
 </body>
 </html>

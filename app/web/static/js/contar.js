@@ -306,7 +306,7 @@
   /* ------------------------------------------------ mensajes fijos del código */
   // Rojo (rules.red) y límites (rules.limits): textos fijos que devuelve POST /api/entries y que solo ve quien
   // escribió. Nunca los redacta el modelo. Si al rojo le falta un criterio, se muestra la repregunta y el aviso.
-  var NOT_EMERGENCY = "Entrecasa no es un servicio de emergencias: si es urgente, llamá a tu emergencia móvil.";
+  var NOT_EMERGENCY = "Neuro no es un servicio de emergencias: si es urgente, llamá a tu emergencia móvil.";
   window.ecNotas = function (data) {
     var out = [];
     if (!data) return out;

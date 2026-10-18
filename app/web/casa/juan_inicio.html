@@ -1,6 +1,6 @@
 ﻿{% extends "base.html" %}
 {% from "casa/_nav.html" import permisos %}
-{% block title %}Inicio · Entrecasa{% endblock %}
+{% block title %}Inicio · Neuro{% endblock %}
 {% block content %}
 {# v3.1 · 2 Inicio de Juan (design/v3/pantallas-v31.html): anillo de la meta, hoja con pregunta, toma y juego,
    y "Contame cómo estás" abajo. Cifras de /api/hoy (código). #}
@@ -8,7 +8,7 @@
 {% set pct = ([hoy.steps_today / hoy.goal, 1] | min) if hoy.goal else 0 %}
 <main class="app cielo">
   <div class="cont">
-    <div class="top"><span class="marca">entrecasa<i>.</i></span><span class="top__der"><span class="fecha">{{ fl.split(" ")[0][:3] }} {{ fl.split(" ")[1] }} {{ fl.split(" de ")[-1][:3] }}</span>{{ permisos() }}</span></div>
+    <div class="top"><span class="marca"><img src="/static/icons/icon-192.png" alt="" class="marca__logo">Neuro</span><span class="top__der"><span class="fecha">{{ fl.split(" ")[0][:3] }} {{ fl.split(" ")[1] }} {{ fl.split(" de ")[-1][:3] }}</span>{{ permisos() }}</span></div>
     <h1 class="lt" style="margin-top: 12px">{{ hoy.greeting }}.<span class="tenue">Así va tu día.</span></h1>
 
     <div class="anillo-v3" role="img" aria-label="{{ hoy.steps_today | miles }} pasos hoy{% if hoy.goal %} de {{ hoy.goal | miles }}{% endif %}">

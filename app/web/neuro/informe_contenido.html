@@ -71,7 +71,7 @@
           <thead><tr><th>Cuándo</th><th>Quién</th><th>Qué contó</th></tr></thead>
           <tbody>
             {% for e in (evs | sort(attribute="at"))[:4] %}
-            <tr><td class="num">{{ e.at | ddmm }} {{ e.at | hora }}</td><td>{{ e.name }}{% if e.reserved %} <span class="inf-solo">· solo equipo</span>{% endif %}</td><td>«{{ e.quote | truncate(120, True, "…") }}»</td></tr>
+            <tr><td class="num">{{ e.at | ddmm }}{% if not e.vague %} {{ e.at | hora }}{% endif %}</td><td>{{ e.name }}{% if e.reserved %} <span class="inf-solo">· solo equipo</span>{% endif %}</td><td>«{{ e.quote | truncate(120, True, "…") }}»</td></tr>
             {% endfor %}
           </tbody>
         </table>

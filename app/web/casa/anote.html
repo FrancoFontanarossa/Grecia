@@ -1,11 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Anoté esto · Entrecasa{% endblock %}
+{% from "casa/_nav.html" import volver %}
+{% block title %}Anoté esto · Neuro{% endblock %}
 {% block content %}
 {# v3.1 · 4 Anoté esto (design/v3/pantallas-v31.html): confirmar es lo principal; corregir, lo secundario.
    Los ítems salen de GET /api/entries/{id} (anote() en static/js/contar.js). #}
 <main class="app cielo" x-data='anote({{ entry_id }}, {{ domain_labels | tojson }})'>
   <div class="cont">
     <div class="top">
+      {{ volver() }}
       <span class="check-v3" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
     </div>
     <h1 class="lt" style="margin-top: 18px">Anoté esto.<span class="tenue" style="font-size: 22px; line-height: 29px; margin-top: 6px">Lo va a ver la {{ doctor }} en tu consulta del {{ visit_label }}.</span></h1>

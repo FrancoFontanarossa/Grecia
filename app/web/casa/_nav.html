@@ -1,9 +1,10 @@
 {# Navegación de la app de la casa. Uso: {% from "casa/_nav.html" import volver, permisos %}
-   volver(): arriba a la izquierda, igual en todas las pantallas, siempre a /casa. `click` y `show` son de Alpine
+   volver(): arriba a la izquierda, igual en todas las pantallas: history.back() y, sin historial, `href` (/casa).
+   `click` y `show` son de Alpine
    (por ejemplo, limpiar el micrófono o esconderlo mientras se procesa).
    permisos(): engranaje de los Inicios, a la pantalla de permisos y avisos. #}
-{% macro volver(click="", show="") -%}
-<a href="/casa" class="volver"{% if click %} @click="{{ click }}"{% endif %}{% if show %} x-show="{{ show }}"{% endif %}>
+{% macro volver(click="", show="", href="/casa") -%}
+<a href="{{ href }}" class="volver" hx-boost="false" onclick="return window.ecVolver(event)"{% if click %} @click="{{ click }}"{% endif %}{% if show %} x-show="{{ show }}"{% endif %}>
   <svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3L3 10l6 7"/></svg>
   <span>Volver</span>
 </a>
