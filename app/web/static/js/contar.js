@@ -4,6 +4,9 @@
   "use strict";
   var EC = window.ENTRECASA;
   var BARS = 28;
+  // Antirrebote del botón de voz de Juan (REFERENCIAS.md): el toque cuenta en pointerdown, aunque el dedo se
+  // deslice, y después de empezar a grabar se ignoran los toques por GUARD_MS (temblor). El golpeteo no lo usa.
+  var GUARD_MS = 800;
   var MIN_MS = 1200;          // menos que esto es "no te escuché"
   var SLOW_MS = 15000;        // "Está tardando un poco más…"
   var TIMEOUT_MS = 120000;
@@ -40,6 +43,7 @@
       result: null,
       correctId: opts.correctId || null,
       _rec: null, _stream: null, _chunks: [], _t0: 0, _timer: null, _raf: null, _blob: null, _mime: "",
+      _lastTap: 0, _guardUntil: 0,
 
       init: function () {
         if (opts.startMode === "escribir") { this.phase = "escribir"; return; }
@@ -48,6 +52,16 @@
       destroy: function () { this._cleanup(); },
 
       /* ------------------------------------------------ grabación */
+      // Botón de voz de Juan: se llama desde pointerdown y desde click. El click que sigue a un pointerdown ya
+      // atendido se ignora; el click solo queda para teclado o si iOS no tomó el pointerdown.
+      tocar: function (accion, ev) {
+        var now = Date.now();
+        if (ev && ev.type === "click" && now - this._lastTap < GUARD_MS) return;
+        if (now < this._guardUntil) return;
+        if (ev && ev.type === "pointerdown") this._lastTap = now;
+        if (accion === "empezar" && this.phase === "listo") this.empezar();
+        else if (accion === "terminar" && this.phase === "grabando") this.terminar();
+      },
       empezar: function () {
         var self = this;
         self.error = ""; self.errorKind = ""; self.seconds = 0; self.bars = flatBars();
@@ -69,6 +83,7 @@
           self._rec = rec;
           rec.start(250);
           self._t0 = performance.now();
+          self._guardUntil = Date.now() + GUARD_MS;   // un doble toque por temblor no corta lo que recién empezó
           self.phase = "grabando";
           self._timer = setInterval(function () { self.seconds = Math.floor((performance.now() - self._t0) / 1000); }, 250);
           self._meter(stream);
