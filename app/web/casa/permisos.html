@@ -1,12 +1,11 @@
 ﻿{% extends "base.html" %}
 {% from "_icons.html" import icon %}
+{% from "casa/_nav.html" import volver %}
 {% block title %}Qué ve tu familia · Entrecasa{% endblock %}
 {% block content %}
 <main class="pantalla" style="gap: 18px" x-data='permisos({{ patient_id }}, {{ consents | tojson }})'>
-  <div style="display: flex; align-items: center; gap: 8px">
-    <a href="/casa" aria-label="Volver" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--color-tinta)">{{ icon("chevron-izquierda", 26, width=2.2) }}</a>
-    <h1 style="font-size: 30px; font-weight: 700; line-height: 1.15">Qué le avisamos a tu familia</h1>
-  </div>
+  <div>{{ volver() }}</div>
+  <h1 style="font-size: 30px; font-weight: 700; line-height: 1.15">Qué le avisamos a tu familia</h1>
   <p style="font-size: 19px; color: var(--color-tinta-suave); line-height: 1.4">Lo decidís vos. Lo podés cambiar cuando quieras.</p>
 
   {% for rid, rows in by_person %}

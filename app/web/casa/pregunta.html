@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "casa/_nav.html" import volver %}
 {% block title %}Una pregunta de hoy · Entrecasa{% endblock %}
 {% block content %}
 {# v3.1 · 5 Pregunta (design/v3/pantallas-v31.html). "Por qué te pregunto": una línea con el punto de hoy y la
@@ -7,9 +8,8 @@
 <main class="app cielo" x-data="pregunta({{ q.id }}, {{ person.id }})">
   <div class="cont">
     <div class="top">
-      <a href="/casa" class="circ" aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0E1A2B" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+      {{ volver() }}
       <span class="chip">Una pregunta de hoy</span>
-      <span style="width: 46px"></span>
     </div>
     <h1 class="lt lt--29" style="margin-top: 18px">{{ q.question }}</h1>
 

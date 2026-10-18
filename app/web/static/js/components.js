@@ -98,10 +98,13 @@
         if (!this.result) return [];
         var maxV = 8;
         var bar = function (v) { return Math.max(6, Math.round(Math.min(v, maxV) / maxV * 70)); };
+        // Día y fecha ("dom 11") desde el texto ISO (hora de Montevideo), sin pasar por la zona del navegador.
+        var day = function (iso) { return String(iso).slice(0, 10); };
         var hist = (this.result.history || []).map(function (h) {
-          return { d: DIAS[new Date(h.taken_at).getDay()], px: bar(h.taps_per_s), today: false };
+          return { d: DIAS[new Date(day(h.taken_at) + "T12:00:00").getDay()], n: String(Number(day(h.taken_at).slice(8, 10))),
+                   v: EC.fmtDec1(h.taps_per_s), px: bar(h.taps_per_s), today: false };
         });
-        hist.push({ d: "hoy", px: bar(this.result.metrics.taps_per_s), today: true });
+        hist.push({ d: "Hoy", n: "", v: EC.fmtDec1(this.result.metrics.taps_per_s), px: bar(this.result.metrics.taps_per_s), today: true });
         return hist;
       },
       get verdict() {
@@ -292,12 +295,20 @@
       justEnabled: false,
       closed: false,
       init: function () {
-        try { this.closed = dismissible && sessionStorage.getItem("ec_avisos_cerrado") === "1"; } catch (e) {}
+        // "Ahora no" queda recordado en este teléfono (localStorage).
+        try { this.closed = dismissible && localStorage.getItem("ec_avisos_cerrado") === "1"; } catch (e) {}
       },
       get visible() {
         if (this.closed) return false;
+        // Instalada (EC.isStandalone) y con el permiso dado, el estado es "activo": no se muestra.
         if (this.state === "activo") return this.justEnabled;
         return this.state === "instalar" || this.state === "pendiente" || this.state === "bloqueado";
+      },
+      get shortText() {
+        if (this.state === "instalar") return "Agregá Entrecasa a tu inicio.";
+        if (this.state === "bloqueado") return "Avisos bloqueados en Ajustes.";
+        if (this.state === "activo") return "Listo, avisos activados.";
+        return "Activá los avisos";
       },
       activar: function () {
         var self = this;
@@ -313,7 +324,7 @@
       },
       cerrar: function () {
         this.closed = true;
-        try { sessionStorage.setItem("ec_avisos_cerrado", "1"); } catch (e) {}
+        try { localStorage.setItem("ec_avisos_cerrado", "1"); } catch (e) {}
       }
     };
   };

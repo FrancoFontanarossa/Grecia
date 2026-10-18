@@ -342,3 +342,23 @@ a.fila:active, button.fila:active { background: var(--suave); }
 .fila--sep::before { content: ""; position: absolute; top: 0; left: 20px; right: 20px; height: 1px; background: var(--sep); }
 /* emergencia: pasos numerados */
 .paso-rojo { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--rojo-t); color: var(--rojo); display: grid; place-items: center; font-weight: 700; }
+/* navegación de la casa (casa/_nav.html): "Volver" en pastilla de 48 px y engranaje de permisos de 48 px */
+.volver { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px 0 14px; border-radius: 999px;
+  background: rgba(255,255,255,.85); box-shadow: 0 2px 8px rgba(20,40,80,.08); border: 0; color: var(--tinta);
+  font: 600 17px var(--font); text-decoration: none; touch-action: manipulation; }
+.nav-circ { flex: none; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,.85); box-shadow: 0 2px 8px rgba(20,40,80,.08); color: var(--tinta2); text-decoration: none; }
+.top__der { display: flex; align-items: center; gap: 12px; }
+/* escribir: foco en el azul de acento (el ámbar es solo "algo para mirar") */
+.caja-texto:focus, .caja-texto:focus-visible { outline: 2px solid var(--azul); outline-offset: 0; border-color: var(--azul); }
+/* tarjeta de avisos compacta: una línea de texto y el botón */
+.tarjeta-aviso--fila { flex-direction: row; align-items: center; gap: 8px; padding: 8px 6px 8px 16px; border-radius: 999px; }
+.tarjeta-aviso--fila .tarjeta-aviso__tx { flex: 1; min-width: 0; font-size: 17px; line-height: 22px; }
+.tarjeta-aviso--fila .btn { width: auto; min-height: 48px; padding: 0 16px; font-size: 17px; }
+.tarjeta-aviso--fila .enlace-suave { min-height: 48px; padding: 0 8px; white-space: nowrap; }
+.dock__enlaces { display: grid; grid-template-columns: 1fr 1fr; align-items: center; margin-top: 4px; }
+.dock__enlaces .txtbtn, .dock__enlaces .pie-rol { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0; }
+/* juego: valor arriba de cada barra y día con fecha abajo (apilados: siete barras no entran en una línea) */
+.juego-barra__v { font-size: 17px; color: var(--tinta2); }
+.juego-barra__dia { display: flex; flex-direction: column; align-items: center; font-size: 17px; line-height: 20px; color: var(--tinta2); }
+.juego-barra--hoy { font-weight: 700; color: var(--tinta); }

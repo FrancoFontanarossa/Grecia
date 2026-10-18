@@ -13,7 +13,7 @@
 
   var TEXTS = {
     transcribing: "Pasando a texto…",
-    understanding: "Entendiendo lo que contaste…",
+    understanding: "Estoy entendiendo lo que contaste…",
     slow: "Está tardando un poco más. No cierres la app.",
     notHeard: "No te escuché bien. ¿Probamos de nuevo?",
     noMic: "Necesito permiso para escucharte. Abrí Ajustes › Safari › Micrófono.",
@@ -40,6 +40,7 @@
       text: opts.prefill || "",
       hint: opts.hint || "",
       reserved: false,
+      writing: false,          // lo que se manda (o se mandó) es texto escrito, no audio
       result: null,
       correctId: opts.correctId || null,
       _rec: null, _stream: null, _chunks: [], _t0: 0, _timer: null, _raf: null, _blob: null, _mime: "",
@@ -64,7 +65,7 @@
       },
       empezar: function () {
         var self = this;
-        self.error = ""; self.errorKind = ""; self.seconds = 0; self.bars = flatBars();
+        self.error = ""; self.errorKind = ""; self.seconds = 0; self.bars = flatBars(); self.writing = false;
         if (!window.MediaRecorder) { self._fail("sin-permiso", "Este teléfono no puede grabar acá. Escribilo, por favor."); return; }
         self.phase = "pidiendo";
         // La primera vez usa el micrófono pedido en el toque de la pantalla anterior; después, uno nuevo.
@@ -160,6 +161,7 @@
         var self = this;
         var fd = new FormData();
         var isAudio = !!self._blob;
+        self.writing = !isAudio;
         if (isAudio) {
           var ext = /mp4|m4a|aac/.test(self._mime) ? "m4a" : (/ogg/.test(self._mime) ? "ogg" : "webm");
           fd.append("audio", self._blob, "relato." + ext);
@@ -265,6 +267,8 @@
         });
       },
       regrabar: function () { this.result = null; this.empezar(); },
+      // Familia, después de escribir: vuelve al texto para corregirlo (corrige esta misma entrada).
+      corregir: function () { this.error = ""; this.phase = "escribir"; },
       get mmss() { return EC.mmss(this.seconds); }
     };
   };

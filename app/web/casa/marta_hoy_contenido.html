@@ -3,7 +3,8 @@
 {% set ambar = hoy.alerts | selectattr("lane", "equalto", "ambar") | list %}
 {% set en_meta = hoy.week_steps | selectattr("achieved") | list | length %}
 {% set con_datos = hoy.week_steps | selectattr("value") | list %}
-<div class="top"><span class="marca">entrecasa<i>.</i></span></div>
+{% from "casa/_nav.html" import permisos %}
+<div class="top"><span class="marca">entrecasa<i>.</i></span>{{ permisos() }}</div>
 <h1 class="lt" style="margin-top: 12px">Hola, {{ hoy.person.name }}.<span class="tenue">
   {%- if rojos %}Hay algo para atender ahora.{% elif ambar %}Esta semana hay algo para mirar.{% else %}{{ hoy.patient.name }} tuvo una semana en orden.{% endif -%}
 </span></h1>
@@ -48,5 +49,6 @@
     {%- for a in ambar[1:] %}{{ a.text }} {% endfor -%}
     {{ todo or ("Ya está en el resumen para la consulta del " ~ (hoy.next_visit[8:10] | int) ~ " con la " ~ hoy.doctor ~ ".") }}
   </p>
+  <p class="cuerpo" style="margin-top: 8px; color: #4A4236; font-size: 16px; line-height: 22px"><strong>Qué podés hacer:</strong> anotá si vuelve a pasar. Si aparece fiebre o confusión de golpe, llamá a la emergencia.</p>
 </div>
 {% endif %}

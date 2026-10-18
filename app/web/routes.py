@@ -189,7 +189,7 @@ def permisos(request: Request, ec_person: str | None = Cookie(default=None)):
     kind_labels = {"avisos": ("Avisos para mirar", "Cuando algo cambia y conviene prestarle atención"),
                    "logros": ("Logros", "Cuando llegás a tu meta de pasos")}
     return render(request, "casa/permisos.html", person=person, patient_id=person["patient_id"], consents=consents,
-                  by_person=list(by_person.items()), kind_labels=kind_labels, simulated=True)
+                  by_person=list(by_person.items()), kind_labels=kind_labels, simulated=not store.has_db())
 
 
 @router.get("/casa/anote/{entry_id}")
