@@ -71,6 +71,15 @@
     </div>
 
     <div class="card-neuro" style="padding: 18px 20px; gap: 12px">
+      <div style="font-size: 18px; font-weight: 700">Modo 2 · plan diario</div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+        <button type="button" class="btn-neuro btn-neuro--pri" @click="post('/admin/plan/run/1?force=true', null, 'Plan generado (la IA tarda unos segundos)…').then(d => d && location.reload())">Generar plan de mañana ahora</button>
+        <span style="font-size: 13px; color: var(--color-tinta-suave)">Con DAILY_PLAN_ENABLED=1 se arma solo a las 21 h y se ejecuta a la hora agendada.</span>
+      </div>
+    </div>
+    {% if plan %}{% with todas=True %}{% include "neuro/_plan.html" %}{% endwith %}{% endif %}
+
+    <div class="card-neuro" style="padding: 18px 20px; gap: 12px">
       <div style="font-size: 18px; font-weight: 700">Push de prueba</div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
         {% for p in people %}

@@ -321,6 +321,8 @@ def validate(plan: DailyPlan, digest: dict, now: datetime,
                 drop("tiene algo reservado y va al paciente"); continue
             if row["to_person_id"] is None:
                 drop(f"no hay {a.to_role} para este paciente"); continue
+            if a.kind == "golpeteo" and a.to_role != "paciente":
+                drop("el juego es para el paciente"); continue
             # 4. hora: mañana entre 08:00 y 22:00
             try:
                 at = time.fromisoformat(a.at)

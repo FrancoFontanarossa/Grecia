@@ -1,4 +1,4 @@
-﻿/* Entrecasa — componentes de Alpine (estado local de cada pantalla). Requiere app.js. */
+/* Entrecasa — componentes de Alpine (estado local de cada pantalla). Requiere app.js. */
 (function () {
   "use strict";
   var EC = window.ENTRECASA;
@@ -253,8 +253,8 @@
       post: function (url, body, ok, detail) {
         var self = this;
         self._show("Trabajando…");
-        self._req("POST", url, body).then(function (d) {
-          self._show(ok + (detail ? " " + JSON.stringify(d) : "")); self.refresh();
+        return self._req("POST", url, body).then(function (d) {
+          self._show(ok + (detail ? " " + JSON.stringify(d) : "")); self.refresh(); return d;
         }).catch(function (e) { self._show(e.message, true); });
       },
       importSteps: function (ev) {

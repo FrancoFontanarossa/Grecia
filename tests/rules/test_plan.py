@@ -161,5 +161,10 @@ def test_desvio_del_codigo_es_base_valida(datos):
     assert ko == [] and ok[0]["why"] == f"El {LAST:%d/%m}, después de la toma de las 16: 420 pasos; lo habitual ≈ 1.300."
 
 
+def test_el_juego_solo_va_al_paciente(datos):
+    ok, ko = run(action(to_role="cuidador"))
+    assert ok == [] and ko[0]["discard_reason"] == "el juego es para el paciente"
+
+
 def test_la_accion_nada_no_se_agenda_ni_se_descarta(datos):
     assert run(action(kind="nada")) == ([], [])

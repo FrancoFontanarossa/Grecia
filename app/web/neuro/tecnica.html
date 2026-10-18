@@ -1,4 +1,4 @@
-﻿{% extends "neuro/_base.html" %}
+{% extends "neuro/_base.html" %}
 {% block title %}Vista técnica · {{ r.meta.patient.name }}{% endblock %}
 {% block neuro_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>{% endblock %}
 {% block content %}
@@ -6,6 +6,8 @@
   <div class="neuro__contenedor">
     {% include "neuro/_encabezado.html" %}
     {% if t.simulated %}<div class="rotulo-neuro">Ejemplo: sin pasos en la base todavía. La forma es la de la serie real.</div>{% endif %}
+
+    {% if plan %}{% with todas=False %}{% include "neuro/_plan.html" %}{% endwith %}{% endif %}
 
     <div class="card-neuro" style="padding: 20px 22px; gap: 12px">
       <div class="fila-entre" style="flex-wrap: wrap; gap: 8px; align-items: baseline">
