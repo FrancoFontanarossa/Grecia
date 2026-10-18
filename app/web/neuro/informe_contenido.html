@@ -1,150 +1,162 @@
 {% set m = r.meta %}
 {% set rep = r.report %}
+{# Informe v2 (rescatado de #27, sobrio). Cobertura, desde_el_cambio, lo_que_no_sabemos, chart_headline,
+   habitual_band y verification_note los calcula el código (app/api/report.py); si no vienen, el bloque se oculta. #}
+{% set verif = r.verification_note or m.verification_note
+   or ("Cada cifra se verificó contra los datos: " ~ rep.removed_count ~ " " ~ ("frase eliminada" if rep.removed_count == 1 else "frases eliminadas") ~ " por no coincidir. No es un diagnóstico.") %}
 {% if r.report_simulated %}
-<div class="rotulo-neuro">Ejemplo: todavía no hay un informe generado para este paciente. Este es el del lienzo de diseño, para ver la forma.</div>
+<div class="rotulo-neuro" style="margin-bottom: 16px">Ejemplo: todavía no hay un informe generado para este paciente. Este es el del lienzo de diseño, para ver la forma.</div>
 {% endif %}
 
-{# ---------- medicación y fuentes ---------- #}
-<div class="chips" style="gap: 10px">
-  {% for med in m.medications %}
-  {% if med.changed %}
-  <div class="chip-neuro chip-neuro--ambar" title="{{ med.note or '' }}">{{ med.drug | capitalize }}: cambio del {{ med.changed.date | ddmm }} · hace {{ med.changed.days_ago }} días</div>
-  {% else %}
-  <div class="chip-neuro">{{ med.label }}</div>
-  {% endif %}
-  {% endfor %}
-  {% set er = m.sources.entries_by_role %}
-  <div class="chip-neuro">Fuentes:
-    {%- for role, n in er.items() %} {{ n }} relatos de {{ m.sources.names.get(role, role) }}{% if not loop.last %} ·{% endif %}{% endfor %}
-    · pasos del iPhone · {{ m.sources.tests }} juegos</div>
-</div>
-
-{# ---------- resumen ---------- #}
-<div class="card-neuro" style="padding: 24px 26px; gap: 12px">
-  <div class="etiqueta-seccion">Resumen de las {{ (m.period.days / 7) | round | int }} semanas</div>
-  <p style="font-size: 18px; line-height: 1.6; max-width: 900px">{{ rep.summary or "Sin datos en el período." }}</p>
-  <div style="font-size: 14px; color: var(--color-tinta-suave)">Las cifras de este resumen salen de los datos; las frases entre comillas, de los relatos.</div>
-</div>
-
-{# ---------- pasos por día ---------- #}
-{% set maxv = [ (m.daily_steps | map(attribute="value") | select | max) or 0, 5000 ] | max %}
-<div class="card-neuro" style="padding: 20px 22px; gap: 14px">
-  <div class="fila-entre" style="flex-wrap: wrap; align-items: baseline; gap: 8px">
-    <div style="font-size: 18px; font-weight: 700">Pasos por día · {{ (m.period.days / 7) | round | int }} semanas</div>
-    <div class="leyenda" style="font-size: 14px">
-      <div><i style="background: var(--color-bio-medio)"></i>Día normal</div>
-      <div><i style="background: var(--color-ambar)"></i>Día con caída post-dosis</div>
-      <div><i style="background: var(--color-tinta); width: 2px; height: 14px; border-radius: 0"></i>Cambio de medicación</div>
-    </div>
+{# ---------- encabezado ---------- #}
+<div class="inf-enc">
+  <div>
+    <h1>{{ m.patient.name }} · Informe para la consulta</h1>
+    <div class="inf-enc__sub">Período <b class="num">{{ m.period.start | ddmm }} al {{ m.period.end | ddmm }}</b> · consulta del {{ m.visit.date | dia_largo }} {{ m.visit.date | ddmm }} con la {{ m.visit.doctor }}
+      {% if r.cobertura and r.cobertura.texto %}<br>Cobertura: <span class="num">{{ r.cobertura.texto }}</span>{% endif %}</div>
   </div>
-  <div style="display: flex; align-items: flex-end; gap: 4px; height: 150px" role="img" aria-label="Pasos por día del período">
-    {% for d in m.daily_steps %}
-    <div title="{{ d.date | ddmm }}: {{ d.value | miles }} pasos{% if d.episode %} · caída post-dosis{% endif %}"
-         style="flex: 1; min-width: 6px; height: 150px; display: flex; flex-direction: column; justify-content: flex-end; border-left: 2px solid {{ 'var(--color-tinta)' if d.med_change else 'transparent' }}">
-      {% if d.value is not none %}
-      <div style="width: 100%; border-radius: 4px 4px 0 0; background: {{ 'var(--color-ambar)' if d.episode else 'var(--color-bio-medio)' }}; height: {{ ((d.value / maxv) * 140) | round | int }}px"></div>
-      {% endif %}
-    </div>
+  <dl class="inf-kv num">
+    {% for med in m.medications %}
+    <dt>{{ med.drug | capitalize }}</dt>
+    {% if med.changed %}<dd class="inf-kv__cambio" title="{{ med.note or '' }}">cambio el {{ med.changed.date | ddmm }} (hace {{ med.changed.days_ago }} días)</dd>
+    {% else %}<dd>{{ med.label.split(" · ", 1)[1] if " · " in med.label else med.label }}</dd>{% endif %}
     {% endfor %}
-  </div>
-  <div class="fila-entre" style="font-size: 13px; color: var(--color-tinta-suave)">
-    {% for d in m.daily_steps %}{% if loop.first or loop.last or loop.index0 % 7 == 0 %}<span>{{ d.date | ddmm }}</span>{% endif %}{% endfor %}
-  </div>
+  </dl>
 </div>
 
-<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
-  {# ---------- 3 temas ---------- #}
-  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
-    <div class="etiqueta-seccion">{{ rep.topics | length }} temas para esta consulta</div>
-    {% for t in rep.topics %}
-    <div class="card-neuro" style="padding: 22px; gap: 14px">
-      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
-        <div style="font-size: 22px; font-weight: 700">{{ loop.index }}. {{ t.title }}</div>
-        {% for o in t.observed[:2] %}<div class="pildora-neuro {{ 'pildora-neuro--ambar' if loop.first and t.reserved else 'pildora-neuro--bio' }}">{{ o }}</div>{% endfor %}
-        {% if t.reserved %}<div class="pildora-neuro">Para hablar en privado</div>{% endif %}
-      </div>
-      <p style="font-size: 17px; line-height: 1.6">{{ t.narrative }}</p>
-      {% if t.observed | length > 2 %}
-      <ul style="margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; color: var(--color-tinta-suave)">
-        {% for o in t.observed[2:] %}<li>{{ o }}</li>{% endfor %}
-      </ul>
-      {% endif %}
+<div class="inf-grid">
+  <div>
+    <h2 class="inf-h2">En un minuto</h2>
+    {% if r.report_status == "pendiente" %}
+    <p class="inf-minuto" role="status">Estamos preparando el informe con los datos del período. Se actualiza solo en unos segundos.</p>
+    {% else %}
+    <p class="inf-minuto">{{ rep.summary or "Sin datos en el período." }}</p>
+    {% endif %}
+    <div class="inf-ver">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <span>{{ verif }}</span>
+    </div>
 
-      {% if post_dose and post_dose.topic_index == loop.index0 %}
-      {% set pd = post_dose %}
-      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end">
-        <div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px">
-          <div style="font-size: 14px; color: var(--color-tinta-suave)">Pasos entre {{ pd.window }} · línea punteada: mediana habitual (≈ {{ pd.median | miles }})</div>
-          <div style="position: relative; display: flex; align-items: flex-end; gap: 10px; height: 120px">
-            <div style="position: absolute; left: 0; right: 0; bottom: {{ ((pd.median / pd.max) * 120) | round | int }}px; border-top: 2px dashed var(--color-tinta-suave)"></div>
-            {% for p in pd.days %}
-            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 120px">
-              <div title="{{ p.value | miles }} pasos" style="width: 100%; border-radius: 6px 6px 0 0; background: {{ 'var(--color-ambar)' if p.episode else 'var(--color-bio-medio)' }}; height: {{ ((p.value / pd.max) * 120) | round | int }}px"></div>
-            </div>
+    <div class="inf-temas">
+      <h2 class="inf-h2">Para conversar en la consulta</h2>
+      {% for t in rep.topics %}
+      <article class="inf-tema">
+        <div class="inf-tema__h"><span class="inf-tema__n">{{ loop.index }}</span><h3>{{ t.title }}</h3>{% if t.reserved %}<span class="inf-priv">Para hablar en privado</span>{% endif %}</div>
+        {% if t.why_now %}<div class="inf-porque">{{ t.why_now }}</div>
+        {% elif t.observed %}<div class="inf-porque num">{{ t.observed[:2] | join(" · ") }}</div>{% endif %}
+        <p class="inf-par">{{ t.narrative }}</p>
+
+        {# Cronología mínima de la evidencia del tema (código, no IA). #}
+        {% set evs = [] %}
+        {% for eid in t.evidence_ids %}{% set e = m.evidence.get(eid | string) %}{% if e %}{% set _ = evs.append(e) %}{% endif %}{% endfor %}
+        {% if evs %}
+        <table class="inf-crono">
+          <thead><tr><th>Cuándo</th><th>Quién</th><th>Qué contó</th></tr></thead>
+          <tbody>
+            {% for e in (evs | sort(attribute="at"))[:4] %}
+            <tr><td class="num">{{ e.at | ddmm }} {{ e.at | hora }}</td><td>{{ e.name }}{% if e.reserved %} <span class="inf-solo">· solo equipo</span>{% endif %}</td><td>«{{ e.quote | truncate(120, True, "…") }}»</td></tr>
             {% endfor %}
-          </div>
-          <div style="display: flex; gap: 10px">{% for p in pd.days %}<div style="flex: 1; text-align: center; font-size: 13px; color: var(--color-tinta-suave)">{{ p.date | dia_corto }} {{ p.date[8:10] | int }}</div>{% endfor %}</div>
-        </div>
-      </div>
-      {% endif %}
+          </tbody>
+        </table>
+        {% endif %}
 
-      {% if t.voices %}
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
-        {% for key, quote in t.voices.items() %}
-        {# Las claves pueden ser roles ("cuidador") o nombres ("Marta, su esposa"). Lo reservado sale del tema
-           (t.reserved) y nunca se marca sobre la voz del paciente. #}
-        {% set is_patient = key == "paciente" or key == m.patient.name or key.startswith(m.patient.name ~ ",") %}
-        <div style="background: var(--color-fondo); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
-          <div style="font-size: 13px; font-weight: 700; color: var(--color-tinta-suave)">{{ (m.sources.names.get(key) or key) | upper }}{% if t.reserved and not is_patient %} · solo equipo médico{% endif %}</div>
-          <div style="font-size: 16px; line-height: 1.45">{{ quote if quote.startswith("«") or quote.startswith('"') else "«" ~ quote ~ "»" }}</div>
+        {% if t.question %}<div class="inf-preg"><b>Pregunta sugerida:</b> {{ t.question }}</div>{% endif %}
+
+        {% if t.evidence_ids %}
+        <div class="inf-ev no-imprimir">
+          {% for eid in t.evidence_ids %}{% set e = m.evidence.get(eid | string) %}{% if e %}
+          <button type="button" data-id="{{ eid }}" data-label="{{ e.label }}" data-quote="{{ e.quote }}" data-reserved="{{ '1' if e.reserved else '0' }}"
+                  @click="ev = Object.assign({}, $el.dataset)">{{ e.label }}</button>
+          {% endif %}{% endfor %}
+        </div>
+        {% endif %}
+      </article>
+      {% else %}
+      <p class="inf-par">{{ "Los temas aparecen cuando el informe esté listo." if r.report_status == "pendiente" else "Sin datos en el período." }}</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <aside class="inf-lado">
+    {# Gráfico: conclusión arriba, banda habitual detrás, caídas en ámbar con marca (no solo color). #}
+    {% set maxv = [ (m.daily_steps | map(attribute="value") | select | max) or 0, 5000 ] | max %}
+    {% set hb = r.habitual_band or m.habitual_band %}
+    {% set headline = r.chart_headline or m.chart_headline %}
+    <section>
+      {% if headline %}<h4>{{ headline }}</h4>
+      {% else %}<h4 class="num">Promedió {{ m.phone.avg_steps | miles }} pasos por día; {{ m.phone.goal_days }} de {{ m.phone.days_with_data }} días en la meta.</h4>{% endif %}
+      <div class="inf-s">Pasos por día{% if hb %} · la franja es el rango habitual de {{ m.patient.name }}{% endif %}</div>
+      <div class="inf-barras" role="img" aria-label="Pasos por día, {{ (m.period.days / 7) | round | int }} semanas">
+        {% if hb %}
+        {% set lo = hb.p25 if hb.p25 is defined else hb.bajo %}
+        {% set hi = hb.p75 if hb.p75 is defined else hb.alto %}
+        {% if lo is not none and hi is not none %}
+        <div class="inf-banda" style="bottom: {{ ((lo / maxv) * 100) | round(1) }}%; height: {{ (((hi - lo) / maxv) * 100) | round(1) }}%"></div>
+        {% endif %}
+        {% endif %}
+        {% for d in m.daily_steps %}
+        <div class="inf-barras__col{% if d.med_change %} inf-barras__col--cambio{% endif %}" title="{{ d.date | ddmm }}: {{ d.value | miles }} pasos{% if d.episode %} · caída post-dosis{% endif %}">
+          {% if d.value is not none %}
+          {% if d.episode %}<i class="inf-marca" aria-hidden="true"></i>{% endif %}
+          <div class="inf-barras__barra{% if d.episode %} inf-barras__barra--ep{% endif %}" style="height: {{ ((d.value / maxv) * 100) | round(1) }}%"></div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
-      {% endif %}
+      <div class="inf-s">Línea: cambio de medicación · <i class="inf-marca" aria-hidden="true"></i> en ámbar: tardes con caída después de la toma</div>
+    </section>
 
-      {% if t.evidence_ids %}
-      <div class="chips">
-        {% for eid in t.evidence_ids %}{% set e = m.evidence.get(eid | string) %}{% if e %}
-        <button type="button" class="chip-ev {{ 'chip-ev--bio' if e.role == 'telefono' else '' }}"
-                data-id="{{ eid }}" data-label="{{ e.label }}" data-quote="{{ e.quote }}" data-reserved="{{ '1' if e.reserved else '0' }}"
-                @click="ev = Object.assign({}, $el.dataset)">{{ e.label }}</button>
-        {% endif %}{% endfor %}
-      </div>
-      {% endif %}
+    {% set dc = r.desde_el_cambio %}
+    {% if dc and dc.filas %}
+    <section>
+      <h4>Desde el cambio del {{ dc.fecha | ddmm }}</h4>
+      <table class="inf-dc num">
+        <thead><tr><th></th><th>Antes</th><th>Después</th></tr></thead>
+        <tbody>
+          {% for f in dc.filas %}
+          {% set pasos = f.unidad == "pasos" %}
+          <tr>
+            <td>{{ f.etiqueta | replace(" (mediana)", "") | replace(" contadas (por semana)", " / sem") | replace(" (por semana)", " / sem") | replace("Golpeteo (toques por segundo, mediana)", "Golpeteo (toques/s)") }}</td>
+            {% if f.suficiente %}
+            <td>{{ (f.antes | miles) if pasos else (f.antes | dec1) }}</td>
+            <td>{{ (f.despues | miles) if pasos else (f.despues | dec1) }}</td>
+            {% else %}
+            <td colspan="2" class="inf-dc__sin">Datos insuficientes</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="inf-s">Antes: {{ dc.antes.dias }} días; después: {{ dc.despues.dias }}. Lo calcula el código.</div>
+    </section>
+    {% endif %}
 
-      {% if t.question %}
-      <div style="padding: 12px 14px; border-radius: 12px; background: var(--color-pino-claro); font-size: 16px; line-height: 1.4"><span style="font-weight: 700">Pregunta sugerida:</span> "{{ t.question }}"</div>
-      {% endif %}
-    </div>
-    {% else %}
-    <div class="card-neuro" style="padding: 22px">Sin datos en el período.</div>
-    {% endfor %}
-  </div>
+    {% set nos = r.lo_que_no_sabemos %}
+    {% if nos and nos.textos %}
+    <section>
+      <h4>Lo que no sabemos</h4>
+      <ul class="inf-l">{% for t in nos.textos %}<li>{{ t }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
 
-  {# ---------- columna lateral ---------- #}
-  <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
-    <div class="etiqueta-seccion">Datos del teléfono</div>
-    <div class="card-neuro" style="padding: 18px; gap: 14px">
-      <div class="fila-entre" style="align-items: baseline"><div style="font-size: 15px; color: var(--color-tinta-suave)">Pasos, promedio diario</div><div style="font-size: 22px; font-weight: 700">{{ m.phone.avg_steps | miles }}</div></div>
-      <div class="fila-entre" style="align-items: baseline"><div style="font-size: 15px; color: var(--color-tinta-suave)">Días en meta ({{ m.phone.goal | miles }})</div><div style="font-size: 22px; font-weight: 700">{{ m.phone.goal_days }} / {{ m.phone.days_with_data }}</div></div>
-      <div class="fila-entre" style="align-items: baseline"><div style="font-size: 15px; color: var(--color-tinta-suave)">Golpeteo, toques/seg</div><div style="font-size: 22px; font-weight: 700">{% if m.phone.tapping %}{{ m.phone.tapping.median | dec1 }} <span style="font-size: 14px; font-weight: 400; color: var(--color-tinta-suave)">{{ m.phone.tapping.trend }}</span>{% else %}—{% endif %}</div></div>
-    </div>
-    <div class="card-neuro" style="padding: 18px; gap: 10px">
-      <div style="font-size: 15px; font-weight: 700">Alertas del período</div>
-      {% set ambar = m.alerts | selectattr("lane", "equalto", "ambar") | list %}
-      {% set rojos = m.alerts | selectattr("lane", "equalto", "rojo") | list %}
-      {% for a in rojos %}
-      <div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--rojo">Rojo</div>{{ a.text }} · {{ a.created_at | dia_corto }} {{ a.created_at[8:10] | int }}</div>
-      {% endfor %}
-      {% for a in ambar %}
-      <div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--ambar">Ámbar</div>{{ a.text }} · {{ a.created_at | dia_corto }} {{ a.created_at[8:10] | int }}</div>
-      {% endfor %}
-      {% if not rojos %}<div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--verde">Rojos</div>Ninguno</div>{% endif %}
-      {% if not ambar %}<div style="display: flex; align-items: center; gap: 8px; font-size: 15px"><div class="pildora-neuro pildora-neuro--verde">Ámbar</div>Ninguno</div>{% endif %}
-    </div>
-    <div style="background: var(--color-superficie-suave); border-radius: 16px; padding: 14px 16px; font-size: 14px; line-height: 1.5; color: var(--color-tinta-suave)">
-      Redactado con IA a partir de relatos y datos. Cada cifra se verificó contra los datos: {{ rep.removed_count }} {{ "frase eliminada" if rep.removed_count == 1 else "frases eliminadas" }} por no coincidir. No es un diagnóstico ni sugiere cambios de medicación.
-      {% if m.generated_at %}<br>Generado {{ m.generated_at | dia_corto }} {{ m.generated_at[8:10] | int }}, {{ m.generated_at | hora }}.{% endif %}
-    </div>
-  </div>
+    {# Dos líneas: rojos con fecha; síntomas nuevos juntos. La sugerencia a Juan (A3-sugerencia) no va acá. #}
+    {% set rojos = m.alerts | selectattr("lane", "equalto", "rojo") | list %}
+    {% set ambar = m.alerts | selectattr("lane", "equalto", "ambar") | rejectattr("rule_id", "equalto", "A3-sugerencia") | list %}
+    {% set sintomas = [] %}
+    {% for a in ambar | selectattr("rule_id", "equalto", "A2") %}{% set s = (a.text.split(": ", 1)[1] if ": " in a.text else a.text) | replace(".", "") %}{% if s not in sintomas %}{% set _ = sintomas.append(s) %}{% endif %}{% endfor %}
+    <section>
+      <h4>Alertas del período</h4>
+      <div class="inf-al"><span>Rojas</span><span>{% for a in rojos %}<span class="pildora-neuro pildora-neuro--rojo">Rojo</span> <span class="num">{{ a.created_at | ddmm }}</span> · {{ a.text.split(":")[0] }}{% if not loop.last %}<br>{% endif %}{% else %}Ninguna{% endfor %}</span></div>
+      <div class="inf-al"><span>Nuevos</span><span>
+        {%- if sintomas %}Desde el cambio: {{ sintomas | join(", ") }}.{% endif %}
+        {%- for a in ambar if a.rule_id != "A2" %} {{ a.text }}{% endfor %}
+        {%- if not ambar %}Ninguno{% endif -%}
+      </span></div>
+    </section>
+  </aside>
+</div>
+
+<div class="inf-pie">
+  <span>Redactado con IA a partir de relatos y datos del teléfono. {{ verif }} No sugiere cambios de medicación.</span>
+  {% if m.generated_at %}<span class="num">Generado el {{ m.generated_at | ddmm }} a las {{ m.generated_at | hora }}</span>{% endif %}
 </div>
