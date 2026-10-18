@@ -1,134 +1,131 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
 {% block title %}Contar algo · Entrecasa{% endblock %}
 {% block content %}
-<main class="pantalla pantalla--familia" style="gap: 18px"
+{# v3.1 · 8 Contar algo (familia) (design/v3/pantallas-v31.html): cuándo, lo dicho, lo entendido y la privacidad.
+   Fases y métodos: contar() en static/js/contar.js. #}
+<main class="app cielo"
       x-data="contar({ personId: {{ person.id }}, questionId: {{ question_id or 'null' }}, correctId: {{ correct_id or 'null' }}, startMode: '{{ start_mode }}', family: true, backUrl: '/casa' })">
+  <div class="cont">
+    <div class="top">
+      <a href="/casa" class="circ" aria-label="Volver"><svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="#0E1A2B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3L3 10l6 7"/></svg></a>
+      <span class="chip">Contar algo de {{ patient.name }}</span>
+      <span style="width: 46px"></span>
+    </div>
 
-  <div style="display: flex; align-items: center; gap: 8px">
-    <a href="/casa" aria-label="Volver" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--color-tinta)">{{ icon("chevron-izquierda", 24, width=2.2) }}</a>
-    <h1 style="font-size: 26px; font-weight: 700">Contar algo de {{ patient.name }}</h1>
+    {# ---------- ¿cuándo pasó? (OccurredHint del contrato) ---------- #}
+    <div>
+      <h1 class="lt lt--29" style="margin-top: 16px" id="cuando">¿Cuándo pasó?</h1>
+      <div class="vidrio segm segm--envuelve" style="margin-top: 12px" role="group" aria-labelledby="cuando">
+        {% for value, label in hints %}
+        <button type="button" :aria-pressed="hint === '{{ value }}' ? 'true' : 'false'"
+                @click="hint = (hint === '{{ value }}' ? '' : '{{ value }}')" :disabled="phase === 'procesando' || phase === 'resultado'">{{ label }}</button>
+        {% endfor %}
+      </div>
+      <p class="cap" style="margin-top: 8px" x-show="phase !== 'resultado'">También podés decirlo hablando: "el martes a la noche".</p>
+    </div>
+
+    {# ---------- grabando ---------- #}
+    <template x-if="phase === 'grabando' || phase === 'pidiendo'">
+      <div class="vidrio" style="margin-top: 12px; padding: 16px 18px">
+        <div class="fila-entre"><span class="etq" style="font-size: 14px">Te escucho</span><span class="num" style="font-size: 20px; font-weight: 600" x-text="mmss">0:00</span></div>
+        <div class="onda" aria-hidden="true" style="height: 64px; margin-top: 8px">
+          <template x-for="(h, i) in bars" :key="i"><div class="onda__barra" :style="'height:' + h + 'px; background: var(--azul)'"></div></template>
+        </div>
+      </div>
+    </template>
+
+    {# ---------- procesando ---------- #}
+    <template x-if="phase === 'procesando'">
+      <div class="vidrio" style="margin-top: 12px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px" role="status" aria-live="polite">
+        <div class="indicador indicador--pino"></div>
+        <div class="cuerpo" style="font-weight: 600" x-text="progress"></div>
+        <div x-show="slow" class="cuerpo" style="text-align: center">Está tardando un poco más. No cierres la app.</div>
+      </div>
+    </template>
+
+    {# ---------- error ---------- #}
+    <template x-if="phase === 'error'">
+      <div class="vidrio" role="alert" style="margin-top: 12px; padding: 16px 18px">
+        <div class="cuerpo" style="font-weight: 600" x-text="error"></div>
+        <p x-show="transcript" class="cuerpo" style="margin-top: 6px; color: #2A3446" x-text="'«' + transcript + '»'"></p>
+      </div>
+    </template>
+
+    {# ---------- escribir ---------- #}
+    <template x-if="phase === 'escribir'">
+      <div style="margin-top: 12px">
+        <label for="texto-familia" class="sr-only">Contalo con tus palabras</label>
+        <textarea id="texto-familia" class="caja-texto vidrio" style="font-size: 17px; line-height: 24px; min-height: 150px" x-model="text" placeholder="Por ejemplo: anoche se levantó dos veces medio confundido."></textarea>
+        <div x-show="error" x-text="error" class="cap" style="margin-top: 6px"></div>
+      </div>
+    </template>
+
+    {# ---------- resultado: lo que dijiste ---------- #}
+    <template x-if="phase === 'resultado'">
+      <div class="vidrio" style="margin-top: 12px; padding: 16px 18px">
+        <div class="fila-entre"><span class="etq" style="font-size: 14px">Lo que dijiste</span><span class="cap" x-show="seconds" x-text="mmss"></span></div>
+        <p class="cuerpo" style="margin-top: 6px; color: #2A3446" x-text="'«' + (transcript || text) + '»'"></p>
+      </div>
+    </template>
   </div>
 
-  {# ---------- ¿cuándo pasó? (OccurredHint del contrato) ---------- #}
-  <div style="display: flex; flex-direction: column; gap: 10px" x-show="phase !== 'resultado'">
-    <div style="font-size: 17px; font-weight: 700" id="cuando">¿Cuándo pasó?</div>
-    <div class="chips" role="group" aria-labelledby="cuando">
-      {% for value, label in hints %}
-      <button type="button" class="chip-when" :aria-pressed="hint === '{{ value }}' ? 'true' : 'false'"
-              @click="hint = (hint === '{{ value }}' ? '' : '{{ value }}')" :disabled="phase === 'procesando'">{{ label }}</button>
-      {% endfor %}
+  <div class="hoja">
+    <div class="asa"></div>
+    <template x-if="phase === 'resultado'">
+      <div>
+        <div class="rot">Lo que entendimos</div>
+        <template x-for="(u, i) in (result.understood || [])" :key="i">
+          <div class="fila" style="align-items: flex-start; padding-top: 14px; padding-bottom: 16px">
+            <div class="tx">
+              <span class="pil pil--chica" x-text="(u.when ? u.when.charAt(0).toUpperCase() + u.when.slice(1) + ' · ' : '') + (u.domain_label || 'Otro')"></span>
+              <div class="cuerpo" style="margin-top: 8px" x-text="u.plain"></div>
+            </div>
+          </div>
+        </template>
+        <div class="fila" x-show="!(result.understood || []).length"><div class="tx cuerpo" style="color: var(--tinta2)">No encontramos algo para anotar. Lo guardamos tal cual para la {{ doctor }}.</div></div>
+        <div x-show="result.simulated" class="cap" style="font-size: 13px; padding: 0 20px">Simulado: la IA todavía no está conectada.</div>
+      </div>
+    </template>
+
+    {# ---------- solo para el equipo médico ---------- #}
+    <label class="fila fila--sep" x-show="phase !== 'error'" style="cursor: pointer">
+      <span class="tx"><span class="a" style="display: block; font-size: 17px">Solo para el equipo médico</span><span class="b" style="display: block; font-size: 14px">{{ patient.name }} ve que lo contaste, no el detalle.</span></span>
+      <span class="switch"><input type="checkbox" x-model="reserved" :disabled="phase === 'procesando' || phase === 'resultado'" aria-label="Solo para el equipo médico"><span></span></span>
+    </label>
+
+    {# ---------- botones ---------- #}
+    <div class="dock" style="padding-top: 8px">
+      <template x-if="phase === 'listo'">
+        <div style="display: grid; grid-template-columns: 1fr 120px; gap: 10px">
+          <button type="button" class="btn p" @click="empezar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Grabar</button>
+          <button type="button" class="btn s" @click="escribir()">Escribir</button>
+        </div>
+      </template>
+      <template x-if="phase === 'grabando' || phase === 'pidiendo'">
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px">
+          <button type="button" class="btn s" @click="descartar()">Cancelar</button>
+          <button type="button" class="btn r" @click="terminar()" :disabled="phase !== 'grabando'"><span style="width: 18px; height: 18px; border-radius: 5px; background: #FFFFFF" aria-hidden="true"></span>Terminar</button>
+        </div>
+      </template>
+      <template x-if="phase === 'escribir'">
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px">
+          <button type="button" class="btn s" @click="empezar()">Grabar</button>
+          <button type="button" class="btn p" @click="enviarTexto()" :disabled="!text.trim()">Guardar</button>
+        </div>
+      </template>
+      <template x-if="phase === 'error'">
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px">
+          <button type="button" class="btn s" @click="escribir()">Escribir</button>
+          <button type="button" class="btn p" @click="reintentar()" x-text="errorKind === 'ia' ? 'Volver' : 'Probar de nuevo'"></button>
+        </div>
+      </template>
+      <template x-if="phase === 'resultado'">
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px">
+          <button type="button" class="btn s" @click="regrabar()">Regrabar</button>
+          <button type="button" class="btn p" @click="guardar()">Guardar</button>
+        </div>
+      </template>
     </div>
-    <div style="font-size: 14px; color: var(--color-tinta-suave)">También podés decirlo hablando: "el martes a la noche".</div>
   </div>
-
-  {# ---------- grabando ---------- #}
-  <template x-if="phase === 'grabando' || phase === 'pidiendo'">
-    <div class="card" style="gap: 14px; align-items: center; padding: 20px 16px">
-      <div class="fila-entre" style="align-self: stretch">
-        <div style="font-size: 15px; color: var(--color-tinta-suave)">Te escucho</div>
-        <div style="font-size: 14px; color: var(--color-pino); font-weight: 700" x-text="mmss">0:00</div>
-      </div>
-      <div class="onda" aria-hidden="true" style="height: 80px">
-        <template x-for="(h, i) in bars" :key="i"><div class="onda__barra" style="background: var(--color-pino)" :style="'height:' + h + 'px; background: var(--color-pino)'"></div></template>
-      </div>
-    </div>
-  </template>
-
-  {# ---------- procesando ---------- #}
-  <template x-if="phase === 'procesando'">
-    <div class="card" style="align-items: center; gap: 14px; padding: 24px 16px" role="status" aria-live="polite">
-      <div class="indicador indicador--pino"></div>
-      <div style="font-size: 20px; font-weight: 700" x-text="progress"></div>
-      <div x-show="slow" style="font-size: 17px; text-align: center">Está tardando un poco más. No cierres la app.</div>
-    </div>
-  </template>
-
-  {# ---------- error ---------- #}
-  <template x-if="phase === 'error'">
-    <div class="card" role="alert" style="gap: 10px">
-      <div style="font-size: 19px; font-weight: 700; line-height: 1.35" x-text="error"></div>
-      <div x-show="transcript" style="font-size: 17px; line-height: 1.45" x-text="'«' + transcript + '»'"></div>
-    </div>
-  </template>
-
-  {# ---------- escribir ---------- #}
-  <template x-if="phase === 'escribir'">
-    <div style="display: flex; flex-direction: column; gap: 8px">
-      <label for="texto-familia" style="font-size: 17px; font-weight: 700">Contalo con tus palabras</label>
-      <textarea id="texto-familia" class="caja-texto" x-model="text" placeholder="Por ejemplo: anoche se levantó dos veces medio confundido."></textarea>
-      <div x-show="error" x-text="error" style="font-size: 16px; color: var(--color-tinta-suave)"></div>
-    </div>
-  </template>
-
-  {# ---------- resultado ---------- #}
-  <template x-if="phase === 'resultado'">
-    <div style="display: flex; flex-direction: column; gap: 18px">
-      <div class="card" style="gap: 10px">
-        <div class="fila-entre">
-          <div style="font-size: 15px; color: var(--color-tinta-suave)">Lo que dijiste</div>
-          <div style="font-size: 14px; color: var(--color-pino); font-weight: 700" x-show="seconds" x-text="mmss"></div>
-        </div>
-        <div style="font-size: 18px; line-height: 1.45" x-text="'«' + (transcript || text) + '»'"></div>
-      </div>
-      <div class="card" style="gap: 10px">
-        <div style="font-size: 15px; color: var(--color-tinta-suave)">Lo que entendimos</div>
-        <div class="chips">
-          <template x-for="(u, i) in (result.understood || [])" :key="i">
-            <div class="chip-entendido" x-text="u.plain + (u.when ? ' · ' + u.when.toLowerCase() : '')"></div>
-          </template>
-          <div x-show="!(result.understood || []).length" style="font-size: 16px; color: var(--color-tinta-suave)">No encontramos algo para anotar. Lo guardamos tal cual para la {{ doctor }}.</div>
-        </div>
-        <div x-show="result.simulated" style="font-size: 13px; color: var(--color-tinta-suave)">Simulado: la IA todavía no está conectada.</div>
-      </div>
-    </div>
-  </template>
-
-  {# ---------- solo para el equipo médico ---------- #}
-  <label class="reservado" x-show="phase !== 'error'">
-    <input type="checkbox" x-model="reserved" :disabled="phase === 'procesando' || phase === 'resultado'">
-    <div style="display: flex; flex-direction: column; gap: 2px">
-      <div class="reservado__titulo">Solo para el equipo médico</div>
-      <div class="reservado__ayuda">{{ patient.name }} no ve el detalle de esto. Ve que lo contaste.</div>
-    </div>
-  </label>
-
-  <div class="espaciador"></div>
-
-  {# ---------- botones ---------- #}
-  <template x-if="phase === 'listo'">
-    <div class="grilla-2-1">
-      <button type="button" class="btn btn--primario btn--familia" @click="empezar()">{{ icon("mic", 26) }} Grabar</button>
-      <button type="button" class="btn btn--secundario btn--familia-sec" @click="escribir()">Escribir</button>
-    </div>
-  </template>
-  <template x-if="phase === 'grabando' || phase === 'pidiendo'">
-    <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario" style="min-height: 68px; border-radius: 20px; font-size: 18px" @click="descartar()">Cancelar</button>
-      <button type="button" class="btn btn--familia btn--rojo" @click="terminar()" :disabled="phase !== 'grabando'">
-        <span style="width: 20px; height: 20px; border-radius: 5px; background: #FFFFFF; display: inline-block"></span>
-        Terminar
-      </button>
-    </div>
-  </template>
-  <template x-if="phase === 'escribir'">
-    <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario btn--chico" style="min-height: 64px; border-radius: 18px; font-size: 18px" @click="empezar()">Grabar</button>
-      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: 18px; font-size: 19px" @click="enviarTexto()" :disabled="!text.trim()">Guardar</button>
-    </div>
-  </template>
-  <template x-if="phase === 'error'">
-    <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario" style="min-height: 64px; border-radius: 18px; font-size: 18px" @click="escribir()">Escribir</button>
-      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: 18px; font-size: 19px" @click="reintentar()"
-              x-text="errorKind === 'ia' ? 'Volver' : 'Probar de nuevo'"></button>
-    </div>
-  </template>
-  <template x-if="phase === 'resultado'">
-    <div class="grilla-1-2">
-      <button type="button" class="btn btn--secundario" style="min-height: 64px; border-radius: 18px; font-size: 18px" @click="regrabar()">Regrabar</button>
-      <button type="button" class="btn btn--primario" style="min-height: 64px; border-radius: 18px; font-size: 19px" @click="guardar()">Guardar</button>
-    </div>
-  </template>
 </main>
 {% endblock %}
