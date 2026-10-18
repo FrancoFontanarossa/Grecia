@@ -52,7 +52,7 @@ def nightly(day: date) -> dict[str, float]:
     i = (day - START).days
     bad = is_bad_night(day)
     return {
-        "sleep_minutes": 235 + r.randint(-10, 20) if bad else 395 + r.randint(-25, 25),
+        "sleep_minutes": 210 + r.randint(0, 20) if bad else 395 + r.randint(-25, 25),
         "sleep_awakenings": r.choice([6, 7]) if bad else AWAKENINGS[i % len(AWAKENINGS)],
         "heart_rate_rest": 63 + r.randint(-2, 2),
         "hrv_ms": 28 + r.randint(-3, 3),
