@@ -120,3 +120,12 @@ def test_without_api_key_it_says_so_and_stops(monkeypatch, capsys):
     monkeypatch.setattr(run, "run_all", lambda: called.append(1))
     assert run.main() == 1
     assert "Falta ANTHROPIC_API_KEY" in capsys.readouterr().err and not called
+
+
+def test_results_have_the_definitions_section():
+    s = {"ok": {f: 0 for f in run.FIELDS}, "n": {f: 0 for f in run.FIELDS}, "extra": 0}
+    reds = {"recall": (0, 0), "false": (0, 0), "missed": [], "false_ids": []}
+    text = run.render({"when": "x", "n_relatos": 30, "claude": s, "baseline": s, "reds_rules": reds,
+                       "reds_backup": reds, "cebos": (0, 0), "reserved": (0, 0), "reports": [], "agreement": None,
+                       "notes": []})
+    assert "## Definiciones" in text and "antes de la segunda etiqueta" in text

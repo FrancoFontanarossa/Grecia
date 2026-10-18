@@ -5,9 +5,7 @@
 Usa la IA real (Haiku para extraer y respaldo de rojos, Sonnet para ask e informe): si falta ANTHROPIC_API_KEY
 lo dice y corta. Trabaja sobre una base temporal: nunca toca DATA_DIR.
 
-Hora de cada relato (labels "time"): anoche · hoy · ayer · vago (palabra de tiempo imprecisa: "el otro día",
-"últimamente", "el domingo", "a la tarde" en general) · ninguna (no dice cuándo, aunque sea habitual).
-La extracción no distingue esos dos casos de lo habitual (occurred_at None): run.py lo cuenta como "vago".
+Las definiciones de las etiquetas están en DEFINITIONS (van también en results.md y en juanpe.jsonl).
 """
 import asyncio
 import datetime as dt
@@ -36,6 +34,17 @@ CREATED = dt.datetime(2026, 10, 14, 14, 0, tzinfo=TZ)        # miércoles 14, 14
 JUAN_MEDS = ["levodopa/carbidopa", "pramipexol"]
 SPEAKERS = {"paciente": (1, "Juan"), "cuidador": (2, "Marta"), "familiar": (3, "Laura")}
 CONCURRENCY = 4
+
+# Fijadas el sábado 17/10/2026, antes de la segunda etiqueta (Juanpe). Valen para franco.jsonl y juanpe.jsonl.
+DEFINITIONS = [
+    "**Atribución ajena**: cualquier causa que quien habla le atribuye al síntoma (edad, cansancio, medicación, "
+    "nervios, calor…). Se puntúa si se detectó, no el texto exacto.",
+    "**Hora**: anoche · hoy · ayer · **vago** (referencia imprecisa —\"el otro día\", \"últimamente\", \"desde "
+    "que…\", un día que no es hoy ni ayer— o un hábito sin fecha: \"siempre que…\", \"todas las tardes\") · "
+    "**ninguna** (sin ninguna referencia de tiempo). Los relatos se cargan el miércoles 14/10 a las 14:00.",
+    "**Eventos**: dos si son dos síntomas distintos; uno si es el mismo síntoma contado dos veces; ninguno si no "
+    "hay síntomas.",
+]
 
 
 def jsonl(path: Path) -> list[dict]:
@@ -67,7 +76,7 @@ def pct(k: int, n: int, ci: bool = True) -> str:
 def time_category(occurred_at: dt.datetime | None, time_vague: bool, created_at: dt.datetime) -> str:
     """Lleva la hora que resolvió el código (pipeline.when) a las categorías de las etiquetas."""
     if occurred_at is None:
-        return "vago"                                         # habitual
+        return "vago"                                         # hábito sin fecha
     occurred_at = occurred_at.astimezone(TZ)
     if occurred_at == created_at and time_vague:
         return "ninguna"                                      # el relato no dijo nada: hora de carga
@@ -394,6 +403,9 @@ def render(r: dict) -> str:
             f"{FIELD_LABELS[f]} {pct(a['ok'][f], a['n'][f], ci=False)}" for f in FIELDS) + " | se reporta |")
     else:
         lines.append("| Acuerdo Franco–Juanpe (techo) | pendiente: juanpe.jsonl sin etiquetas | se reporta |")
+    lines += ["", "## Definiciones", "",
+              "Se fijaron antes de la segunda etiqueta y valen para las dos (Franco y Juanpe).", ""]
+    lines += [f"- {d}" for d in DEFINITIONS]
     lines += ["", "IC 95% de Wilson entre corchetes. \"Sin IA\" = búsqueda por palabras sobre la taxonomía + negación "
               "por reglas (`eval/baseline_lexico.py`)."]
     if r["notes"]:
