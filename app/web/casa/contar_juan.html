@@ -26,7 +26,8 @@
   {# ---------- listo: iOS pidió un toque ---------- #}
   <template x-if="phase === 'listo'">
     <div style="display: flex; flex-direction: column; align-items: center; gap: 18px">
-      <button type="button" class="voz__boton" style="box-shadow: 0 0 0 14px rgba(255,255,255,0.14)" @click="empezar()" aria-label="Tocá para empezar">
+      <button type="button" class="voz__boton" style="box-shadow: 0 0 0 14px rgba(255,255,255,0.14); touch-action: manipulation"
+              @pointerdown="tocar('empezar', $event)" @click="tocar('empezar', $event)" aria-label="Tocá para empezar">
         {{ icon("mic", 72, width=1.7) }}
       </button>
       <div class="grabando__terminar">Tocá para empezar</div>
@@ -70,7 +71,8 @@
   {# ---------- botones de abajo ---------- #}
   <template x-if="phase === 'grabando' || phase === 'pidiendo'">
     <div style="display: flex; flex-direction: column; align-items: center; gap: 0">
-      <button type="button" class="detener" @click="terminar()" aria-label="Terminar y enviar" :disabled="phase !== 'grabando'">
+      <button type="button" class="detener" style="touch-action: manipulation" @pointerdown="tocar('terminar', $event)"
+              @click="tocar('terminar', $event)" aria-label="Terminar y enviar" :disabled="phase !== 'grabando'">
         <div class="detener__cuadrado"></div>
       </button>
       <div class="grabando__terminar">Tocá para terminar</div>
