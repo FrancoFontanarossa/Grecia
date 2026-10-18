@@ -1,5 +1,6 @@
-"""Modo 2: GET /api/patients/{id}/plan (lo que planificó el sistema, con hipótesis y descartes) y
-POST /admin/plan/run/{id} (generarlo ahora, con X-Admin-Token)."""
+"""Modo 2: GET /api/patients/{id}/plan (lo que planificó el sistema, con hipótesis y descartes),
+POST /admin/plan/run/{id} (generarlo ahora, con X-Admin-Token) y build_bitacora (las notas de la revisión diaria
+para /neuro/tecnica: solo equipo médico, nunca en rutas de la familia)."""
 import datetime as dt
 import json
 
@@ -37,6 +38,9 @@ def _ref_label(conn, ref: str) -> dict:
             if r:
                 t = db.from_db(r["taken_at"])
                 out["label"] = f"Juego · {DIAS[t.weekday()]} {t:%d/%m %H:%M}"
+        elif kind == "nota":
+            d = dt.date.fromisoformat(raw)
+            out.update(label=f"Nota · {DIAS[d.weekday()]} {d:%d/%m}", anchor=f"nota-{raw}")
         elif kind == "alerta":
             r = conn.execute("SELECT rule_id, created_at FROM alerts WHERE id = ?", (int(raw),)).fetchone()
             if r:
@@ -80,6 +84,27 @@ def build_plan(patient_id: int, plan_date: str | None = None) -> dict:
             "actions": [a for a in actions if a["status"] != "descartada"],
             "discarded": [a for a in actions if a["status"] == "descartada"],
             "hypotheses": hyps, "source_note": "Sueño y pulso: pulsera simulada. Coincidencia en el tiempo, no causa."}
+
+
+def build_bitacora(patient_id: int, limit: int = 28) -> list[dict]:
+    """Las notas de la bitácora, de la más nueva a la más vieja, con la evidencia de cada oración y de cada punto
+    lista para mostrar (etiqueta y, si es un relato, la cita)."""
+    from app.rules.note import REF, sentences
+    with db.connect() as conn:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT date, text, points, follow_up, removed_count, created_at FROM daily_notes WHERE patient_id = ? "
+            "ORDER BY date DESC LIMIT ?", (patient_id, limit))]
+        out = []
+        for r in rows:
+            d = dt.date.fromisoformat(r["date"])
+            parts = [{"text": " ".join(REF.sub("", s).split()).replace(" .", "."),
+                      "evidence": [_ref_label(conn, ref) for ref in dict.fromkeys(REF.findall(s))]}
+                     for s in sentences(r["text"])]
+            points = [{"text": p["text"], "evidence": [_ref_label(conn, ref) for ref in p.get("evidence_ids", [])]}
+                      for p in json.loads(r["points"] or "[]")]
+            out.append({"date": r["date"], "label": f"{DIAS[d.weekday()]} {d:%d/%m}", "parts": parts, "points": points,
+                        "follow_up": json.loads(r["follow_up"] or "[]"), "removed_count": r["removed_count"]})
+    return out
 
 
 @router.get("/api/patients/{patient_id}/plan")

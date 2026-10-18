@@ -1,0 +1,44 @@
+{# Bitácora de la IA: la nota de cada noche de la revisión diaria (app/api/plan.build_bitacora). Solo equipo médico:
+   esta parcial se incluye solo en /neuro/tecnica. Texto redactado por IA y limpiado por app/rules/note.py. #}
+<div class="card-neuro" style="padding: 20px 22px; gap: 14px" id="bitacora">
+  <div class="fila-entre" style="flex-wrap: wrap; gap: 8px; align-items: baseline">
+    <div style="font-size: 18px; font-weight: 700">Bitácora de la IA</div>
+    <span class="pildora-neuro pildora-neuro--bio">redactado por IA, verificado</span>
+  </div>
+  <div style="font-size: 13px; color: var(--color-tinta-suave)">Una nota por noche de la revisión diaria. La IA retoma lo que anotó los días anteriores; el código borra cada frase con una cifra que no está en los datos o sin evidencia. Coincidencias en el tiempo, no causas. No es un diagnóstico.</div>
+  {% for n in bitacora %}
+  <div id="nota-{{ n.date }}" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0 4px; border-top: 1px solid var(--color-linea-suave)">
+    <div class="fila-entre" style="flex-wrap: wrap; gap: 8px; align-items: baseline">
+      <div style="font-size: 15px; font-weight: 600" class="num">{{ n.label }}</div>
+      {% if n.removed_count %}<div style="font-size: 13px; color: var(--color-tinta-suave)">El verificador borró {{ n.removed_count }}{% if n.removed_count == 1 %} frase{% else %} frases{% endif %}</div>{% endif %}
+    </div>
+    {% if n.parts %}
+    <div style="font-size: 15px; line-height: 1.5">
+      {% for s in n.parts %}{{ s.text }}{% for e in s.evidence %} {% if e.anchor %}<a class="chip-ev" href="#{{ e.anchor }}" style="text-decoration: none">{{ e.label }}</a>{% elif e.quote %}<details class="chip-ev" style="display: inline-block; cursor: pointer"><summary>{{ e.label }}</summary><div style="padding-top: 6px">«{{ e.quote }}»</div></details>{% else %}<span class="chip-ev">{{ e.label }}</span>{% endif %}{% endfor %} {% endfor %}
+    </div>
+    {% else %}
+    <div style="font-size: 15px; color: var(--color-tinta-suave)">Sin texto: el verificador borró todas las frases.</div>
+    {% endif %}
+    {% for p in n.points %}
+    <div style="display: flex; flex-direction: column; gap: 6px; padding-left: 12px; border-left: 3px solid var(--color-linea)">
+      <div style="font-size: 14px">{{ p.text }}</div>
+      <div class="chips">
+        {% for e in p.evidence %}
+        {% if e.anchor %}<a class="chip-ev" href="#{{ e.anchor }}" style="text-decoration: none">{{ e.label }}</a>
+        {% elif e.quote %}<details class="chip-ev" style="cursor: pointer"><summary>{{ e.label }}</summary><div style="padding-top: 6px">«{{ e.quote }}»</div></details>
+        {% else %}<span class="chip-ev">{{ e.label }}</span>{% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if n.follow_up %}
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div class="etiqueta-seccion">Seguir mirando</div>
+      {% for f in n.follow_up %}<div style="font-size: 14px; color: var(--color-tinta-suave)">· {{ f }}</div>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div style="font-size: 15px; color: var(--color-tinta-suave)">Todavía no hay notas. Se escriben cada noche, en la revisión diaria.</div>
+  {% endfor %}
+</div>
