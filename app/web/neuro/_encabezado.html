@@ -4,7 +4,7 @@
   <div style="display: flex; align-items: center; gap: 14px">
     <a href="/" class="logo__marca" aria-label="Entrecasa" style="text-decoration: none">{{ icon("casa", 26) }}</a>
     <div style="display: flex; flex-direction: column">
-      <div style="font-size: 24px; font-weight: 700">{{ m.patient.name }}</div>
+      <div style="font-size: 22px; font-weight: 600">{{ m.patient.name }}</div>
       <div style="font-size: 15px; color: var(--color-tinta-suave)">Período {{ m.period.start | ddmm }} – {{ m.period.end | ddmm }}/{{ m.period.end[:4] }} · consulta del {{ m.visit.date | dia_largo }} {{ m.visit.date | ddmm }} · {{ m.visit.doctor }}</div>
     </div>
   </div>

@@ -21,7 +21,7 @@ SUMMARY = ("En el período 20/09 al 17/10, a 25 días del cambio de pramipexol. 
 
 
 def topic(title, ids, reserved=False, **voices):
-    return {"title": title, "narrative": "Un párrafo corto.", "observed": ["3 tardes"],
+    return {"title": title, "why_now": "Se repite esta semana", "narrative": "Un párrafo corto.", "observed": ["3 tardes"],
             "voices": {"paciente": voices.get("paciente"), "cuidador": voices.get("cuidador"),
                        "familiar": voices.get("familiar")},
             "question": "¿Cómo se siente a la tarde?", "evidence_ids": ids, "reserved": reserved}
@@ -41,6 +41,7 @@ def test_genera_report_y_el_codigo_fuerza_reserved(monkeypatch):
     assert rep.summary == SUMMARY and len(rep.topics) == 3 and rep.removed_count == 0
     assert rep.topics[0].reserved is True            # el modelo dijo False, pero 205 y 209 son reservados
     assert rep.topics[1].reserved is False
+    assert rep.topics[0].why_now == "Se repite esta semana"
     assert rep.topics[0].voices == {"Marta, su esposa": "anoche hablaba con alguien que no estaba"}   # claves del código
     kw = fake.calls[0]
     assert kw["output_config"] == {"effort": "medium"} and "<facts>" in kw["messages"][0]["content"]
@@ -52,6 +53,9 @@ def test_genera_report_y_el_codigo_fuerza_reserved(monkeypatch):
     {**GOOD, "topics": [topic("x", [999])] + GOOD["topics"][1:]},                       # id inexistente
     {**GOOD, "summary": "Muy corto."},                                                  # resumen corto
     {**GOOD, "topics": [{**GOOD["topics"][0], "narrative": "palabra " * 130}] + GOOD["topics"][1:]},
+    {**GOOD, "topics": [{**GOOD["topics"][0], "why_now": ""}] + GOOD["topics"][1:]},     # sin por qué ahora
+    {**GOOD, "topics": [{**GOOD["topics"][0], "why_now": "palabra " * 20}] + GOOD["topics"][1:]},  # más de una línea
+    {**GOOD, "topics": [{**GOOD["topics"][0], "why_now": "99 veces en 7 días"}] + GOOD["topics"][1:]},  # cifra propia
 ])
 def test_salida_que_no_cumple_se_reintenta(monkeypatch, bad):
     fake = FakeSonnet(bad, GOOD)
@@ -236,6 +240,20 @@ def test_verify_local_borra_y_cuenta():
     assert out.topics[0].narrative == "Marta, su esposa, contó «anoche hablaba con alguien que no estaba»."
     assert out.topics[0].voices == {"Marta, su esposa": "anoche hablaba con alguien que no estaba"}
     assert out.removed_count == 4                       # 1 del resumen, 2 del párrafo, 1 voz
+
+
+def test_verify_local_limpia_el_por_que_ahora():
+    from app.models import Report, ReportTopic
+    t = ReportTopic(title="x", why_now="99 noches en 7 días", narrative="", observed=[], voices={}, question="?",
+                    evidence_ids=[205], reserved=True)
+    out = report.verify_local(Report(summary=SUMMARY, topics=[t], removed_count=0), FACTS)
+    assert out.topics[0].why_now == "" and out.removed_count == 1
+
+
+def test_informe_viejo_sin_por_que_ahora_valida():
+    from app.models import ReportTopic
+    assert ReportTopic(title="x", narrative="", observed=[], voices={}, question="?", evidence_ids=[],
+                       reserved=False).why_now == ""
 
 
 def test_verify_local_no_toca_lo_correcto():
