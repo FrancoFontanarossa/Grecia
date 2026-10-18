@@ -147,7 +147,7 @@ def test_lo_que_no_sabemos(base):
         "Sin pasos sincronizados 2 días: 23/09, 29/09.",
         "1 pregunta del sistema quedó sin respuesta (13/10).",
         "Marta contó alucinaciones 2 veces; Juan no lo mencionó.",
-        "Laura contó lentitud 1 vez; Juan no lo mencionó.",
+        "Y 1 tema más que contó la familia una sola vez.",     # lentitud (Laura, 1 vez): queda en la lista
     ]
 
 

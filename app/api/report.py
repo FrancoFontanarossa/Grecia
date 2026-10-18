@@ -194,6 +194,17 @@ def _ddmm(d) -> str:
     return f"{d.day:02d}/{d.month:02d}"
 
 
+# Las claves de taxonomy.py van sin tildes; para leer, en castellano.
+_SYMPTOM_TEXT = {"apatia": "apatía", "sudoracion": "sudoración", "deglucion": "problemas para tragar",
+                 "actua_suenos": "que actúa los sueños", "despertares_nocturnos": "despertares de noche",
+                 "somnolencia_diurna": "somnolencia de día", "confusion": "confusión", "cansancio": "cansancio",
+                 "estrenimiento": "estreñimiento", "caida": "caída", "mareo_al_pararse": "mareo al pararse"}
+
+
+def _symptom_text(symptom: str) -> str:
+    return _SYMPTOM_TEXT.get(symptom, symptom.replace("_", " "))
+
+
 def _days_with_steps(conn, patient_id: int, days: list[dt.date], now: dt.datetime) -> set[dt.date]:
     """Días con pasos: los cubre una ventana de biometric_syncs (hasta ahora si es hoy) o tienen muestras."""
     db = _db()
@@ -387,11 +398,16 @@ def unknowns(patient_id: int, start: dt.date, end: dt.date, now: dt.datetime) ->
                       f"sin respuesta" + (f" ({fechas})." if fechas else "."))
     patient_name = next((r["name"] for r in rows if r["speaker_role"] == "paciente"), None) or \
         (store.patient_person(patient_id) or {}).get("name", "el paciente")
-    for f in solo_familia:
+    # En los textos, solo lo que pesa: repetido (2 o más) o reservado. El resto se cuenta en una línea;
+    # la lista completa queda en `solo_la_familia`.
+    shown = [f for f in solo_familia if f["veces"] >= 2 or f["reservado"]]
+    for f in shown:
         quien = " y ".join(f["quien"])
         veces = f"{f['veces']} {'vez' if f['veces'] == 1 else 'veces'}"
-        sintoma = f["sintoma"].replace("_", " ")
-        textos.append(f"{quien} contó {sintoma} {veces}; {patient_name} no lo mencionó.")
+        textos.append(f"{quien} contó {_symptom_text(f['sintoma'])} {veces}; {patient_name} no lo mencionó.")
+    rest = len(solo_familia) - len(shown)
+    if rest:
+        textos.append(f"Y {rest} {'tema más' if rest == 1 else 'temas más'} que contó la familia una sola vez.")
     return {
         "dias_sin_pasos": [d.isoformat() for d in missing],
         "preguntas_sin_respuesta": [{"id": q["id"], "fecha": q["sent_at"], "regla": q["rule_id"], "pregunta": q["question"],
