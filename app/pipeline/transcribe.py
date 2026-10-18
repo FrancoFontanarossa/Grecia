@@ -33,8 +33,11 @@ class NotHeard(TranscriptionError):
     """El audio está vacío o no se entiende: la app muestra "No te escuché bien. ¿Probamos de nuevo?"."""
 
 
-# Lo que Whisper suele "inventar" sobre silencio o ruido.
-_SILENCE_HALLUCINATIONS = ("subtitulos realizados", "amara.org", "gracias por ver", "suscribete", "subtitulado por")
+# Lo que Whisper suele "inventar" sobre silencio o ruido. Con ruido fuerte, además, repite o parafrasea el prompt
+# ("Medicamentos: levodopa…", "la vida de alguien que vive con Parkinson"): eso también es "no te escuché".
+_SILENCE_HALLUCINATIONS = ("subtitulos realizados", "amara.org", "gracias por ver", "suscribete", "subtitulado por",
+                           "relato en espanol", "vida diaria de una persona", "vive con parkinson",
+                           "persona con parkinson", "medicamentos:", "levodopa, carbidopa")
 
 
 _FILLERS = re.compile(r"^(?:\s*(?:m+|h+m+|e+h*|a+h*|o+h*|u+h*m*)\s*)*$")
