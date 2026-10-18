@@ -185,3 +185,28 @@ def test_pattern_candidate():
     with pytest.raises(ValidationError):
         PatternCandidate(kind="otro", title="x", description="x", evidence_ids=[1, 2],
                          suggested_action="avisar", ask_role=None, confidence=0.5)
+
+
+WEARABLE_KINDS = ["sleep_minutes", "sleep_awakenings", "heart_rate_rest", "hrv_ms", "spo2_pct", "resp_rate",
+                  "active_minutes", "tremor_minutes", "dyskinesia_minutes"]
+
+
+@pytest.mark.parametrize("kind", WEARABLE_KINDS)
+def test_wearable_kinds_and_simulated_source(kind):
+    BiometricSample(patient_id=1, kind=kind, value=1, start=NOW, end=NOW + dt.timedelta(hours=1), source="simulado")
+
+
+def test_old_biometric_samples_still_valid():
+    for source in ("atajo", "importacion", "seed", "inyectado"):
+        BiometricSample(patient_id=1, kind="steps", value=1, start=NOW, end=NOW, source=source)
+    with pytest.raises(ValidationError):
+        BiometricSample(patient_id=1, kind="pulso", value=1, start=NOW, end=NOW, source="simulado")
+
+
+def test_prompt_context_biometric_summary_is_optional():
+    trigger = Trigger(rule_id="P-SUENO", patient_id=1, to_person_id=1, facts={}, why="x")
+    old = PromptContext(now=NOW, patient_name="Juan", recipient_role="paciente", trigger=trigger,
+                        deviation=None, recent_entries=[])
+    assert old.biometric_summary is None
+    new = old.model_copy(update={"biometric_summary": {"day": "2026-10-14", "metrics": {}}})
+    assert PromptContext.model_validate(new.model_dump()).biometric_summary["day"] == "2026-10-14"

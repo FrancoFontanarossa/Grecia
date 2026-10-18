@@ -11,7 +11,10 @@ Speaker = Literal["paciente","cuidador","familiar"]
 Role = Literal["paciente","cuidador","familiar","neurologo"]
 Lane = Literal["rojo","ambar","verde"]
 NotificationKind = Literal["pregunta","repregunta","logro","ambar","rojo","resumen"]
-BiometricKind = Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness"]
+BiometricKind = Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness",
+                        # pulsera (simulada, CLAUDE.md §8)
+                        "sleep_minutes","sleep_awakenings","heart_rate_rest","hrv_ms","spo2_pct","resp_rate",
+                        "active_minutes","tremor_minutes","dyskinesia_minutes"]
 OccurredHint = Literal["ahora","esta_manana","esta_tarde","anoche","ayer"]
 
 
@@ -41,7 +44,7 @@ class BiometricSample(BaseModel):
     value: float
     start: AwareDatetime
     end: AwareDatetime
-    source: Literal["atajo","importacion","seed","inyectado"]
+    source: Literal["atajo","importacion","seed","inyectado","simulado","pulsera"]
 
 
 class AtajoSample(BaseModel):
@@ -55,6 +58,30 @@ class AtajoPayload(BaseModel):              # cuerpo de POST /api/biometrics/ata
     window_start: AwareDatetime
     window_end: AwareDatetime
     samples: list[AtajoSample]
+
+
+# Cuerpo de POST /api/biometrics/wearable (CLAUDE.md §8). `type` y `unit` se validan en código
+# (api/biometrics.ingest_wearable) para devolver un 422 con un mensaje claro.
+class WearableDevice(BaseModel):
+    vendor: str
+    model: str
+    id: str
+
+
+class WearableSample(BaseModel):
+    type: str                               # un BiometricKind (no "steps": los pasos entran por el Atajo)
+    value: float
+    unit: str
+    start: AwareDatetime
+    end: AwareDatetime
+
+
+class WearablePayload(BaseModel):
+    device: WearableDevice
+    window_start: AwareDatetime
+    window_end: AwareDatetime
+    samples: list[WearableSample]
+    source: Literal["pulsera","simulado","importacion"] = "pulsera"   # "simulado" si lo manda el simulador
 
 
 class Deviation(BaseModel):
@@ -205,6 +232,7 @@ class PromptContext(BaseModel):
     trigger: Trigger
     deviation: Deviation | None
     recent_entries: list[ContextEntry]
+    biometric_summary: dict | None = None   # rules.biometrics.daily_summary del día (pulsera simulada)
 
 
 class UnderstoodItem(BaseModel):
