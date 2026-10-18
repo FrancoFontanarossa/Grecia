@@ -245,6 +245,17 @@ CREATE TABLE IF NOT EXISTS hypotheses (
     n_sin INTEGER NOT NULL,
     discard_reason TEXT
 );
+CREATE TABLE IF NOT EXISTS daily_notes (
+    id INTEGER PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    text TEXT NOT NULL,
+    points TEXT NOT NULL DEFAULT '[]',
+    follow_up TEXT NOT NULL DEFAULT '[]',
+    removed_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    UNIQUE (patient_id, date)
+);
 CREATE INDEX IF NOT EXISTS ix_people_patient ON people (patient_id);
 CREATE INDEX IF NOT EXISTS ix_notifications_person ON notifications (person_id, created_at);
 CREATE INDEX IF NOT EXISTS ix_entries_patient ON entries (patient_id, created_at);
