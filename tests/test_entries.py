@@ -39,24 +39,23 @@ def test_entrada_queda_guardada_aunque_la_push_falle(tmp_data_dir, monkeypatch):
     monkeypatch.setattr(push, "webpush", boom)
     db.save_subscription(person_id=1, endpoint="https://push.example/x", p256dh="p", auth="a")
 
-    r = client.post("/api/entries", data={"person_id": 1, "text": "me sentí trabado"})
+    texto = "se golpeó la cabeza y toma apixabán"          # un rojo: la única push que sale al contar algo
+    r = client.post("/api/entries", data={"person_id": 1, "text": texto})
 
     assert r.status_code == 200
-    assert _rows("entries")[0]["raw_text"] == "me sentí trabado"
-    notif = _rows("notifications")
-    assert len(notif) == 1 and notif[0]["push_sent"] == 0 and notif[0]["kind"] == "resumen"
+    assert _rows("entries")[0]["raw_text"] == texto
+    notif = [n for n in _rows("notifications") if n["person_id"] == 1]
+    assert len(notif) == 1 and notif[0]["push_sent"] == 0 and notif[0]["kind"] == "rojo"
 
 
-def test_manda_recibido_a_quien_conto(tmp_data_dir, monkeypatch):
+def test_ya_no_manda_recibido(tmp_data_dir, monkeypatch):
     calls = []
     monkeypatch.setattr(push, "webpush", lambda **kw: calls.append(kw))
     db.save_subscription(person_id=1, endpoint="https://push.example/x", p256dh="p", auth="a")
 
     client.post("/api/entries", data={"person_id": 1, "text": "hola"})
 
-    n = _rows("notifications")[0]
-    assert (n["person_id"], n["title"], n["url"], n["push_sent"]) == (1, "Recibido", "/casa", 1)
-    assert len(calls) == 1
+    assert _rows("notifications") == [] and calls == []
 
 
 @pytest.mark.parametrize("hint", ["ahora", "esta_manana", "esta_tarde", "anoche", "ayer"])
@@ -210,7 +209,7 @@ def test_audio_sin_transcribir_queda_guardado_con_texto_vacio(tmp_data_dir, monk
     assert body["error"] == "No pude entenderlo esta vez. Lo guardé tal cual para tu neuróloga."
     e = _rows("entries")[0]
     assert e["raw_text"] == "" and e["modality"] == "audio" and e["audio_path"].endswith(".webm")
-    assert _rows("events") == [] and len(_rows("notifications")) == 1
+    assert _rows("events") == [] and _rows("notifications") == []
 
 
 def test_audio_de_formato_desconocido_da_415_y_no_guarda(tmp_data_dir):

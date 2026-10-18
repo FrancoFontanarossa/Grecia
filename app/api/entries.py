@@ -91,6 +91,15 @@ async def process_entry(*, person_id: int, text: str | None = None, audio: bytes
     response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
     if question_id is not None:   # respuesta a una pregunta proactiva: queda respondida y entra al episodio
         await asyncio.to_thread(db.answer_question, question_id, person_id, entry_id)
+    raw_text = await _analyze(entry_id, person, raw_text, audio_path, response, timing)
+
+    timing["total"] = time.perf_counter() - t0
+    log.info("entrada %s (%s): %s", entry_id, modality, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
+    return response
+
+
+async def _analyze(entry_id: int, person: dict, raw_text: str, audio_path, response: dict, timing: dict) -> str:
+    """Transcribe (si es audio), corre los rojos, extrae, guarda eventos y reparte los avisos. Completa `response`."""
     if audio_path is not None:
         t = time.perf_counter()
         try:
@@ -134,15 +143,11 @@ async def process_entry(*, person_id: int, text: str | None = None, audio: bytes
             response["understood"] = extraction.understood(events, await asyncio.to_thread(db.now))
         if red is not None:
             response["red"] = red.model_dump()
-        alerts = await asyncio.to_thread(lanes.evaluate, entry.patient_id, event_ids, red=red, speaker_id=person_id)
+        alerts = await asyncio.to_thread(lanes.evaluate, entry.patient_id, event_ids, red=red, speaker_id=entry.speaker_id)
         await dispatch.dispatch(alerts)
         response["alerts"] = [a.model_dump(mode="json") for a in alerts if _visible_to(a, person)]
 
-    if source == "app":   # los relatos precorridos no avisan "Recibido"
-        await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
-    timing["total"] = time.perf_counter() - t0
-    log.info("entrada %s (%s): %s", entry_id, modality, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
-    return response
+    return raw_text
 
 
 async def _extract_or_error(entry: Entry, person: dict) -> list[Event] | extraction.ExtractionError:
@@ -170,3 +175,43 @@ async def _save_events(entry: Entry, events: list[Event]) -> list[int]:
 def _visible_to(alert, person: dict) -> bool:
     """La respuesta va a quien contó: el paciente nunca ve un aviso reservado (§6.4)."""
     return person["role"] != "paciente" or consent.patient_can_see(reserved=alert.reserved, lane=alert.lane)
+
+
+@router.post("/api/entries/{entry_id}/confirm")
+async def confirm_entry(entry_id: int):
+    """"Sí, está bien": no vuelve a procesar nada (§11)."""
+    if await asyncio.to_thread(db.get_entry, entry_id) is None:
+        raise HTTPException(404, f"No existe la entrada {entry_id}")
+    return {"ok": True}
+
+
+@router.post("/api/entries/{entry_id}/correct")
+async def correct_entry(entry_id: int, text: str | None = Form(None), audio: UploadFile | None = File(None)):
+    """Corrige un relato con texto o audio: reemplaza el texto, borra sus eventos y los avisos A1/A2 que dejaron
+    (nunca un rojo), vuelve a pasar por rojos, extracción y reglas, y marca corrected=1. Responde como POST /api/entries."""
+    t0 = time.perf_counter()
+    timing: dict[str, float] = {}
+    row = await asyncio.to_thread(db.get_entry, entry_id)
+    if row is None:
+        raise HTTPException(404, f"No existe la entrada {entry_id}")
+    raw_text = (text or "").strip()
+    if audio is None and not raw_text:
+        raise HTTPException(422, "Falta el texto o el audio")
+    person = await asyncio.to_thread(db.person_info, row["speaker_id"])
+    audio_path = None
+    if audio is not None:
+        try:
+            audio_path = await asyncio.to_thread(transcription.save_audio, await audio.read(), audio.content_type)
+        except transcription.UnsupportedAudio as exc:
+            raise HTTPException(415, str(exc)) from exc
+        raw_text = ""
+    removed = await asyncio.to_thread(
+        db.reset_for_correction, entry_id, raw_text=raw_text, modality="audio" if audio_path else "texto",
+        audio_path=str(audio_path.relative_to(db.data_dir())) if audio_path else None,
+        alert_label=lanes._label)
+    log.info("entrada %s corregida: %s eventos y %s avisos borrados", entry_id, *removed)
+    response = {"entry_id": entry_id, "transcript": raw_text, "understood": [], "red": None, "alerts": []}
+    await _analyze(entry_id, person, raw_text, audio_path, response, timing)
+    timing["total"] = time.perf_counter() - t0
+    log.info("corrección %s: %s", entry_id, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
+    return response
