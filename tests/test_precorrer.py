@@ -103,7 +103,12 @@ def test_precorrer_arma_la_semana_de_la_demo(semana):
     assert questions_to(2, "2026-10-15") == []
     assert len(questions_to(2, "2026-10-16")) == 1
     episodes = {r["dose_time"][:10]: r["status"] for r in rows("SELECT dose_time, status FROM episodes")}
-    assert episodes == {"2026-10-13": "preguntado", "2026-10-15": "explicado", "2026-10-16": "preguntado"}
+    # El martes Marta responde la pregunta (responde: P-DESVIO en el YAML): el episodio queda respondido con su relato.
+    assert episodes == {"2026-10-13": "respondido", "2026-10-15": "explicado", "2026-10-16": "preguntado"}
+    q13 = questions_to(2, "2026-10-13")[0]
+    assert q13["status"] == "respondida"
+    answer = rows("SELECT raw_text, question_id FROM entries WHERE id = ?", q13["answered_entry_id"])[0]
+    assert answer["question_id"] == q13["id"] and answer["raw_text"].startswith("Sí, a la tarde lo vi muy duro")
     assert any(a["rule_id"] == "A3" for a in rows("SELECT rule_id FROM alerts"))
     # las push quedaron apagadas: notificaciones guardadas, ninguna enviada; sin "Recibido" de los relatos precorridos
     assert all(n["push_sent"] == 0 for n in rows("SELECT push_sent FROM notifications"))

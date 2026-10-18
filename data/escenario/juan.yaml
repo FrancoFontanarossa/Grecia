@@ -20,7 +20,8 @@
 #
 # Campos: cuando (hora de Montevideo) · quien (juan | marta | laura) · modalidad (cómo lo contó en la historia;
 # el script lo carga como texto) · cuando_paso (occurred_hint del contrato: ahora | esta_manana | esta_tarde |
-# anoche | ayer) · reservado (el interruptor "Solo para el equipo médico") · texto.
+# anoche | ayer) · reservado (el interruptor "Solo para el equipo médico") · responde (rule_id de la pregunta de ese
+# día a esa persona que contesta: el relato se carga con su question_id) · texto.
 
 paciente: 1
 personas: { juan: 1, marta: 2, laura: 3 }
@@ -190,8 +191,9 @@ relatos:
     quien: marta
     modalidad: texto
     cuando_paso: esta_tarde
+    responde: P-DESVIO          # la pregunta de las 18:05 por la toma de las 16: se carga con su question_id
     texto: >
-      Hoy a la tarde lo vi muy quieto en el sillón, no quiso salir a caminar. Le pregunté y me dijo que no tenía ganas.
+      Sí, a la tarde lo vi muy duro, le costó levantarse del sillón y no quiso salir a caminar.
 
   - cuando: "2026-10-14 08:20"
     quien: marta
