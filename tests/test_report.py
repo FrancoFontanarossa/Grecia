@@ -72,7 +72,7 @@ def test_pasa_por_el_verificador(monkeypatch):
     def fake_verify(rep, facts, sources):
         seen["sources"] = sources
         return rep.model_copy(update={"removed_count": 2})
-    monkeypatch.setattr(report, "verify", fake_verify)
+    monkeypatch.setattr(report, "verify", fake_verify)          # cuando exista rules.verifier, va primero
     assert asyncio.run(report.generate(FACTS)).removed_count == 2 and seen["sources"] == FACTS["events"]
 
 
@@ -215,3 +215,43 @@ def test_titulo_con_franja_no_mezcla_otra_franja(monkeypatch):
 def test_facts_traen_plain_para_atribuir():
     e = next(x for x in report_facts.present(RAW)["events"] if x["id"] == 207)
     assert "plain" in e
+
+
+# ── verify_local: la verificación final en código ──
+
+def _rep(summary, narrative, voices=None, ids=(205,)):
+    from app.models import Report, ReportTopic
+    t = ReportTopic(title="x", narrative=narrative, observed=[], voices=voices or {}, question="?",
+                    evidence_ids=list(ids), reserved=True)
+    return Report(summary=summary, topics=[t], removed_count=0)
+
+
+def test_verify_local_borra_y_cuenta():
+    rep = _rep("Hubo 3 tardes con menos pasos. Hubo 99 noches malas. Todo lo demás estuvo bien.",
+               "Marta, su esposa, contó «anoche hablaba con alguien que no estaba». Laura dijo «anoche hablaba con "
+               "alguien que no estaba». Alguien contó «una frase inventada».",
+               voices={"Marta, su esposa": "anoche hablaba con alguien que no estaba", "Juan": "algo que no dijo"})
+    out = report.verify_local(rep, FACTS)
+    assert out.summary == "Hubo 3 tardes con menos pasos. Todo lo demás estuvo bien."
+    assert out.topics[0].narrative == "Marta, su esposa, contó «anoche hablaba con alguien que no estaba»."
+    assert out.topics[0].voices == {"Marta, su esposa": "anoche hablaba con alguien que no estaba"}
+    assert out.removed_count == 4                       # 1 del resumen, 2 del párrafo, 1 voz
+
+
+def test_verify_local_no_toca_lo_correcto():
+    rep = _rep(SUMMARY, "Marta, su esposa, contó el 14/10 que «anoche hablaba con alguien que no estaba».")
+    out = report.verify_local(rep, FACTS)
+    assert out.summary == SUMMARY and out.removed_count == 0
+
+
+def test_generate_pasa_por_verify_local(monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    called = {}
+    real = report.verify_local
+
+    def spy(rep, facts):
+        called["yes"] = True
+        return real(rep, facts)
+    monkeypatch.setattr(report, "verify_local", spy)
+    asyncio.run(report.generate(FACTS))
+    assert called

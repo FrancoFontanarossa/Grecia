@@ -11,16 +11,16 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from app import _tmp_rules, clock, db
+from app import clock, db
 from app.models import Report, ReportTopic
 from app.pipeline import knowledge, llm, report_facts
 from app.taxonomy import _fold
 
-try:                                   # el verificador es de Franco; mientras no esté, el stub TEMPORAL
+try:                                   # el verificador de Franco (rules.verifier), si ya está
     from app.rules import verifier as _verifier  # type: ignore
     verify = _verifier.verify
 except ImportError:
-    verify = _tmp_rules.verify_stub
+    verify = None
 
 log = logging.getLogger("entrecasa.report")
 
@@ -254,7 +254,66 @@ async def generate(facts: dict) -> Report:
     out = await llm.call_tool(prompt(), TOOL, user_message(facts), _Output, check=lambda o: check(o, facts),
                               max_tokens=8000, effort="medium")
     draft = to_report(out, facts)
-    return verify(draft, facts, facts.get("events", []))
+    if verify is not None:                       # primero rules.verifier de Franco, después el local
+        draft = verify(draft, facts, facts.get("events", []))
+    return verify_local(draft, facts)
+
+
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _bad_sentence(sentence: str, numbers: set[str], events: list[dict], labels: dict) -> bool:
+    """Una oración se borra si tiene un número que no está literal en facts, o una cita que no está literal en
+    los eventos dados, o una cita sin el nombre de quien la dijo."""
+    if any(n not in numbers for n in _NUMBER.findall(sentence)):
+        return True
+    for m in _QUOTED.finditer(sentence):
+        quote = next(g for g in m.groups() if g)
+        owners = [e for e in events if quote in e["quote"]]
+        if not owners:
+            return True
+        names = {labels.get(e["speaker"], e["speaker"]).split(",")[0] for e in owners}
+        if not any(name in sentence for name in names):
+            return True
+    return False
+
+
+def verify_local(rep: Report, facts: dict) -> Report:
+    """Verificación final en código sobre el texto que se va a guardar (la que hace verdad la frase "Cada cifra se
+    verificó… N frases eliminadas" del informe). En el resumen y en cada párrafo borra las oraciones con un número
+    que no está literal en facts, una cita que no está literal en un evento de la evidencia (en el resumen, de
+    cualquier evento) o un hablante que no coincide; saca las voces que no son una cita literal de esa voz.
+    Suma lo borrado a removed_count. Se encadena después de rules.verifier de Franco cuando exista."""
+    numbers = allowed_numbers(facts)
+    events = {e["id"]: e for e in facts.get("events", [])}
+    labels = facts.get("voices", {})
+    by_label = {v: k for k, v in labels.items()}
+    removed = 0
+
+    def clean(text: str, evs: list[dict]) -> str:
+        nonlocal removed
+        kept = []
+        for sentence in _SENTENCE.split(text.strip()):
+            if sentence and _bad_sentence(sentence, numbers, evs, labels):
+                removed += 1
+            elif sentence:
+                kept.append(sentence)
+        return " ".join(kept)
+
+    summary = clean(rep.summary, list(events.values()))
+    topics = []
+    for t in rep.topics:
+        evs = [events[i] for i in t.evidence_ids if i in events]
+        voices = {}
+        for who, quote in t.voices.items():
+            role = by_label.get(who, who)
+            if any(quote in e["quote"] for e in events.values() if e["speaker"] == role):
+                voices[who] = quote
+            else:
+                removed += 1
+        topics.append(t.model_copy(update={"narrative": clean(t.narrative, evs), "voices": voices}))
+    return rep.model_copy(update={"summary": summary, "topics": topics,
+                                  "removed_count": rep.removed_count + removed})
 
 
 def _store(patient_id: int, period: str, rep: Report) -> int:
