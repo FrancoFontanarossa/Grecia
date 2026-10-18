@@ -501,6 +501,8 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /admin/snapshot` | — | `{ok}` |
 | `POST /admin/restore` | — | `{ok}` |
 | `POST /admin/seed` | — | `{ok, people, …conteos, warnings}`: corre `data/seed.py` (idempotente) |
+| `POST /admin/precorrer` | — | `{started: true}` enseguida; 409 si ya está corriendo. Corre `scripts/precorrer_semana.py` dentro del servidor, en segundo plano, con el scheduler en vivo en pausa (se reanuda al terminar, también si falla) |
+| `GET /admin/precorrer/status` | — | `{running, done, relatos_cargados, ya_estaban, preguntas, errores, informe_generado, reloj}` |
 | `POST /admin/import_steps` | CSV `start,steps` por hora (cuerpo crudo), el de `import_health --export-csv` | `{ok, hours, window_start, window_end}`: `source=importacion` y la ventana en `biometric_syncs`; reemplaza lo importado e inyectado de esa ventana |
 
 ---
@@ -664,3 +666,4 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 01:00 | Corrección de la pulsera: la ingesta es real (`POST /api/biometrics/wearable`, `WearablePayload`, `source` del dispositivo); el simulador (`scripts/simular_pulsera.py`) la usa por HTTP y sale `/admin/seed_wearable`; la noche del 13 al 14 es corta; `import_health --export-wearable` para datos reales del iPhone; domingo: seed → simular_pulsera → precorrer → reloj → snapshot | Franco |
 | 01:15 | Pulsera: centrales (sueño, despertares, FC en reposo, minutos activos; las manda el simulador) y opcionales (se aceptan y guardan si llegan); temblor y discinesia no se simulan ni se muestran (requieren algoritmos validados); `describe` muestra solo lo presente con su source | Juanpe y Franco |
 | 01:15 | El cambio de pramipexol pasa al sábado 03/10 (el miércoles 14 queda a 11 días): la base del escenario queda antes del cambio y A2 marca solo lo nuevo; volver a correr el seed mueve la fecha si ya estaba | Juanpe y Franco |
+| 01:30 | `POST /admin/precorrer` y `GET /admin/precorrer/status`: el precorrido corre en el servidor de Railway (mismo `run` del script, sin cambios), con el scheduler en vivo en pausa mientras dura | Franco |

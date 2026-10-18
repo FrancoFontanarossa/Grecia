@@ -1,5 +1,7 @@
-# Admin de la demo (CLAUDE.md §11): reloj, caída inyectada, snapshot y restore, y carga de la base de Railway
-# (seed y pasos importados). Todo con X-Admin-Token.
+# Admin de la demo (CLAUDE.md §11): reloj, caída inyectada, snapshot y restore, carga de la base de Railway
+# (seed y pasos importados) y el precorrido de la semana dentro del servidor. Todo con X-Admin-Token.
+import asyncio
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta
@@ -119,3 +121,49 @@ async def import_steps(request: Request, patient_id: int = 1):
         raise HTTPException(status_code=422, detail=f"CSV inválido: {e}. Formato: start,steps (una fila por hora)")
     ws, we = result["window"]
     return {"ok": True, "hours": result["hours"], "window_start": ws.isoformat(), "window_end": we.isoformat()}
+
+
+# ── Precorrido de la semana dentro del servidor ─────────────────────────────────────────────────────────
+# Corre scripts/precorrer_semana.run (lo mismo que el script, sin cambios) como tarea en segundo plano. El scheduler
+# en vivo queda en pausa mientras tanto (el precorrido hace sus propios ticks con el reloj de cada momento) y se
+# reanuda al terminar, también si falla.
+log = logging.getLogger("entrecasa.admin")
+_precorrer: dict = {"running": False, "done": False, "relatos_cargados": None, "ya_estaban": None,
+                    "preguntas": None, "errores": [], "informe_generado": None}
+_precorrer_task: asyncio.Task | None = None
+
+
+async def _run_precorrer() -> None:
+    from app import scheduler
+    from scripts import precorrer_semana as pre
+    was_running = scheduler._task is not None
+    await scheduler.stop()
+    try:
+        result = await pre.run(pre.ESC)
+        _precorrer.update(relatos_cargados=result["cargados"], ya_estaban=result["ya_estaban"],
+                          preguntas=len(result["preguntas"]), informe_generado=bool(result["informe"]["ok"]))
+        if not result["informe"]["ok"]:
+            _precorrer["errores"].append("el informe final no se pudo generar: volver a correr el precorrido")
+    except Exception as exc:
+        log.error("falló el precorrido (%s)", type(exc).__name__)
+        _precorrer["errores"].append(f"{type(exc).__name__}: {exc}")
+    finally:
+        _precorrer.update(running=False, done=True)
+        if was_running:
+            scheduler.start()
+
+
+@router.post("/precorrer")
+async def post_precorrer():
+    global _precorrer_task
+    if _precorrer["running"]:
+        raise HTTPException(status_code=409, detail="El precorrido ya está corriendo: ver GET /admin/precorrer/status")
+    _precorrer.update(running=True, done=False, relatos_cargados=None, ya_estaban=None, preguntas=None, errores=[],
+                      informe_generado=None)
+    _precorrer_task = asyncio.create_task(_run_precorrer())
+    return {"started": True}
+
+
+@router.get("/precorrer/status")
+def precorrer_status():
+    return {**_precorrer, "errores": list(_precorrer["errores"]), "reloj": clock.now().isoformat()}
