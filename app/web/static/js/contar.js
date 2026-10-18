@@ -174,6 +174,10 @@
             var data = r.data || {};
             if (!r.res.ok) {
               // Si la corrección por audio no está soportada, se pasa a escribir.
+              // TODO(contrato): sin /correct todavía (404/405), se guarda como relato nuevo.
+              if (self.correctId && (r.res.status === 404 || r.res.status === 405)) {
+                self.correctId = null; self.enviar(); return;
+              }
               if (self.correctId && isAudio && r.res.status === 422) {
                 self.phase = "escribir"; self.error = "Escribilo como querés que quede."; return;
               }

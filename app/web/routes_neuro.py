@@ -21,9 +21,11 @@ def _post_dose_chart(report: dict, tech: dict) -> dict | None:
     ep_by_dose: dict[str, set] = {}
     for e in tech["episodes"]:
         ep_by_dose.setdefault(e["dose_time"][11:16], set()).add(e["dose_time"][:10])
+    if not ep_by_dose:
+        return None  # sin episodios no hay nada que mostrar después de la toma
     dose = max(tech["post_dose"], key=lambda d: len(ep_by_dose.get(d, ())))
     series = tech["post_dose"][dose]
-    if not series:
+    if not series or not ep_by_dose.get(dose):
         return None
     eps = ep_by_dose.get(dose, set())
     normal = [p["value"] for p in series if p["date"] not in eps and not p["injected"]]
