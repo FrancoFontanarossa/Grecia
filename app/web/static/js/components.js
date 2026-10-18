@@ -169,6 +169,19 @@
           })
           .catch(function () { self.sending = false; EC.toast("No hay conexión. Probá de nuevo en un rato."); });
       },
+      acking: false,
+      // "Estoy bien": POST /api/alerts/{id}/ack (la meta sale de pausa si no queda ningún rojo sin atender).
+      ack: function (alertId) {
+        var self = this;
+        self.acking = true;
+        fetch("/api/alerts/" + alertId + "/ack", { method: "POST" })
+          .then(function (r) {
+            if (!r.ok) throw new Error();
+            try { sessionStorage.setItem("ec_toast", "Anotado: estás bien."); } catch (e) {}
+            location.assign("/casa");
+          })
+          .catch(function () { self.acking = false; EC.toast("No hay conexión. Probá de nuevo en un rato."); });
+      },
       llamar: function () {
         if (EC.demo) { this.demoNote = true; return; }
         location.href = "tel:" + (EC.emergencyNumber || "911");
@@ -215,7 +228,7 @@
         self._req("GET", "/admin/clock/state").then(function (d) {
           self.now = d.now; self.offset = d.offset_seconds || 0;
           if (!self.drop.day) self.drop.day = d.now.slice(0, 10);
-          self._show("");
+          if (self.msgError) self._show("");
         }).catch(function (e) { self._show(e.message === "Error 404" ? "Todavía no está el reloj (app/clock.py)." : e.message, true); });
       },
       advance: function (min) {
@@ -237,9 +250,28 @@
           .then(function () { self._show("Caída inyectada (" + self.drop.pct + "%) el " + self.drop.day + " después de la toma de las " + self.drop.dose + ". Adelantá el reloj para que la detecte."); })
           .catch(function (e) { self._show(e.message, true); });
       },
-      post: function (url, body, ok) {
+      post: function (url, body, ok, detail) {
         var self = this;
-        self._req("POST", url, body).then(function () { self._show(ok); self.refresh(); }).catch(function (e) { self._show(e.message, true); });
+        self._show("Trabajando…");
+        self._req("POST", url, body).then(function (d) {
+          self._show(ok + (detail ? " " + JSON.stringify(d) : "")); self.refresh();
+        }).catch(function (e) { self._show(e.message, true); });
+      },
+      importSteps: function (ev) {
+        var self = this, file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        self._show("Importando " + file.name + "…");
+        file.text().then(function (text) {
+          return fetch("/admin/import_steps?patient_id=" + self.drop.patient_id, {
+            method: "POST", headers: { "Content-Type": "text/csv", "X-Admin-Token": self.token }, body: text
+          });
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (d) {
+            if (!r.ok) throw new Error((d && d.detail) || ("Error " + r.status));
+            self._show("Pasos importados: " + JSON.stringify(d));
+          });
+        }).catch(function (e) { self._show(e.message, true); })
+          .finally(function () { ev.target.value = ""; });
       },
       pushTest: function (personId) {
         var self = this;

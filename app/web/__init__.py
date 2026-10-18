@@ -72,7 +72,6 @@ def _asset_version() -> str:
 templates.env.filters.update(miles=miles, dec1=dec1, fecha_larga=fecha_larga, dia_corto=dia_corto,
                              dia_largo=dia_largo, hora=hora, ddmm=ddmm)
 templates.env.globals.update(
-    VAPID_PUBLIC_KEY=os.environ.get("VAPID_PUBLIC_KEY", ""),
     DEMO_MODE=os.environ.get("DEMO_MODE", "1") == "1",
     ASSET_VERSION=_asset_version(),
 )
