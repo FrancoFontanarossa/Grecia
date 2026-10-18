@@ -327,3 +327,11 @@ a.fila:active, button.fila:active { background: var(--suave); }
 .circulo-juego--ahora { background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 35%), linear-gradient(140deg, #4F8BE4, #1E4FA3);
   color: #FFFFFF; box-shadow: 0 16px 34px rgba(30,79,163,.3); }
 .circulo-juego--despues { background: rgba(255,255,255,.5); border: 2px dashed #AFC0D8; color: var(--tinta2); font-weight: 400; font-size: 16px; }
+/* semana de Marta: 7 barras; las que llegaron a la meta llevan tilde (no solo color) */
+.semana-v3 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 14px; align-items: end; height: 56px; }
+.semana-v3 i { display: flex; justify-content: center; padding-top: 5px; border-radius: 8px; }
+.semana-v3__si { background: linear-gradient(180deg, #4F8BE4, #1E4FA3); }
+.semana-v3__no { background: rgba(30,79,163,.18); }
+.semana-v3__dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 6px; text-align: center; font-size: 12px; color: var(--tinta3); }
+.semana-v3__dias .hoy { color: var(--tinta); font-weight: 600; }
+.dock--fija-cielo { position: sticky; bottom: 0; z-index: 2; background: linear-gradient(180deg, rgba(243,246,250,0) 0%, var(--fondo) 26%); }

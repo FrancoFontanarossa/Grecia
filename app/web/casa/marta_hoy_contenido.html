@@ -1,60 +1,52 @@
-{% from "_icons.html" import icon %}
-{# Rojos: uno por tarjeta, nunca agrupados. Ámbar: agrupados en una sola tarjeta (CLAUDE.md §6.1). #}
-{% for a in hoy.alerts if a.lane == "rojo" %}
-<a href="/casa/emergencia/{{ a.id }}" class="card" style="background: var(--color-rojo-fondo); text-decoration: none; color: var(--color-tinta)">
-  <div class="lane lane--rojo">{{ icon("triangulo", 18, width=2.2) }} Rojo · actuar ahora</div>
-  <div style="font-size: 19px; font-weight: 700; line-height: 1.3">{{ a.text }}</div>
-</a>
-{% endfor %}
+{# v3.1 · contenido de Hoy de Marta (se refresca cada 3 s). Estado en una frase, la semana en un vistazo y el aviso. #}
+{% set rojos = hoy.alerts | selectattr("lane", "equalto", "rojo") | list %}
 {% set ambar = hoy.alerts | selectattr("lane", "equalto", "ambar") | list %}
-{% if ambar %}
-<div class="card card--ambar">
-  <div class="lane lane--ambar">{{ icon("ambar", 18, width=2.2) }} Ámbar · para mirar</div>
-  <div style="font-size: 19px; font-weight: 700; line-height: 1.3">{{ ambar[0].text }}</div>
-  {% if ambar | length > 1 %}
-  <ul style="margin: 0; padding-left: 20px; font-size: 16px; line-height: 1.45">
-    {% for a in ambar[1:] %}<li>{{ a.text }}</li>{% endfor %}
-  </ul>
-  {% endif %}
-  {% set todo = (ambar | selectattr("what_to_do") | map(attribute="what_to_do") | first) %}
-  <div style="font-size: 16px; line-height: 1.45"><span style="font-weight: 700">Qué podés hacer:</span> {{ todo or ("Ya está en el resumen para la " ~ hoy.doctor ~ ".") }}</div>
-  {% set ev = ambar | map(attribute="evidence") | select | sum(start=[]) %}
-  {% if ev %}
-  <div class="chips">
-    {% for e in ev %}<span class="chip-evidencia">{{ e.label }}</span>{% endfor %}
-  </div>
-  {% endif %}
-</div>
-{% endif %}
+{% set en_meta = hoy.week_steps | selectattr("achieved") | list | length %}
+{% set con_datos = hoy.week_steps | selectattr("value") | list %}
+<div class="top"><span class="marca">entrecasa<i>.</i></span></div>
+<h1 class="lt" style="margin-top: 12px">Hola, {{ hoy.person.name }}.<span class="tenue">
+  {%- if rojos %}Hay algo para atender ahora.{% elif ambar %}Esta semana hay algo para mirar.{% else %}{{ hoy.patient.name }} tuvo una semana en orden.{% endif -%}
+</span></h1>
 
-<div class="card" style="gap: 12px">
-  <div class="fila-entre" style="align-items: baseline">
-    <div style="font-size: 18px; font-weight: 700">La semana de {{ hoy.patient.name }}</div>
-    <div style="font-size: 14px; color: var(--color-tinta-suave)">pasos por día</div>
+{# Rojos: uno por tarjeta, nunca agrupados (CLAUDE.md §6.1). Título con la acción y un solo botón. #}
+{% for a in rojos %}
+<div class="vidrio" style="margin-top: 16px; padding: 18px 20px; background: rgba(253,236,234,.9)">
+  <span class="chip chip--chico chip--rojo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>Rojo · actuar ahora</span>
+  <div style="font-size: 20px; line-height: 26px; font-weight: 600; margin-top: 10px">{{ "Llamá ya a la Línea Vida." if "Línea Vida" in a.text else "Llamá ahora a la emergencia móvil." }}</div>
+  <p class="cuerpo" style="margin-top: 6px; color: #3D1A16">{{ a.text }}</p>
+  <a href="/casa/emergencia/{{ a.id }}" class="btn r" style="margin-top: 14px; min-height: 54px; font-size: 17px">Ver qué hacer</a>
+</div>
+{% endfor %}
+
+<div class="vidrio" style="margin-top: 16px; padding: 18px 20px">
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 10px">
+    <div><div class="etq" style="font-size: 14px">Meta de pasos</div><div class="liviano" style="font-size: 46px; margin-top: 8px">{{ en_meta }}<span style="font-size: 22px; font-weight: 400; letter-spacing: -.01em"> de {{ hoy.week_steps | length or 7 }} días</span></div></div>
+    {% if rojos %}<span class="chip chip--chico" style="color: var(--rojo)"><span class="punto-v3" aria-hidden="true"></span>Atender ahora</span>
+    {% elif ambar %}<span class="chip chip--chico" style="color: var(--ambar)"><span class="punto-v3" aria-hidden="true"></span>Algo para mirar</span>
+    {% else %}<span class="chip chip--chico" style="color: var(--ok)"><span class="punto-v3" aria-hidden="true"></span>En orden</span>{% endif %}
   </div>
-  {% set con_datos = hoy.week_steps | selectattr("value") | list %}
   {% if con_datos %}
-  <div class="barras" style="height: 96px">
+  {% set tope = [ (hoy.week_steps | map(attribute="value") | select | max) or 0, (hoy.goal or 0) * 1.1, 1 ] | max %}
+  <div class="semana-v3" role="img" aria-label="{{ en_meta }} de {{ hoy.week_steps | length }} días en la meta">
     {% for d in hoy.week_steps %}
-    <div class="barras__col">
-      <div class="barras__barra" style="background: {{ 'var(--color-bio)' if d.achieved else 'var(--color-bio-suave)' }}; height: {{ (((d.value or 0) / 5000 * 76) | round | int) }}px" title="{{ d.value | miles }} pasos"></div>
-      <div class="barras__dia">{{ d.date | dia_corto }}</div>
-    </div>
+    <i class="{{ 'semana-v3__si' if d.achieved else 'semana-v3__no' }}" style="height: {{ [(((d.value or 0) / tope) * 100) | round | int, 8] | max }}%" title="{{ d.date | dia_corto }}: {{ d.value | miles }} pasos{{ ' · llegó a la meta' if d.achieved else '' }}">{% if d.achieved %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>{% endif %}</i>
     {% endfor %}
   </div>
-  <div class="leyenda">
-    <div><i style="background: var(--color-bio)"></i>Llegó a la meta</div>
-    <div><i style="background: var(--color-bio-suave)"></i>No llegó</div>
-  </div>
+  <div class="semana-v3__dias">{% for d in hoy.week_steps %}<span{% if d.date == hoy.now[:10] %} class="hoy"{% endif %}>{{ d.date | dia_corto }}</span>{% endfor %}</div>
   {% else %}
-  <div style="min-height: 96px; display: flex; align-items: center; font-size: 16px; color: var(--color-tinta-suave)">Todavía no hay datos de esta semana.</div>
+  <p class="cap" style="margin-top: 12px">Todavía no hay datos de esta semana.</p>
   {% endif %}
-  <div style="font-size: 16px; line-height: 1.4">{{ hoy.week_facts.line }}</div>
 </div>
 
-{% for l in hoy.logros[-1:] %}
-<div class="logro">
-  {{ icon("copa", 24, "var(--color-pino)") }}
-  <div><span style="font-weight: 700">{{ l.date | dia_largo | capitalize }}:</span> {{ l.text }}</div>
+{# Ámbar agrupado, solo si hay aviso: hecho, proporción, acción. Los hechos los escribe rules.lanes. #}
+{% if ambar %}
+{% set todo = (ambar | selectattr("what_to_do") | map(attribute="what_to_do") | first) %}
+<div class="vidrio vidrio--ambar" style="margin-top: 12px; padding: 18px 20px">
+  <span class="etq" style="color: var(--ambar); font-weight: 600; font-size: 14px">Algo para mirar</span>
+  <div style="font-size: 18px; line-height: 24px; font-weight: 600; margin-top: 8px">{{ ambar[0].text }}</div>
+  <p class="cuerpo" style="margin-top: 6px; color: #4A4236; font-size: 16px; line-height: 22px">
+    {%- for a in ambar[1:] %}{{ a.text }} {% endfor -%}
+    {{ todo or ("Ya está en el resumen para la consulta del " ~ (hoy.next_visit[8:10] | int) ~ " con la " ~ hoy.doctor ~ ".") }}
+  </p>
 </div>
-{% endfor %}
+{% endif %}
