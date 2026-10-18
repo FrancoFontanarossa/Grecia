@@ -74,7 +74,8 @@ def test_import_export_shifts_by_whole_weeks(env, tmp_path):
     assert sum(r["value"] for r in data) == 28 * 900  # el ritmo cardíaco no entra
 
     assert rows("SELECT window_start, window_end, received_at, n_samples FROM biometric_syncs") == [{
-        "window_start": "2026-09-20T00:00:00-03:00", "window_end": "2026-10-18T00:00:00-03:00",
+        # Hasta la última hora con datos (16 a 17 h del 17/10), no hasta la medianoche: después no sabemos.
+        "window_start": "2026-09-20T00:00:00-03:00", "window_end": "2026-10-17T17:00:00-03:00",
         "received_at": "2026-10-17T19:00:00-03:00", "n_samples": 84}]
 
 
@@ -152,7 +153,7 @@ def test_export_csv_does_not_touch_db_and_imports_the_same(env, tmp_path):
     assert result["hours"] == 84
     assert rows("SELECT sum(value) AS total FROM biometrics") == [{"total": 28 * 900}]
     assert rows("SELECT window_start, window_end FROM biometric_syncs") == [
-        {"window_start": "2026-09-20T00:00:00-03:00", "window_end": "2026-10-18T00:00:00-03:00"}]
+        {"window_start": "2026-09-20T00:00:00-03:00", "window_end": "2026-10-17T17:00:00-03:00"}]
 
 
 def sleep_record(start, end, value):
