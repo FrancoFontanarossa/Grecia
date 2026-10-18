@@ -96,10 +96,17 @@ def build_report(patient_id: int) -> dict:
                         "quote": r["quote"], "reserved": bool(r["reserved"])}
                     for i, r in store.evidence(ids).items()}
         report_simulated = False
+        report_status = "listo"
+    elif real:
+        # Base real sin informe todavía (pipeline.report lo genera en segundo plano): vacío, nunca el de ejemplo.
+        report, evidence = Report(summary="", topics=[], removed_count=0), {}
+        report_simulated = False
+        report_status = "pendiente"
     else:
-        # TODO(contrato): sin un informe en la tabla reports todavía (pipeline.report de Guada), ejemplo rotulado.
+        # Sin base (desarrollo): el informe del lienzo de diseño, rotulado como ejemplo.
         report, evidence = _fake_report()
         report_simulated = True
+        report_status = "ejemplo"
 
     # ---------------------------------------------------------- cifras del código
     days = store.daily_steps(patient_id, end, PERIOD_DAYS, until=now)
@@ -156,6 +163,7 @@ def build_report(patient_id: int) -> dict:
         "lo_que_no_sabemos": unknowns(patient_id, start, end, now) if real else None,
         "simulated": report_simulated or not real,
         "report_simulated": report_simulated,
+        "report_status": report_status,     # listo | pendiente (base real, sin informe aún) | ejemplo (sin base)
     }
 
 

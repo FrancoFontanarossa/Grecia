@@ -165,3 +165,6 @@ def test_endpoint_devuelve_los_tres_campos(base, monkeypatch):
     assert body["cobertura"]["pasos"]["dias_total"] == 28
     assert body["desde_el_cambio"]["medicamento"] == "pramipexol"
     assert body["lo_que_no_sabemos"]["dias_sin_pasos"] == ["2026-09-23", "2026-09-29"]
+    # Base real sin informe generado: vacío y "pendiente", nunca el informe de ejemplo del lienzo.
+    assert body["report_status"] == "pendiente" and body["report_simulated"] is False
+    assert body["report"]["topics"] == [] and body["report"]["summary"] == ""
