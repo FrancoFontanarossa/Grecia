@@ -183,6 +183,7 @@ Progreso en el anillo de Juan. Al llegar a 4.000: Marta y Laura reciben "Juan ll
 | P-SILENCIO | Días sin contar nada | 2 días sin relatos de ninguna voz | Juan, con pregunta abierta |
 | P-JUEGO | Juego peor que su historial | toques/s < 85% de la mediana de sus últimas 7 sesiones (mínimo 3) | Juan |
 | P-REPITE | Algo que se repite | mismo síntoma contado 2 veces en 7 días por la familia y nunca por Juan; ignora los eventos reservados | Juan, con pregunta suave |
+| P-SUENO | Noche mala según la pulsera (simulada) | a la mañana (8 a 12), `rules.biometrics.anomalies` de ese día con `sleep_awakenings` o `sleep_minutes` fuera de lo normal; why en cifras ("Anoche te despertaste 6 veces; lo habitual son 2.") | Juan |
 | P-PATRON (P1) | Patrón de la revisión diaria | `PatternCandidate` que pasó el verificador, con `suggested_action = preguntar` | El rol que propone, si el presupuesto lo permite |
 
 Cada disparador genera como máximo una `Question`. El texto lo redacta `pipeline.ask`; el "por qué te pregunto" lo arma el código con las cifras. Lo reservado nunca entra al contexto de `explain` ni de `ask` si el destinatario es el paciente.
@@ -281,6 +282,18 @@ En `app/config.py`: `claude-haiku-5-5` para extracción y respaldo de rojos si p
 **Plan B** si la exportación falla: CSV con pasos por hora de cualquier fuente, con el mismo formato.
 
 **P1:** `WalkingSpeed`, `WalkingAsymmetryPercentage`, `WalkingDoubleSupportPercentage` y `AppleWalkingSteadiness` en la vista técnica, si están disponibles.
+
+### Pulsera (simulada)
+Juan no tiene reloj: la pulsera es **simulada** (`data/mock_wearable.py`, `POST /admin/seed_wearable`), determinística, con `source=simulado` y rotulada en pantalla. 28 días (20/09–17/10), coherentes con `data/escenario/juan.yaml`: base normal; las noches que terminan del 04/10 al 10/10, más despertares y menos sueño; el 13, 15 y 16/10, más temblor de 16 a 18 h; la noche del 16 al 17, normal (no gasta la pregunta del sábado). La ventana va en `biometric_syncs` con `scope=pulsera`, que **no** cuenta como sync de pasos (§7.3).
+
+| Métrica (`kind`) | Cada cuánto | Qué importa |
+|---|---|---|
+| `sleep_minutes` · `sleep_awakenings` | por noche (23 a 7 h; es del día en que se despierta) | menos sueño · más despertares |
+| `heart_rate_rest` · `hrv_ms` · `spo2_pct` · `resp_rate` | por noche | FC más alta · HRV más baja · SpO2 más baja · respiración más alta |
+| `active_minutes` | por día | menos |
+| `tremor_minutes` · `dyskinesia_minutes` | por hora | más |
+
+`rules.biometrics.daily_summary` compara cada métrica con la mediana de sus 28 días previos con el mismo método que el desvío (z robusto, MAD mínimo del 10% de la mediana, 1% en SpO2; menos de 10 puntos → sin z) y `anomalies` marca |z| ≥ 2,5 en la dirección que importa, con el "por qué" en cifras.
 
 ---
 
@@ -399,9 +412,11 @@ class Event(BaseModel):
 
 class RedResult(BaseModel):    rule_id: str; missing_criterion: str | None; text: str
 class BiometricSample(BaseModel):
-    patient_id: int; kind: Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness"]
-    value: float; start: datetime; end: datetime
-    source: Literal["atajo","importacion","seed","inyectado"]
+    patient_id: int; kind: BiometricKind; value: float; start: datetime; end: datetime
+    source: Literal["atajo","importacion","seed","inyectado","simulado"]
+BiometricKind = Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness",
+                        "sleep_minutes","sleep_awakenings","heart_rate_rest","hrv_ms","spo2_pct","resp_rate",
+                        "active_minutes","tremor_minutes","dyskinesia_minutes"]      # pulsera (simulada), §8
 class Deviation(BaseModel):    dose_time: datetime; window: str; observed: int; median: float; z: float; pct_change: float
                                baseline: Literal["estrato","combinada"]; baseline_n: int   # base usada (7.3) y sus puntos
 class Trigger(BaseModel):      rule_id: str; patient_id: int; to_person_id: int; facts: dict; why: str   # why con cifras del código
@@ -425,6 +440,7 @@ class Entry(BaseModel):        # campos de la tabla entries (sección 12) + spea
 class ContextEntry(BaseModel): speaker_role: Speaker; text: str; created_at: datetime
 class PromptContext(BaseModel): now: datetime; patient_name: str; recipient_role: Role   # contexto de explain/ask
                                trigger: Trigger; deviation: Deviation | None; recent_entries: list[ContextEntry]
+                               biometric_summary: dict | None = None   # rules.biometrics.daily_summary
 class UnderstoodItem(BaseModel): plain: str; when: str; domain: Domain                   # "Anoté esto"
 class AtajoPayload(BaseModel): window_start: datetime; window_end: datetime             # aware
                                samples: list[{kind, value, start, end}]
@@ -444,6 +460,7 @@ Funciones (firmas):
 - `rules.lanes.evaluate(patient_id, new_events, *, red=None, speaker_id=None) -> list[Alert]` (`new_events` = ids en `events`; `red` = el `RedResult` del mismo relato; guarda los avisos en `alerts` con sus destinatarios) · `rules.consent.recipients(alert, speaker_id=None) -> list[Person]` (`speaker_id` = quien lo contó: R4 y lo reservado)
 - `rules.games.score(taps: list[TapEvent], *, patient_id, taken_at=None) -> GameResult` (`taken_at` = `clock.now()` si no se pasa)
 - `rules.goals.status(patient_id, day) -> GoalDay`
+- `rules.biometrics.daily_summary(patient_id, day) -> dict` (`{day, sources, metrics: {kind: {label, value, baseline_median, baseline_n, z}}}`) · `rules.biometrics.anomalies(patient_id, day) -> list[dict]` (`{kind, label, value, baseline_median, baseline_n, z, direction, why}`)
 - `notify.send(person_id, kind, title, body, url) -> Notification` (guarda en `notifications` y manda la push; las reglas ya decidieron a quién)
 - `pipeline.report(patient_id, period) -> Report` · `rules.verifier.verify(report, facts, sources) -> Report`
 - (P1) `pipeline.daily_review(digest) -> list[PatternCandidate]` · `rules.patterns.verify(candidates, facts) -> list[PatternCandidate]`
@@ -471,6 +488,7 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /admin/snapshot` | — | `{ok}` |
 | `POST /admin/restore` | — | `{ok}` |
 | `POST /admin/seed` | — | `{ok, people, …conteos, warnings}`: corre `data/seed.py` (idempotente) |
+| `POST /admin/seed_wearable` | — | `{ok, samples, by_kind, window_start, window_end}`: pulsera simulada (§8), separada de `/admin/seed`; idempotente |
 | `POST /admin/import_steps` | CSV `start,steps` por hora (cuerpo crudo), el de `import_health --export-csv` | `{ok, hours, window_start, window_end}`: `source=importacion` y la ventana en `biometric_syncs`; reemplaza lo importado e inyectado de esa ventana |
 
 ---
@@ -489,8 +507,8 @@ doses              id, patient_id, scheduled_at, confirmed_at?, source   ← se 
 entries            id, patient_id, speaker_id, modality (texto|audio|toque), question_id?, raw_text, audio_path?,
                    occurred_hint?, reserved_requested, corrected, created_at, source
 events             id, entry_id, patient_id, <campos de Event>, minutes_since_dose?, is_new, reserved
-biometrics         id, patient_id, kind, value, start, end, source (atajo|importacion|seed|inyectado)
-biometric_syncs    id, patient_id, window_start, window_end, received_at, n_samples
+biometrics         id, patient_id, kind, value, start, end, source (atajo|importacion|seed|inyectado|simulado)
+biometric_syncs    id, patient_id, window_start, window_end, received_at, n_samples, scope?   ← scope NULL = pasos; "pulsera" no cuenta en §7.3
 episodes           id, patient_id, dose_time, deviation (json), explanation (json), question_id?, entry_ids[], test_id?, status
 questions          id, patient_id, to_person_id, rule_id, question, why, options[], url,
                    status (pendiente|enviada|respondida|descartada), sent_at?, answered_entry_id?
@@ -553,6 +571,7 @@ En pantalla: el iPhone de Juan y el de Marta espejados, y la web de la neurólog
 | Reloj | **Acelerado** en la demo |
 | Roles sin login | **Mecanismo de demo** |
 | Emergencias | **Nadie llama**; se muestra el texto fijo |
+| Datos de pulsera (sueño, FC, HRV, SpO2, respiración, actividad, temblor, discinesia) | **Simulados**, rotulados (`source=simulado`) |
 | Todo lo de P1 y P2 que no se construyó | **Pendiente**, se dice si preguntan |
 
 ---
@@ -629,3 +648,4 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 18:45 | Orden del domingo: seed → precorrer → snapshot (justo antes de la caída en vivo) → ensayo, con restore entre ensayos | Guada y Franco |
 | 19:00 | `Deviation` suma `baseline` ("estrato" o "combinada") y `baseline_n`, para que el código arme el "why" según la base usada | Guada y Franco |
 | 20:15 | Reglas en `app/rules/`: firmas de `recipients(alert, speaker_id=None)`, `lanes.evaluate(…, red=, speaker_id=)` con ids de `events`, `games.score(taps, *, patient_id, taken_at=None)`, `red.evaluate` y `red.from_backup`; rutas `POST /api/alerts/{id}/ack`, `POST /admin/seed` y `POST /admin/import_steps` | Franco |
+| 00:45 | Pulsera simulada (`source=simulado`, `POST /admin/seed_wearable`, `biometric_syncs.scope`), `rules.biometrics` (resumen diario y anomalías con z robusto) y P-SUENO; contrato: `BiometricKind` con las métricas nuevas y `PromptContext.biometric_summary` opcional | Franco |
