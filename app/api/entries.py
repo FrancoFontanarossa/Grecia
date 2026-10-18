@@ -40,6 +40,18 @@ async def create_entry(
     quick_reply: str | None = Form(None),
     reserved_requested: bool = Form(False),
 ):
+    data = await audio.read() if audio is not None else None
+    return await process_entry(person_id=person_id, text=text, audio=data,
+                               audio_type=audio.content_type if audio is not None else None,
+                               occurred_hint=occurred_hint, question_id=question_id, quick_reply=quick_reply,
+                               reserved_requested=reserved_requested, source="app")
+
+
+async def process_entry(*, person_id: int, text: str | None = None, audio: bytes | None = None,
+                        audio_type: str | None = None, occurred_hint: str | None = None,
+                        question_id: int | None = None, quick_reply: str | None = None,
+                        reserved_requested: bool = False, source: EntrySource = "app") -> dict:
+    """Todo el recorrido de un relato (CLAUDE.md §5.2). Lo usan la API y scripts/precorrer_semana.py."""
     t0 = time.perf_counter()
     timing: dict[str, float] = {}
     if occurred_hint is not None and occurred_hint not in OCCURRED_HINTS:
@@ -56,9 +68,8 @@ async def create_entry(
 
     audio_path = None
     if audio is not None:
-        data = await audio.read()
         try:
-            audio_path = await asyncio.to_thread(transcription.save_audio, data, audio.content_type)
+            audio_path = await asyncio.to_thread(transcription.save_audio, audio, audio_type)
         except transcription.UnsupportedAudio as exc:
             raise HTTPException(415, str(exc)) from exc
         raw_text = ""   # se completa con la transcripción; si falla queda "" y el audio guardado
@@ -66,7 +77,6 @@ async def create_entry(
     else:
         modality = "toque" if quick_reply and not text else "texto"
 
-    source: EntrySource = "app"
     entry_id = await asyncio.to_thread(
         db.insert_entry, patient_id=person["patient_id"], speaker_id=person_id, modality=modality,
         raw_text=raw_text, question_id=question_id, occurred_hint=occurred_hint,
@@ -124,7 +134,8 @@ async def create_entry(
         await dispatch.dispatch(alerts)
         response["alerts"] = [a.model_dump(mode="json") for a in alerts if _visible_to(a, person)]
 
-    await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
+    if source == "app":   # los relatos precorridos no avisan "Recibido"
+        await notify.send(person_id, "resumen", "Recibido", "Anotamos lo que contaste.", "/casa")
     timing["total"] = time.perf_counter() - t0
     log.info("entrada %s (%s): %s", entry_id, modality, " · ".join(f"{k}={v:.1f}s" for k, v in timing.items()))
     return response
