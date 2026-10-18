@@ -186,3 +186,32 @@ def test_tema_reservado_no_mezcla_eventos_no_reservados(monkeypatch):
     monkeypatch.setattr(llm, "_create", fake)
     asyncio.run(report.generate(FACTS))
     assert len(fake.calls) == 2
+
+
+def test_noches_las_cuenta_el_codigo_y_la_madrugada_es_de_la_noche_anterior():
+    assert FACTS["nights_with_awakenings"] == {"count": "3", "dates": "11/10, 13/10 y 15/10"}
+    raw = json.loads(json.dumps(RAW))
+    raw["events"].append({**raw["events"][0], "id": 299, "occurred_at": "2026-10-12T04:00:00-03:00",
+                          "time_vague": False, "quote": "le costó volver a dormirse"})
+    assert report_facts.present(raw)["nights_with_awakenings"]["dates"] == "11/10, 13/10 y 15/10"   # misma noche
+
+
+def test_habitual_no_tiene_fecha_ni_noche():
+    raw = json.loads(json.dumps(RAW))
+    raw["events"].append({**raw["events"][0], "id": 298, "occurred_at": None, "quote": "me levanto un par de veces"})
+    e = next(x for x in report_facts.present(raw)["events"] if x["id"] == 298)
+    assert (e["date"], e["habitual"], e["night"], e["part"]) == (None, True, None, None)
+
+
+def test_titulo_con_franja_no_mezcla_otra_franja(monkeypatch):
+    mezcla = {**GOOD, "topics": GOOD["topics"][:1] + [{**GOOD["topics"][1], "title": "Trabado a la tarde",
+                                                        "evidence_ids": [206, 201]}] + GOOD["topics"][2:]}
+    fake = FakeSonnet(mezcla, GOOD)                         # 201 es de noche
+    monkeypatch.setattr(llm, "_create", fake)
+    asyncio.run(report.generate(FACTS))
+    assert len(fake.calls) == 2
+
+
+def test_facts_traen_plain_para_atribuir():
+    e = next(x for x in report_facts.present(RAW)["events"] if x["id"] == 207)
+    assert "plain" in e

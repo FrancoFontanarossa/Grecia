@@ -6,6 +6,7 @@ import json
 import statistics
 
 from app import db, taxonomy
+from app.pipeline.when import part_of
 from app.rules.triggers import fmt_dec, fmt_int
 
 PERIOD_DAYS = 28
@@ -116,7 +117,7 @@ def collect(patient_id: int, now: dt.datetime, period: str | None = None) -> dic
                     "speaker_name": e["speaker_name"], "speaker_relation": e["speaker_relation"],
                     "domain": e["domain"], "domain_label": taxonomy.label(e["domain"]), "symptom": e["symptom"],
                     "negated": bool(e["negated"]), "foreign_attribution": e["foreign_attribution"],
-                    "quote": e["quote"], "is_new": bool(e["is_new"]), "reserved": bool(e["reserved"]),
+                    "quote": e["quote"], "plain": e["plain"], "is_new": bool(e["is_new"]), "reserved": bool(e["reserved"]),
                     "days_since_med_change": days_since_change(e)}
                    for e in events],
     }
@@ -159,18 +160,37 @@ def present(raw: dict) -> dict:
     def event_date(e) -> str:
         return (e.get("occurred_at") or e["told_at"])[:10]
 
+    def night_of(e) -> str | None:
+        """La noche a la que pertenece un evento de sueño: una madrugada es de la noche anterior."""
+        occurred = e.get("occurred_at")
+        if not occurred or e["domain"] != "sueno":
+            return None
+        when = db.from_db(occurred)
+        day = when.date() - dt.timedelta(days=1) if when.hour < 12 else when.date()
+        return day.strftime("%d/%m")
+
     out_events = []
     for e in events:
         occurred = e.get("occurred_at")
+        vague = bool(e.get("time_vague"))
         out_events.append({
             "id": e["id"], "speaker": e["speaker"], "speaker_label": voices[e["speaker"]],
-            "date": _ddmm(event_date(e)), "told_date": _ddmm(e["told_at"]),
-            "time": db.from_db(occurred).strftime("%H:%M") if occurred and not e.get("time_vague") else None,
+            "date": _ddmm(occurred[:10]) if occurred else None, "told_date": _ddmm(e["told_at"]),
+            "habitual": occurred is None,
+            "time": db.from_db(occurred).strftime("%H:%M") if occurred and not vague else None,
+            "part": part_of(db.from_db(occurred) if occurred else None, vague),
+            "night": night_of(e),
             "domain_label": e.get("domain_label") or taxonomy.label(e["domain"]), "symptom": e["symptom"],
             "negated": e["negated"], "foreign_attribution": e.get("foreign_attribution"), "quote": e["quote"],
+            "plain": e.get("plain"),
             "is_new": e["is_new"], "reserved": e["reserved"],
             "days_since_med_change": None if e.get("days_since_med_change") is None else str(e["days_since_med_change"]),
         })
+    nights = sorted({ev["night"] for ev, raw_e in zip(out_events, events)
+                     if ev["night"] and not ev["negated"] and not ev["reserved"]
+                     and raw_e["symptom"] in ("despertares_nocturnos", "insomnio", "actua_suenos")},
+                    key=lambda d: (d[3:], d[:2]))
+    nights_summary = {"count": str(len(nights)), "dates": _join(nights)} if nights else None
 
     deviations = []
     for d in raw.get("deviations", []):
@@ -220,6 +240,7 @@ def present(raw: dict) -> dict:
                   "daily": [{"date": _ddmm(d["date"]), "steps": fmt_int(d["steps"])} for d in st.get("daily", [])]},
         "deviations": deviations,
         "deviations_summary": summary,
+        "nights_with_awakenings": nights_summary,
         "deviations_in_previous_weeks": str(raw.get("deviations_in_previous_weeks", "")) or None,
         "tapping": None if not tp else {
             "sessions_in_period": str(tp["sessions_in_period"]), "median_taps_per_s": fmt_dec(tp["median_taps_per_s"]),

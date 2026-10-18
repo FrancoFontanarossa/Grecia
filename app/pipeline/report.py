@@ -160,6 +160,19 @@ def check_private_summary(out: "_Output", events: dict) -> None:
     del folded
 
 
+_TITLE_PARTS = {"tarde": {"tarde"}, "noche": {"noche", "madrugada"}, "madrugada": {"madrugada", "noche"},
+                "manana": {"manana"}, "mediodia": {"mediodia"}}
+_TITLE_PART_WORDS = re.compile(r"\b(tardes?|noches?|nocturn\w*|madrugadas?|mananas?|mediodia)\b")
+
+
+def _title_part(title: str) -> str | None:
+    m = _TITLE_PART_WORDS.search(_fold(title))
+    if not m:
+        return None
+    w = m.group(1)
+    return "noche" if w.startswith("noch") or w.startswith("noctur") else w.rstrip("s")
+
+
 def check(out: _Output, facts: dict) -> None:
     """Forma y fidelidad que exige el código. ValueError → reintento."""
     words = len(out.summary.split())
@@ -191,6 +204,11 @@ def check(out: _Output, facts: dict) -> None:
         unknown = set(t.evidence_ids) - events.keys()
         if unknown:
             raise ValueError(f"«{t.title}» cita ids que no existen: {sorted(unknown)}")
+        part = _title_part(t.title)
+        if part:
+            other = [i for i in t.evidence_ids if events[i].get("part") and events[i]["part"] not in _TITLE_PARTS[part]]
+            if other:
+                raise ValueError(f"«{t.title}» nombra la {part} pero incluye eventos de otra franja: {other}")
         kinds = {bool(events[i].get("reserved")) for i in t.evidence_ids}
         if kinds == {True, False}:
             raise ValueError(f"«{t.title}» mezcla eventos reservados y no reservados: un tema reservado junta solo "
