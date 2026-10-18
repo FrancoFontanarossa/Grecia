@@ -27,6 +27,7 @@ log = logging.getLogger("entrecasa.report")
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "report.md"
 SUMMARY_WORDS = (30, 160)
 NARRATIVE_WORDS = 120
+WHY_NOW_WORDS = 14           # "por qué ahora" en una línea
 REGEN_SECONDS = 30
 VOICES = ("paciente", "cuidador", "familiar")
 
@@ -43,6 +44,7 @@ TOOL = {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string"},
+                    "why_now": {"type": "string"},
                     "narrative": {"type": "string"},
                     "observed": {"type": "array", "items": {"type": "string"}},
                     "voices": {"type": "object", "properties": {v: _nullable_str for v in VOICES},
@@ -51,7 +53,7 @@ TOOL = {
                     "evidence_ids": {"type": "array", "items": {"type": "integer"}},
                     "reserved": {"type": "boolean"},
                 },
-                "required": ["title", "narrative", "observed", "voices", "question", "evidence_ids", "reserved"],
+                "required": ["title", "why_now", "narrative", "observed", "voices", "question", "evidence_ids", "reserved"],
                 "additionalProperties": False,
             }},
         },
@@ -63,6 +65,7 @@ TOOL = {
 
 class _Topic(BaseModel):
     title: str
+    why_now: str
     narrative: str
     observed: list[str]
     voices: dict[str, str | None]
@@ -116,7 +119,7 @@ def _unquote(value: str | None) -> str | None:
 
 
 def _texts(t: _Topic) -> list[str]:
-    return [t.title, t.narrative, t.question, *t.observed]
+    return [t.title, t.why_now, t.narrative, t.question, *t.observed]
 
 
 _PRIVATE_WORDS = ("alucin", "delir", "gente que no", "alguien que no", "personas que no", "confund", "confusion",
@@ -213,6 +216,8 @@ def check(out: _Output, facts: dict) -> None:
         if kinds == {True, False}:
             raise ValueError(f"«{t.title}» mezcla eventos reservados y no reservados: un tema reservado junta solo "
                              "eventos reservados")
+        if not t.why_now.strip() or len(t.why_now.split()) > WHY_NOW_WORDS:
+            raise ValueError(f"el «por qué ahora» de «{t.title}» tiene que ser una línea (hasta {WHY_NOW_WORDS} palabras)")
         if len(t.narrative.split()) > NARRATIVE_WORDS:
             raise ValueError(f"el párrafo de «{t.title}» es demasiado largo")
         evidence_text = " ".join(_fold(events[i]["quote"] + " " + (events[i].get("time") or "")) for i in t.evidence_ids)
@@ -241,7 +246,8 @@ def to_report(out: _Output, facts: dict) -> Report:
     reserved_ids = {e["id"] for e in facts.get("events", []) if e.get("reserved")}
     labels = facts.get("voices", {})
     topics = [ReportTopic(
-        title=t.title.strip(), narrative=t.narrative.strip(), observed=[o.strip() for o in t.observed if o.strip()],
+        title=t.title.strip(), why_now=t.why_now.strip(), narrative=t.narrative.strip(),
+        observed=[o.strip() for o in t.observed if o.strip()],
         voices={labels.get(k, k): _unquote(v) for k, v in t.voices.items() if k in VOICES and _unquote(v)},
         question=t.question.strip(), evidence_ids=list(dict.fromkeys(t.evidence_ids)),
         reserved=t.reserved or bool(set(t.evidence_ids) & reserved_ids),
@@ -311,7 +317,8 @@ def verify_local(rep: Report, facts: dict) -> Report:
                 voices[who] = quote
             else:
                 removed += 1
-        topics.append(t.model_copy(update={"narrative": clean(t.narrative, evs), "voices": voices}))
+        topics.append(t.model_copy(update={"why_now": clean(t.why_now, evs), "narrative": clean(t.narrative, evs),
+                                           "voices": voices}))
     return rep.model_copy(update={"summary": summary, "topics": topics,
                                   "removed_count": rep.removed_count + removed})
 

@@ -114,6 +114,7 @@ class ReportTopic(BaseModel):
     question: str
     evidence_ids: list[int]
     reserved: bool
+    why_now: str = ""          # "por qué ahora" en una línea (informe v2); vacío en informes viejos
 
 
 class Report(BaseModel):
