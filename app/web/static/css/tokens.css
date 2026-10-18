@@ -41,8 +41,8 @@
   --color-rojo-fondo: #FDE4E1;
 
   /* Degradé: SOLO en el hero */
-  --degrade-hero-bio: linear-gradient(180deg, #2F6FD6 0%, #5B92E6 55%, #C9DBF6 82%, #F2F3F6 100%);
-  --degrade-hero-pino: linear-gradient(180deg, #1F4D45 0%, #3E7A6E 50%, #C8DDD7 82%, #F2F3F6 100%);
+  --degrade-hero-bio: linear-gradient(180deg, #2F6FD6 0%, #2F6FD6 50%, #3170D6 78%, #C9DBF6 92%, #F2F3F6 100%);
+  --degrade-hero-pino: linear-gradient(180deg, #1F4D45 0%, #1F4D45 50%, #22534A 78%, #C8DDD7 92%, #F2F3F6 100%);
 
   /* Tipografía: SF Pro en el iPhone (la del sistema), Inter de respaldo fuera de Apple */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
