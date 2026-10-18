@@ -49,3 +49,10 @@ def test_no_relato_is_a_red():
 def test_juanpe_file_is_instructions_only_until_he_labels():
     rows = jsonl(EVAL / "labels/juanpe.jsonl")
     assert all("_instrucciones" in r or "events" in r for r in rows)
+
+
+def test_10_cebos():
+    cebos = jsonl(EVAL / "sets/cebos.jsonl")
+    assert len(cebos) == 10 and {c["kind"] for c in cebos} <= {"medicacion", "estadio", "pronostico"}
+    for c in cebos:
+        assert red.evaluate(c["text"], ["levodopa/carbidopa", "pramipexol"]) is None, c["id"]
