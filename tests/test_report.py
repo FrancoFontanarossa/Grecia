@@ -335,3 +335,37 @@ def test_generate_pasa_por_verify_local(monkeypatch):
     monkeypatch.setattr(report, "verify_local", spy)
     asyncio.run(report.generate(FACTS))
     assert called
+
+
+# ── Eval del informe v2: frase privada, varias franjas y franja del evento ──
+
+def test_la_frase_privada_no_pasa_por_el_chequeo_de_cifras(monkeypatch):
+    # El "(tema 1)" lo pone el código: no es una cifra de facts. Un "1" suelto en otra frase sí se rechaza.
+    sin_uno = report.allowed_numbers(FACTS) - {"1"}
+    monkeypatch.setattr(report, "allowed_numbers", lambda facts: sin_uno)
+    out = report._Output.model_validate(GOOD)
+    report.check(out, FACTS)                                    # no lanza por el "1" de la frase privada
+    rep = report.verify_local(report.to_report(out, FACTS), FACTS)
+    assert "Hay un tema para hablar en privado (tema 1)." in rep.summary and rep.removed_count == 0
+    otra = report._Output.model_validate({**GOOD, "summary": SUMMARY + " Hubo 1 caída."})
+    with pytest.raises(report.SoftCheckError, match="'1'"):
+        report.check(otra, FACTS)
+
+
+def test_un_titulo_que_nombra_dos_franjas_acepta_las_dos():
+    events = {e["id"]: e for e in FACTS["events"]}
+    dos = report.ReportTopic(title="Tardes lentas y noches cortadas", narrative="", observed=[], voices={},
+                             question="", evidence_ids=[202, 201], reserved=False)
+    una = dos.model_copy(update={"title": "Noches cortadas"})
+    assert report._wrong_part_ids(dos, events) == []
+    assert report._wrong_part_ids(una, events) == [202]
+
+
+def test_la_franja_del_evento_cuenta_como_evidencia():
+    events = {e["id"]: e for e in FACTS["events"]}
+    numbers = report.allowed_numbers(FACTS)
+    # 201 dice "anoche" (no "a la noche"), pero el código lo ubicó de noche: la franja está respaldada.
+    assert report._text_problem("A la noche se despertó.", numbers, report._evidence_text([events[201]])) is None
+    # 206 no tiene franja: "a la mañana" sigue siendo inventado.
+    assert "franja" in report._text_problem("A la mañana se sintió trabado.", numbers,
+                                            report._evidence_text([events[206]]))
