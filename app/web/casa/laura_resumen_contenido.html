@@ -2,8 +2,9 @@
 {% set rojos = hoy.alerts | selectattr("lane", "equalto", "rojo") | list %}
 {% set f = hoy.week_facts %}
 {% set quien = "Papá" if person.relation in ("hija", "hijo") else hoy.patient.name %}
+{% from "casa/_nav.html" import permisos %}
 <div class="cont">
-  <div class="top"><span class="marca">entrecasa<i>.</i></span><span class="fecha">{% if hoy.person.name == "Laura" %}Desde Salto{% else %}{{ hoy.now | fecha_larga }}{% endif %}</span></div>
+  <div class="top"><span class="marca">entrecasa<i>.</i></span><span class="top__der"><span class="fecha">{% if hoy.person.name == "Laura" %}Desde Salto{% else %}{{ hoy.now | fecha_larga }}{% endif %}</span>{{ permisos() }}</span></div>
   <h1 class="lt" style="margin-top: 12px">{{ quien }} esta semana.<span class="tenue">{% if rojos %}Hay algo para atender ahora.{% else %}Todo tranquilo.{% endif %}</span></h1>
 
   {% for a in rojos %}
@@ -52,6 +53,6 @@
   </a>
   <div class="dock" style="padding-top: 4px">
     <p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3)">Próxima consulta: {{ hoy.next_visit | dia_largo }} {{ hoy.next_visit[8:10] | int }} con la {{ hoy.doctor }}.<br>Te avisamos de logros y de cualquier rojo.</p>
-    <a href="/" class="pie-rol">No soy {{ hoy.person.name }}</a>
+    <a href="/" class="pie-rol">Cambiar de persona</a>
   </div>
 </div>

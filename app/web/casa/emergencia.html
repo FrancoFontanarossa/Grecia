@@ -1,11 +1,12 @@
 ﻿{% extends "base.html" %}
+{% from "casa/_nav.html" import volver %}
 {% block title %}Rojo · Entrecasa{% endblock %}
 {% block content %}
 {# v3.1 · 10 Emergencia (design/v3/pantallas-v31.html): mismo esqueleto, en rojo. El título dice la acción; el
    porqué es el texto fijo de la regla (rules.red). Lógica: emergencia() en static/js/components.js. #}
 <main class="app cielo-rojo" x-data='emergencia({{ alert | tojson }}, {{ entry_id or "null" }}, {{ person.id }})'>
   <div class="cont">
-    <div class="top"><span class="chip chip--rojo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>Rojo · actuar ahora</span></div>
+    <div class="top">{{ volver() }}<span class="chip chip--rojo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>Rojo · actuar ahora</span></div>
     <h1 class="lt" style="margin-top: 16px; color: #2A0E0B"><span class="sr-only">Acción inmediata: </span><span x-text="(text || '').includes('Línea Vida') ? 'Llamá ya a la Línea Vida.' : 'Llamá ahora a la emergencia móvil.'"></span></h1>
     <p class="cuerpo-j" style="margin-top: 10px; color: #3D1A16" x-text="text"></p>
 
