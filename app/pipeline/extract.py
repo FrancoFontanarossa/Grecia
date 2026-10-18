@@ -210,6 +210,8 @@ async def extract(entry: Entry, *, patient_name: str = "el paciente",
                   speaker_name: str | None = None) -> list[Event]:
     if not entry.raw_text.strip():
         return []
+    from app.rules.profile import CURRENT
+    CURRENT.set(entry.patient_id)            # perfil del paciente en el prompt de extracción (PROFILE_ENABLED)
     content = user_message(entry, patient_name=patient_name, speaker_name=speaker_name)
     last_error: Exception | None = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
