@@ -11,7 +11,10 @@ Speaker = Literal["paciente","cuidador","familiar"]
 Role = Literal["paciente","cuidador","familiar","neurologo"]
 Lane = Literal["rojo","ambar","verde"]
 NotificationKind = Literal["pregunta","repregunta","logro","ambar","rojo","resumen"]
-BiometricKind = Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness"]
+BiometricKind = Literal["steps","walking_speed","walking_asymmetry","double_support","steadiness",
+                        # pulsera (simulada, CLAUDE.md §8)
+                        "sleep_minutes","sleep_awakenings","heart_rate_rest","hrv_ms","spo2_pct","resp_rate",
+                        "active_minutes","tremor_minutes","dyskinesia_minutes"]
 OccurredHint = Literal["ahora","esta_manana","esta_tarde","anoche","ayer"]
 
 
@@ -41,7 +44,7 @@ class BiometricSample(BaseModel):
     value: float
     start: AwareDatetime
     end: AwareDatetime
-    source: Literal["atajo","importacion","seed","inyectado"]
+    source: Literal["atajo","importacion","seed","inyectado","simulado"]
 
 
 class AtajoSample(BaseModel):
@@ -205,6 +208,7 @@ class PromptContext(BaseModel):
     trigger: Trigger
     deviation: Deviation | None
     recent_entries: list[ContextEntry]
+    biometric_summary: dict | None = None   # rules.biometrics.daily_summary del día (pulsera simulada)
 
 
 class UnderstoodItem(BaseModel):
