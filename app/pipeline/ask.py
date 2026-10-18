@@ -57,7 +57,8 @@ def baseline_label(trigger: Trigger) -> str:
     label = (trigger.facts or {}).get("baseline_label")
     if not label and "≈" in (trigger.why or ""):
         label = trigger.why.split("≈", 1)[0].strip()
-    return str(label or DEFAULT_BASELINE_LABEL).lower()
+    label = str(label or DEFAULT_BASELINE_LABEL).lower()
+    return re.sub(r"\b(tardes|mañanas|noches|días) de semana\b", r"\1 entre semana", label)
 
 
 def _facts_text(trigger: Trigger) -> str:
