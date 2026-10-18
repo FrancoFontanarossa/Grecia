@@ -4,9 +4,11 @@ from datetime import datetime
 from app import db
 from app.config import TZ
 
+# Alcance de las 04:15: las push son solo para recabar información (preguntas). Los avisos no notifican; la
+# invitación al juego del plan diario tiene su propio límite (config.DAILY_MAX_GAME_INVITES, rules.plan).
 QUIET_START, QUIET_END = 22, 8                     # silencio de 22 a 8 para todo menos rojo
-PATIENT_DAILY = {"pregunta": 1, "repregunta": 1}   # Juan, por día (los rojos no cuentan)
-FAMILY_DAILY = {"ambar": 1}                        # familia: 1 push de ámbar (agrupado) por día
+PATIENT_DAILY = {"pregunta": 1, "repregunta": 1}   # Juan, por día (P-SILENCIO, P-REPITE)
+FAMILY_DAILY = {"pregunta": 1}                     # Marta: 1 pregunta por día (datos raros: P-DESVIO, P-SUENO…)
 
 
 def quiet_hours(now: datetime) -> bool:

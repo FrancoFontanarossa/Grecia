@@ -25,7 +25,8 @@ def build_hoy(person_id: int) -> dict:
     patient = store.patient_person(patient_id) or person
     today = store.daily_steps(patient_id, now.date(), 1, until=now)[0]
     unread = store.notifications(person_id, unread_only=True)
-    pq = store.pending_question(person_id) if person["role"] == "paciente" else None
+    # Desde las 04:15 los datos raros se le preguntan a Marta: su pregunta pendiente también se ve en Hoy.
+    pq = store.pending_question(person_id) if person["role"] in ("paciente", "cuidador") else None
 
     data = {
         "now": now.isoformat(),
@@ -59,10 +60,8 @@ def _family(person: dict, patient: dict, now: dt.datetime, real: bool) -> dict:
     achieved = sum(1 for d in week if d["achieved"])
 
     if real:
-        # Avisos cuyo destinatario es esta persona (rules.consent ya decidió) de los últimos 7 días.
-        alerts = [{"id": a["id"], "lane": a["lane"], "rule_id": a["rule_id"], "text": a["text"],
-                   "what_to_do": None, "evidence": [], "created_at": a["created_at"]}
-                  for a in store.alerts_for(person["id"], patient_id, since=week_start) if a["lane"] in ("rojo", "ambar")]
+        # Alcance de las 04:15: la familia no recibe rojos ni ámbar (el ámbar es prioridad en el informe).
+        alerts: list[dict] = []
         goal = store.goal_target(patient_id)
         logros = [{"date": l["date"], "time": l["time"], "steps": l["steps"],
                    "text": f"{name} llegó a su meta: {_miles(l['steps'])} pasos."}   # texto fijo, cifras del código
@@ -77,13 +76,6 @@ def _family(person: dict, patient: dict, now: dt.datetime, real: bool) -> dict:
     else:
         is_juan = patient_id == store.JUAN_PATIENT_ID
         alerts = []
-        if is_juan and person["role"] == "cuidador":
-            alerts = [{"id": 1, "lane": "ambar", "rule_id": "A1",
-                       "text": f"Esta semana pasó dos veces que {name} dijo ver gente en el patio de noche.",
-                       "what_to_do": "no hace falta discutirle. Si vuelve a pasar, contalo acá. "
-                                     f"Ya está en el resumen para la {store.DOCTOR}.",
-                       "evidence": [{"label": "Vos · mié 21:40"}, {"label": "Vos · vie 22:10"}],
-                       "created_at": now.isoformat()}]
         logros = ([{"date": "2026-10-15", "time": "18:20", "steps": 4060, "text": f"{name} llegó a su meta: 4.060 pasos."}]
                   if is_juan else [])
         facts = {"goal_days": achieved, "days": len(week), "bad_nights": 3 if is_juan else 0,

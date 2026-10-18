@@ -1,29 +1,21 @@
-{# v3.1 · contenido de Hoy de Marta (se refresca cada 3 s). Estado en una frase, la semana en un vistazo y el aviso. #}
-{% set rojos = hoy.alerts | selectattr("lane", "equalto", "rojo") | list %}
-{% set ambar = hoy.alerts | selectattr("lane", "equalto", "ambar") | list %}
+{# v3.1 · contenido de Hoy de Marta (se refresca cada 3 s). La semana en un vistazo. Alcance de las 04:15: sin
+   rojos ni ámbar (el ámbar es prioridad en el informe; el rojo solo se muestra a quien escribe el relato). #}
 {% set en_meta = hoy.week_steps | selectattr("achieved") | list | length %}
 {% set con_datos = hoy.week_steps | selectattr("value") | list %}
 <div class="top"><span class="marca">entrecasa<i>.</i></span></div>
-<h1 class="lt" style="margin-top: 12px">Hola, {{ hoy.person.name }}.<span class="tenue">
-  {%- if rojos %}Hay algo para atender ahora.{% elif ambar %}Esta semana hay algo para mirar.{% else %}{{ hoy.patient.name }} tuvo una semana en orden.{% endif -%}
-</span></h1>
+<h1 class="lt" style="margin-top: 12px">Hola, {{ hoy.person.name }}.<span class="tenue">Así viene la semana de {{ hoy.patient.name }}.</span></h1>
 
-{# Rojos: uno por tarjeta, nunca agrupados (CLAUDE.md §6.1). Título con la acción y un solo botón. #}
-{% for a in rojos %}
-<div class="vidrio" style="margin-top: 16px; padding: 18px 20px; background: rgba(253,236,234,.9)">
-  <span class="chip chip--chico chip--rojo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>Rojo · actuar ahora</span>
-  <div style="font-size: 20px; line-height: 26px; font-weight: 600; margin-top: 10px">{{ "Llamá ya a la Línea Vida." if "Línea Vida" in a.text else "Llamá ahora a la emergencia móvil." }}</div>
-  <p class="cuerpo" style="margin-top: 6px; color: #3D1A16">{{ a.text }}</p>
-  <a href="/casa/emergencia/{{ a.id }}" class="btn r" style="margin-top: 14px; min-height: 54px; font-size: 17px">Ver qué hacer</a>
-</div>
-{% endfor %}
+{# La pregunta de hoy (datos raros de pasos, pulsera o juego), aunque la push no haya llegado. #}
+{% if hoy.pending_question %}
+<a href="{{ hoy.pending_question.url }}" class="vidrio" style="display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 16px 18px; text-decoration: none; color: inherit">
+  <span class="tx" style="flex: 1"><span style="display: block; font-size: 14px; font-weight: 600; color: var(--azul-osc)">Una pregunta de hoy</span><span style="display: block; font-size: 18px; line-height: 24px; font-weight: 500; margin-top: 3px">{{ hoy.pending_question.question }}</span></span>
+  <span class="pil">Responder</span>
+</a>
+{% endif %}
 
 <div class="vidrio" style="margin-top: 16px; padding: 18px 20px">
   <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 10px">
     <div><div class="etq" style="font-size: 14px">Meta de pasos</div><div class="liviano" style="font-size: 46px; margin-top: 8px">{{ en_meta }}<span style="font-size: 22px; font-weight: 400; letter-spacing: -.01em"> de {{ hoy.week_steps | length or 7 }} días</span></div></div>
-    {% if rojos %}<span class="chip chip--chico" style="color: var(--rojo)"><span class="punto-v3" aria-hidden="true"></span>Atender ahora</span>
-    {% elif ambar %}<span class="chip chip--chico" style="color: var(--ambar)"><span class="punto-v3" aria-hidden="true"></span>Algo para mirar</span>
-    {% else %}<span class="chip chip--chico" style="color: var(--ok)"><span class="punto-v3" aria-hidden="true"></span>En orden</span>{% endif %}
   </div>
   {% if con_datos %}
   {% set tope = [ (hoy.week_steps | map(attribute="value") | select | max) or 0, (hoy.goal or 0) * 1.1, 1 ] | max %}
@@ -37,16 +29,3 @@
   <p class="cap" style="margin-top: 12px">Todavía no hay datos de esta semana.</p>
   {% endif %}
 </div>
-
-{# Ámbar agrupado, solo si hay aviso: hecho, proporción, acción. Los hechos los escribe rules.lanes. #}
-{% if ambar %}
-{% set todo = (ambar | selectattr("what_to_do") | map(attribute="what_to_do") | first) %}
-<div class="vidrio vidrio--ambar" style="margin-top: 12px; padding: 18px 20px">
-  <span class="etq" style="color: var(--ambar); font-weight: 600; font-size: 14px">Algo para mirar</span>
-  <div style="font-size: 18px; line-height: 24px; font-weight: 600; margin-top: 8px">{{ ambar[0].text }}</div>
-  <p class="cuerpo" style="margin-top: 6px; color: #4A4236; font-size: 16px; line-height: 22px">
-    {%- for a in ambar[1:] %}{{ a.text }} {% endfor -%}
-    {{ todo or ("Ya está en el resumen para la consulta del " ~ (hoy.next_visit[8:10] | int) ~ " con la " ~ hoy.doctor ~ ".") }}
-  </p>
-</div>
-{% endif %}

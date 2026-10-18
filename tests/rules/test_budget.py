@@ -35,16 +35,19 @@ def test_reds_do_not_count_and_always_go(seeded):
 
 
 @pytest.mark.parametrize("person", [MARTA, LAURA])
-def test_family_one_amber_push_per_day(seeded, person):
-    assert budget.allow(person, "ambar", DAY)
-    sent(person, "ambar", DAY)
-    assert not budget.allow(person, "ambar", DAY.replace(hour=20))
+def test_family_one_question_per_day(seeded, person):
+    # Alcance de las 04:15: los datos raros se le preguntan a Marta, como mucho una vez por día.
+    assert budget.allow(person, "pregunta", DAY)
+    sent(person, "pregunta", DAY)
+    assert not budget.allow(person, "pregunta", DAY.replace(hour=20))
+    assert budget.allow(person, "pregunta", DAY + dt.timedelta(days=1))   # al otro día vuelve
     assert budget.allow(person, "logro", DAY)
 
 
 def test_counts_per_person(seeded):
-    sent(MARTA, "ambar", DAY)
-    assert budget.allow(LAURA, "ambar", DAY)
+    sent(MARTA, "pregunta", DAY)
+    assert budget.allow(LAURA, "pregunta", DAY)
+    assert budget.allow(JUAN, "pregunta", DAY)
 
 
 @pytest.mark.parametrize("hour,minute,ok", [(7, 59, False), (8, 0, True), (21, 59, True), (22, 0, False), (0, 30, False)])

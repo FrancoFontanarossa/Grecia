@@ -28,7 +28,7 @@ def test_p_desvio_after_the_window_with_numbers_in_why(seeded):
     inject_drop(1, steps.at16(TUE_13), 0.7)
     assert triggers.p_desvio(1, at(13, 17, 30)) == []              # la ventana todavía no terminó
     [t] = triggers.p_desvio(1, at(13, 18, 5))
-    assert t.to_person_id == JUAN and t.facts["baseline"] == "estrato"
+    assert t.to_person_id == MARTA and t.facts["baseline"] == "estrato"   # alcance de las 04:15: datos raros → Marta
     assert t.why == f"Otras tardes de semana ≈ {triggers.fmt_approx(t.facts['median'])} pasos de 16 a 18 h; " \
                     f"hoy {triggers.fmt_int(t.facts['observed'])}."
     assert "1.300" in t.why
@@ -98,8 +98,8 @@ def session(taken_at, taps_per_s):
 def test_p_juego_slower_than_85_percent(seeded):                 # el seed trae 8 sesiones, mediana 4,5
     session(at(13, 17), 3.6)
     [t] = triggers.p_juego(1, at(13, 18))
-    assert t.to_person_id == JUAN and t.facts["history_n"] == 7
-    assert t.why == "Hoy 3,6 toques por segundo; tus últimas 7 veces ≈ 4,5."
+    assert t.to_person_id == MARTA and t.facts["history_n"] == 7
+    assert t.why == "Hoy Juan hizo 3,6 toques por segundo en el juego; sus últimas 7 veces ≈ 4,5."
 
 
 def test_p_juego_similar_or_old_session_does_not_fire(seeded):
