@@ -192,6 +192,16 @@ def present(raw: dict) -> dict:
                     key=lambda d: (d[3:], d[:2]))
     nights_summary = {"count": str(len(nights)), "dates": _join(nights)} if nights else None
 
+    # Conteos por síntoma (lo afirmado, no lo negado), para que "1 caída" o "2 relatos de…" sean verificables.
+    by_symptom: dict[tuple[str, bool], list[dict]] = {}
+    for ev in out_events:
+        if not ev["negated"]:
+            by_symptom.setdefault((ev["symptom"], bool(ev["reserved"])), []).append(ev)
+    event_counts = [{"symptom": sym, "domain_label": evs[0]["domain_label"], "count": str(len(evs)),
+                     "dates": _join(sorted({ev["date"] or ev["told_date"] for ev in evs}, key=lambda d: (d[3:], d[:2]))),
+                     "reserved": reserved}
+                    for (sym, reserved), evs in sorted(by_symptom.items())]
+
     deviations = []
     for d in raw.get("deviations", []):
         # Relato sobre ese episodio: la respuesta a la pregunta (entry_ids) o lo que lo explicó (explained_by).
@@ -241,6 +251,7 @@ def present(raw: dict) -> dict:
         "deviations": deviations,
         "deviations_summary": summary,
         "nights_with_awakenings": nights_summary,
+        "event_counts": event_counts,
         "deviations_in_previous_weeks": str(raw.get("deviations_in_previous_weeks", "")) or None,
         "tapping": None if not tp else {
             "sessions_in_period": str(tp["sessions_in_period"]), "median_taps_per_s": fmt_dec(tp["median_taps_per_s"]),
