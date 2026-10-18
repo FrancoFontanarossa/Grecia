@@ -103,8 +103,8 @@ def clock_is_real() -> bool:
 
 # ================================================================ personas
 
-_RELATION_DISPLAY = {"paciente": "Soy el paciente", "esposa": "Esposa · vive con {p}", "esposo": "Esposo · vive con {p}",
-                     "hija": "Hija · vive en Salto", "hijo": "Hijo", "familiar": "Familiar", "neuróloga": "Neuróloga"}
+_RELATION_DISPLAY = {"paciente": "Paciente", "esposa": "Esposa", "esposo": "Esposo",
+                     "hija": "Hija", "hijo": "Hijo", "familiar": "Familiar", "neuróloga": "Neuróloga"}
 
 _FAKE_PEOPLE = [
     {"id": 1, "patient_id": 1, "role": "paciente", "name": "Juan", "relation": "paciente",

@@ -55,7 +55,7 @@
     <template x-if="phase === 'escribir'">
       <div style="margin-top: 12px">
         <label for="texto-familia" class="sr-only">Contalo con tus palabras</label>
-        <textarea id="texto-familia" class="caja-texto vidrio" style="font-size: 17px; line-height: 24px; min-height: 150px" x-model="text" placeholder="Por ejemplo: hoy a la tarde me costó levantarme del sillón" x-init="$nextTick(() => $el.focus())"></textarea>
+        <textarea id="texto-familia" class="caja-texto vidrio" style="font-size: 17px; line-height: 24px; min-height: 150px" x-model="text" placeholder="Por ejemplo: hoy a la tarde a {{ patient.name }} le costó levantarse del sillón" x-init="$nextTick(() => $el.focus())"></textarea>
         <div x-show="error" x-text="error" class="cap" style="margin-top: 6px"></div>
       </div>
     </template>
@@ -126,6 +126,7 @@
           <button type="button" class="btn p" @click="guardar()">Guardar</button>
         </div>
       </template>
+      <p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3); margin-top: 10px">Neuro no es un servicio de emergencias.</p>
     </div>
   </div>
 </main>

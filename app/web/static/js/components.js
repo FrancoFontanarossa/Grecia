@@ -4,15 +4,26 @@
   var EC = window.ENTRECASA;
 
   /* ---------------------------------------------------------- ¿Quién sos? */
-  window.selector = function () {
+  // Al tocar la persona: se guarda, se piden los avisos en ese mismo toque (iOS exige el gesto) y se entra al
+  // inicio. Conteste lo que conteste, o sin avisos posibles (Safari fuera de la app), se entra igual.
+  window.selector = function (next) {
     return {
-      elegida: false,
-      nombre: "",
-      elegir: function (personId, patientId, role, name) {
+      entrando: false,
+      elegir: function (personId, patientId, role) {
+        if (this.entrando) return;
+        this.entrando = true;
         EC.person.set(personId, patientId, role);
-        this.nombre = name;
-        this.elegida = true;
-        EC.push.resync();
+        var dest = next || "/casa", fue = false;
+        var entrar = function () { if (!fue) { fue = true; location.assign(dest); } };
+        var puede = EC.pushSupported && !(EC.isIOS && !EC.isStandalone) && Notification.permission === "default";
+        if (!puede) { entrar(); return; }
+        var pedido;
+        try { pedido = Notification.requestPermission(); } catch (e) { entrar(); return; }
+        Promise.resolve(pedido).then(function (perm) {
+          if (perm !== "granted") return;
+          setTimeout(entrar, 6000);  // si la suscripción se cuelga, no deja a nadie esperando
+          return EC.push.subscribe();
+        }).catch(function () {}).then(entrar);
       }
     };
   };
@@ -250,10 +261,10 @@
         return this.state === "instalar" || this.state === "pendiente" || this.state === "bloqueado";
       },
       get shortText() {
-        if (this.state === "instalar") return "Agregá Neuro a tu inicio.";
-        if (this.state === "bloqueado") return "Avisos bloqueados en Ajustes.";
+        if (this.state === "instalar") return "Para recibir avisos, agregá Neuro a tu pantalla de inicio.";
+        if (this.state === "bloqueado") return "Los avisos están apagados en Ajustes.";
         if (this.state === "activo") return "Listo, avisos activados.";
-        return "Activá los avisos";
+        return "Activar avisos";
       },
       activar: function () {
         var self = this;

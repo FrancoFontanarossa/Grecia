@@ -45,6 +45,12 @@
     document.cookie = "ec_person=; path=/; max-age=0";
     try { history.replaceState(null, "", location.pathname); } catch (e) {}
   })();
+  // "Cambiar de persona" (/?cambiar=1): el teléfono olvida a quién tenía y vuelve al selector.
+  (function cambiarReset() {
+    if (!/[?&]cambiar=1(&|$)/.test(location.search)) return;
+    EC.person.clear();
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  })();
   // Si iOS borró la cookie pero quedó localStorage (o al revés), se vuelven a alinear.
   (function syncPerson() {
     try {
@@ -53,6 +59,8 @@
         setCookie("ec_person", ls);
         setCookie("ec_patient", localStorage.getItem("ec_patient") || "1");
         if (location.pathname === "/casa") location.reload();
+        // El selector se ve una sola vez: con la persona guardada, "/" abre el inicio.
+        else if (location.pathname === "/") location.replace("/casa");
       }
     } catch (e) {}
   })();
@@ -91,15 +99,19 @@
     },
     /** Llamar SIEMPRE desde el click de un botón (iOS lo exige). */
     enable: function () {
-      var personId = EC.person.get();
-      if (!personId) return Promise.reject(new Error("sin-persona"));
+      if (!EC.person.get()) return Promise.reject(new Error("sin-persona"));
       if (!EC.pushSupported) return Promise.reject(new Error("no-soportado"));
       // requestPermission va primero y sin await previo, para no perder el gesto en iOS.
-      var reg;
       return Notification.requestPermission().then(function (perm) {
         if (perm !== "granted") throw new Error("permiso-" + perm);
-        return navigator.serviceWorker.ready;
-      }).then(function (r) {
+        return EC.push.subscribe();
+      });
+    },
+    /** Con el permiso ya dado: suscribe este teléfono y lo manda a POST /api/push/subscribe. */
+    subscribe: function () {
+      var personId = EC.person.get();
+      var reg;
+      return navigator.serviceWorker.ready.then(function (r) {
         reg = r;
         return EC.push.publicKey();
       }).then(function (key) {
@@ -153,7 +165,6 @@
     errorText: function (err) {
       var m = (err && err.message) || "";
       if (m.indexOf("permiso-denied") === 0) return "Los avisos están bloqueados. Abrí Ajustes › Notificaciones › Neuro y activalos.";
-      if (m === "sin-vapid") return "Falta configurar los avisos en el servidor (VAPID).";
       if (m === "no-soportado") return "Este navegador no puede recibir avisos.";
       if (m.indexOf("permiso-") === 0) return "No se activaron los avisos. Podés probar de nuevo cuando quieras.";
       return "No pudimos activar los avisos. Probá de nuevo en un rato.";
