@@ -1,0 +1,17 @@
+{
+  "name": "Entrecasa",
+  "short_name": "Entrecasa",
+  "description": "Lo que pasa en casa entre una consulta y la otra.",
+  "lang": "es-UY",
+  "start_url": "/casa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F2F4F1",
+  "theme_color": "#1E5B4F",
+  "icons": [
+    { "src": "/static/icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

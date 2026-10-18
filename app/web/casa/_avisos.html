@@ -1,0 +1,28 @@
+{# Tarjeta para activar avisos o para instalar la app en iPhone. Estado en JS (EC.push.state()).
+   compact=True: una sola fila (inicio); compact=False: tarjeta completa (¿Quién sos?). #}
+{% from "_icons.html" import icon %}
+<div x-data="avisosCard({{ 'true' if dismissible else 'false' }})" x-show="visible" x-cloak class="tarjeta-aviso{% if compact %} tarjeta-aviso--compacta{% endif %}">
+  <template x-if="state === 'instalar'">
+    <div style="display: flex; gap: 12px; align-items: flex-start">
+      <span style="color: var(--color-pino); flex-shrink: 0; margin-top: 2px">{{ icon("compartir", 24) }}</span>
+      <div>Para recibir avisos, agregá Entrecasa a tu pantalla de inicio: tocá Compartir y después "Agregar a inicio".{% if not compact %} Después abrila desde el ícono.{% endif %}</div>
+    </div>
+  </template>
+  <template x-if="state === 'pendiente'">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      {% if not compact %}<div>Activá los avisos para que te podamos preguntar.</div>{% endif %}
+      <button type="button" class="btn btn--secundario btn--chico" style="min-height: 64px" @click="activar()" :disabled="busy">
+        {{ icon("campana", 24, "var(--color-pino)") }}
+        <span x-text="busy ? 'Activando…' : 'Activar avisos'"></span>
+      </button>
+    </div>
+  </template>
+  <template x-if="state === 'bloqueado'">
+    <div>Los avisos están bloqueados. Abrí Ajustes › Notificaciones › Entrecasa y activalos.</div>
+  </template>
+  <template x-if="state === 'activo' && justEnabled">
+    <div style="display: flex; gap: 10px; align-items: center">{{ icon("check", 24, "var(--color-pino)") }}<span>Listo, los avisos están activados.</span></div>
+  </template>
+  <div x-show="error" x-text="error" style="font-size: 16px; color: var(--color-rojo)"></div>
+  <button type="button" class="enlace-suave" x-show="dismissible && state !== 'activo'" @click="cerrar()" style="align-self: flex-start; padding: 0">Ahora no</button>
+</div>
