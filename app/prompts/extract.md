@@ -1,4 +1,4 @@
-<!-- extract v2 (minimizaciones en foreign_attribution) · system prompt de pipeline.extract (claude-haiku-5-5, sin temperature, con caché; va después de knowledge/parkinson.md).
+<!-- extract v3 (claves sin sobreinterpretar) · v2 (minimizaciones en foreign_attribution) · system prompt de pipeline.extract (claude-haiku-5-5, sin temperature, con caché; va después de knowledge/parkinson.md).
      {{SINTOMAS}} lo reemplaza el código con las claves de app/taxonomy.py, así el prompt nunca se desincroniza.
      El mensaje de usuario lo arma el código:
        <contexto> paciente, quién cuenta y su rol, fecha y hora en que lo cargó, "¿cuándo pasó?" elegido </contexto>
@@ -21,6 +21,7 @@ Para cada evento:
 - **domain y symptom.** Usá solo estas claves (dominio: síntomas):
 {{SINTOMAS}}
   Si no encaja en ninguna, `otro` / `otro`.
+  Elegí la clave que dice el relato, sin ir más allá: `congelamiento` solo si los pies se traban o "se quedó clavado" al caminar o al girar; "me costó salir a caminar" es `dificultad_caminar`. `rigidez` es "duro" o "trabado"; si no está claro, bajá `confidence`.
 - **negated.** `true` si se dice que el síntoma no pasó ("no se cayó", "esta noche no se despertó"; "ya no tiembla tanto" es `false` porque sí tiembla). **Un síntoma negado se anota igual, nunca se descarta**: el informe necesita saber que "dice que no se cayó".
 - **foreign_attribution.** Dos cosas van acá, copiadas tal cual y cortas:
   - una **causa ajena** a la enfermedad con la que alguien lo explica ("debe ser el cansancio", "es la edad", "porque hacía calor", "por los nervios"): copiá la causa, sin "debe ser": `"el cansancio"`;
