@@ -139,15 +139,6 @@ def test_respuesta_de_otra_persona_no_cierra_la_pregunta(at_1805, pushes, monkey
     assert rows("SELECT status FROM questions") == [{"status": "enviada"}]
 
 
-def test_stub_de_disparadores_y_budget_temporal():
-    from app import _tmp_rules
-    now = dt.datetime(2026, 10, 17, 12, 0, tzinfo=TZ)
-    assert _tmp_rules.triggers_evaluate(1, now) == []
-    assert _tmp_rules.budget_allow("pregunta", now, 0) and not _tmp_rules.budget_allow("pregunta", now, 1)
-    assert not _tmp_rules.budget_allow("pregunta", now.replace(hour=7), 0)
-    assert _tmp_rules.budget_allow("rojo", now.replace(hour=3), 5)
-
-
 def test_el_middleware_pide_tick_al_mover_el_reloj(tmp_data_dir, monkeypatch):
     from app.main import app
     kicks = []

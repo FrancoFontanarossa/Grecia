@@ -6,27 +6,20 @@ import datetime as dt
 import logging
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
-from app import _tmp_rules, clock, notify
+from app import clock, notify
 from app.models import Explanation, Trigger
 from app.pipeline import ask as ask_pipeline
 from app.pipeline import context as context_builder
 from app.pipeline import explain as explain_pipeline
 
-try:                                   # las reglas son de Franco; mientras no estén, los TEMPORAL
-    from app.rules import triggers as _triggers  # type: ignore
-    evaluate = _triggers.evaluate
-except ImportError:
-    evaluate = _tmp_rules.triggers_evaluate
+from app.rules import budget, lanes
+from app.rules.triggers import evaluate
+from app.notify import dispatch
 
-try:
-    from app.rules import budget as _budget  # type: ignore
 
-    def budget_allow(person_id: int, kind: str, now: dt.datetime) -> bool:
-        return _budget.allow(person_id, kind, now)
-except ImportError:
-    def budget_allow(person_id: int, kind: str, now: dt.datetime) -> bool:
-        sent = db.questions_on_day(person_id, now.date(), statuses=("pendiente", "enviada", "respondida"))
-        return _tmp_rules.budget_allow(kind, now, sent)
+def budget_allow(person_id: int, kind: str, now: dt.datetime) -> bool:
+    return budget.allow(person_id, kind, now)
+
 
 log = logging.getLogger("entrecasa.scheduler")
 
@@ -78,6 +71,8 @@ async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
                                     deviation=deviation, explanation=explanation.model_dump(), question_id=None,
                                     status="explicado")
         log.info("%s explicado por lo que ya contaron: %s", trigger.rule_id, explanation.reasoning)
+        if dose is not None:
+            await _episode_alerts(trigger.patient_id)
         return None
 
     text = await ask_pipeline.ask(trigger, ctx)
@@ -90,7 +85,15 @@ async def handle(trigger: Trigger, now: dt.datetime) -> int | None:
     title = f"{ctx.patient_name}, una pregunta de hoy" if ctx.recipient_role == "paciente" else "Una pregunta de hoy"
     await notify.send(trigger.to_person_id, "pregunta", title, text.question, f"/casa/pregunta/{qid}")
     log.info("pregunta %s (%s) enviada a %s", qid, trigger.rule_id, trigger.to_person_id)
+    if dose is not None:
+        await _episode_alerts(trigger.patient_id)
     return qid
+
+
+async def _episode_alerts(patient_id: int) -> None:
+    """Con un episodio nuevo, rules.lanes ve si se cumple A3 (3 en 7 días en el mismo tramo) y se reparte."""
+    alerts = await asyncio.to_thread(lanes.evaluate, patient_id, [])
+    await dispatch.dispatch(alerts)
 
 
 async def tick() -> list[int]:

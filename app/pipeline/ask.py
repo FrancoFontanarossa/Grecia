@@ -52,11 +52,17 @@ COMPARISON_WORDS = re.compile(r"\b(lunes|martes|miercoles|jueves|viernes|sabados
 
 
 def baseline_label(trigger: Trigger) -> str:
-    return str((trigger.facts or {}).get("baseline_label") or DEFAULT_BASELINE_LABEL)
+    """La base contra la que comparó el código: facts["baseline_label"], o lo que rules.triggers puso antes de "≈"
+    en el why ("Otras tardes de semana ≈ 1.300 pasos…" → "otras tardes de semana"), o "otras tardes"."""
+    label = (trigger.facts or {}).get("baseline_label")
+    if not label and "≈" in (trigger.why or ""):
+        label = trigger.why.split("≈", 1)[0].strip()
+    return str(label or DEFAULT_BASELINE_LABEL).lower()
 
 
 def _facts_text(trigger: Trigger) -> str:
-    return _fold(" ".join(str(v) for v in (trigger.facts or {}).values() if isinstance(v, str)))
+    values = [str(v) for v in (trigger.facts or {}).values() if isinstance(v, str)]
+    return _fold(" ".join([*values, baseline_label(trigger)]))
 
 
 def check(out: _Output, trigger: Trigger | None = None) -> None:
