@@ -412,14 +412,32 @@ def _store(patient_id: int, period: str, rep: Report) -> int:
         return cur.lastrowid
 
 
+def _latest_written(patient_id: int) -> Report | None:
+    """El último informe redactado por IA del paciente (no el mínimo), si hay."""
+    with db.connect() as conn:
+        rows = conn.execute("SELECT content FROM reports WHERE patient_id = ? ORDER BY id DESC",
+                            (patient_id,)).fetchall()
+    for row in rows:
+        content = json.loads(row["content"])
+        if content.get("redaccion") != "codigo":
+            return Report.model_validate(content)
+    return None
+
+
 async def report(patient_id: int, period: str | None = None) -> Report:
     """Calcula los facts del período (por defecto, las 4 semanas hasta hoy), redacta, verifica y guarda. Si la IA
-    no pudo (no respondió o falló una regla dura), guarda el informe mínimo: nunca queda sin informe."""
+    no pudo (no respondió o falló una regla dura), conserva el último informe redactado; si no hay ninguno, guarda
+    el informe mínimo: nunca queda sin informe."""
     now = await asyncio.to_thread(clock.now)
     facts = await asyncio.to_thread(report_facts.build, patient_id, now, period)
     try:
         rep = await generate(facts)
     except Exception as exc:              # solo el tipo: el mensaje puede traer citas con datos de salud
+        previous = await asyncio.to_thread(_latest_written, patient_id)
+        if previous is not None:
+            log.error("informe sin redacción de la IA para el paciente %s (%s): queda el anterior", patient_id,
+                      type(exc).__name__)
+            return previous
         log.error("informe sin redacción de la IA para el paciente %s (%s): se guarda el mínimo", patient_id,
                   type(exc).__name__)
         rep = minimal_report()

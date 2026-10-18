@@ -116,6 +116,25 @@ def test_sin_respuesta_de_la_ia_guarda_el_informe_minimo(tmp_data_dir, monkeypat
         assert conn.execute("SELECT count(*) FROM reports").fetchone()[0] == 1
 
 
+def test_si_falla_y_ya_hay_uno_redactado_queda_ese(tmp_data_dir, monkeypatch):
+    monkeypatch.setattr(report_facts, "build", lambda pid, now, period=None: FACTS)
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    first = asyncio.run(report.report(1))                       # redactado por IA
+    monkeypatch.setattr(llm, "_create", FakeSonnet(_with(evidence_ids=[205, 204])))   # después, falla dura
+    again = asyncio.run(report.report(1))
+    assert again == first and not report.is_minimal(again)
+    with base.connect() as conn:
+        rows = conn.execute("SELECT content FROM reports").fetchall()
+    assert len(rows) == 1 and json.loads(rows[0]["content"])["redaccion"] == "ia"   # no se guardó el mínimo
+
+
+def test_un_minimo_previo_no_cuenta_como_redactado(tmp_data_dir, monkeypatch):
+    monkeypatch.setattr(report_facts, "build", lambda pid, now, period=None: FACTS)
+    report._store(1, "x", report.minimal_report())
+    monkeypatch.setattr(llm, "_create", FakeSonnet(_with(evidence_ids=[205, 204])))
+    assert report.is_minimal(asyncio.run(report.report(1)))
+
+
 def test_verify_local_saca_evidencia_de_otra_franja_y_temas_con_titulo_falso():
     rep = report.to_report(report._Output.model_validate(
         {**GOOD, "topics": [GOOD["topics"][0], {**GOOD["topics"][1], "title": "Trabado a la tarde",
