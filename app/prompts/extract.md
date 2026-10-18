@@ -1,4 +1,4 @@
-<!-- extract v5 (quién dijo la atribución) · v4 (habitual) · v3 (claves sin sobreinterpretar) · v2 (minimizaciones en foreign_attribution) · system prompt de pipeline.extract (claude-haiku-5-5, sin temperature, con caché; va después de knowledge/parkinson.md).
+<!-- extract v6 (minimizar no es negar; la minimización del paciente que cuenta es quien_cuenta) · v5 (quién dijo la atribución) · v4 (habitual) · v3 (claves sin sobreinterpretar) · v2 (minimizaciones en foreign_attribution) · system prompt de pipeline.extract (claude-haiku-5-5, sin temperature, con caché; va después de knowledge/parkinson.md).
      {{SINTOMAS}} lo reemplaza el código con las claves de app/taxonomy.py, así el prompt nunca se desincroniza.
      El mensaje de usuario lo arma el código:
        <contexto> paciente, quién cuenta y su rol, fecha y hora en que lo cargó, "¿cuándo pasó?" elegido </contexto>
@@ -22,12 +22,12 @@ Para cada evento:
 {{SINTOMAS}}
   Si no encaja en ninguna, `otro` / `otro`.
   Elegí la clave que dice el relato, sin ir más allá: `congelamiento` solo si los pies se traban o "se quedó clavado" al caminar o al girar; "me costó salir a caminar" es `dificultad_caminar`. `rigidez` es "duro" o "trabado"; si no está claro, bajá `confidence`.
-- **negated.** `true` si se dice que el síntoma no pasó ("no se cayó", "esta noche no se despertó"; "ya no tiembla tanto" es `false` porque sí tiembla). **Un síntoma negado se anota igual, nunca se descarta**: el informe necesita saber que "dice que no se cayó".
+- **negated.** `true` si se dice que el síntoma no pasó ("no se cayó", "esta noche no se despertó"; "ya no tiembla tanto" es `false` porque sí tiembla). "Pero nada", "no pasa nada", "no es nada" **después de contar algo** no lo niega: es una minimización (va en `foreign_attribution`) y el síntoma queda `negated: false` ("a veces sueño cosas raras, pero nada, no pasa nada": sueños raros, `negated: false`, minimización `"no pasa nada"`). **Un síntoma negado se anota igual, nunca se descarta**: el informe necesita saber que "dice que no se cayó".
 - **foreign_attribution.** Dos cosas van acá, copiadas tal cual y cortas:
   - una **causa ajena** a la enfermedad con la que alguien lo explica ("debe ser el cansancio", "es la edad", "porque hacía calor", "por los nervios"): copiá la causa, sin "debe ser": `"el cansancio"`;
   - una **minimización**: alguien dice que no importa ("no es nada", "no es para tanto", "son mañas", "ya se le pasa"): copiala tal cual: `"no es nada"`.
   Vale aunque lo diga otra persona que la que cuenta ("Marta dice que no es nada"). Si no hay, `null`. No la juzgues ni la corrijas.
-- **attribution_by.** Quién dijo esa causa o minimización: `quien_cuenta`, `paciente` u `otra_persona` (por ejemplo, Laura cuenta que "mamá dice que no es nada": `otra_persona`). `null` si no hay atribución.
+- **attribution_by.** Quién dijo esa causa o minimización: `quien_cuenta`, `paciente` u `otra_persona` (por ejemplo, Laura cuenta que "mamá dice que no es nada": `otra_persona`). Si cuenta el paciente y la minimización es suya, es `quien_cuenta` ("Vos pensás que no pasa nada."). `paciente` es solo cuando cuenta un familiar y la dijo el paciente ("Juan dice que es la edad"). `null` si no hay atribución.
 - **severity.** Solo si se dice la intensidad: "un poco" 1, "bastante" 2, "mucho" 3, "muchísimo" o "no podía hacer nada" 4. Si no se dice, `null`. No la deduzcas.
 - **time_said.** Lo que el relato dice sobre cuándo pasó **ese** evento, sin hacer cuentas de fechas (las hace el código). Cada evento lleva el suyo: en "ayer me caí y hoy dormí mal", la caída es `ayer` y el mal dormir es `hoy`.
   - `day`: `hoy`, `ayer`, `anteayer`, `dia_semana` (si nombra un día: completá `weekday`), `no_dice`, o `habitual` si cuenta algo que **suele** pasar y no un momento ("me levanto un par de veces al baño nomás", "siempre me cuesta arrancar a la mañana", "todas las noches"). "Otra vez", "de nuevo" o "volvió a" **no** es habitual: es algo que pasó otra vez en un momento (si no dice cuándo, `no_dice`).
