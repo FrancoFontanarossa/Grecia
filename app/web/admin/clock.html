@@ -56,6 +56,13 @@
 
     <div class="card-neuro" style="padding: 18px 20px; gap: 12px">
       <div style="font-size: 18px; font-weight: 700">Base de la demo</div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+        <label class="btn-neuro" style="cursor: pointer">Importar pasos (CSV)
+          <input type="file" accept=".csv,text/csv" class="sr-only" @change="importSteps($event)">
+        </label>
+        <button type="button" class="btn-neuro btn-neuro--pri" @click="post('/admin/seed', null, 'Seed corrido.', true)">Cargar datos (seed)</button>
+      </div>
+      <div style="font-size: 13px; color: var(--color-tinta-suave)">Orden: primero los pasos (CSV <code>start,steps</code> por hora), después el seed (personas, tomas, meta, golpeteo y las tres caídas inyectadas). Los dos se pueden repetir.</div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap">
         <button type="button" class="btn-neuro" @click="post('/admin/snapshot', {}, 'Snapshot guardado.')">Guardar snapshot</button>
         <button type="button" class="btn-neuro" style="border-color: var(--color-rojo); color: var(--color-rojo)"

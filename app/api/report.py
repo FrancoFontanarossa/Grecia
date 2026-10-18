@@ -36,15 +36,15 @@ def _fake_report() -> tuple[Report, dict]:
                            "consultado por el sueño en la misma semana, habla de «sueños raros» y no menciona ver a nadie. "
                            "No hay fiebre ni caídas registradas esos días."),
              "observed": ["Nuevo desde el 22/09", "2 relatos de Marta"],
-             "voices": {"paciente": "Duermo bastante bien. A veces sueño cosas raras.",
-                        "cuidador": "Anoche se levantó dos veces medio confundido, me dijo que había un hombre en el patio."},
+             "voices": {"Juan": "Duermo bastante bien. A veces sueño cosas raras.",
+                        "Marta, su esposa": "Anoche se levantó dos veces medio confundido, me dijo que había un hombre en el patio."},
              "question": "¿Desde cuándo pasa y qué hace usted cuando los ve?", "evidence_ids": [101, 102, 103], "reserved": True},
             {"title": "Menos actividad después de la toma de las 16",
              "narrative": ("En las cuatro semanas previas, entre las 16 y las 18 h Juan caminaba unos 1.300 pasos. Esta "
                            "semana bajó a la mitad o menos tres veces en cinco días. Cuando la app le preguntó el jueves, "
                            "contó que se sintió trabado. Ningún otro tramo del día muestra el mismo patrón."),
              "observed": ["3 episodios · 1 explicado"],
-             "voices": {"paciente": "Me sentí trabado, me costó salir a caminar."},
+             "voices": {"Juan": "Me sentí trabado, me costó salir a caminar."},
              "question": "¿Cómo se siente una o dos horas después de la pastilla de la tarde?", "evidence_ids": [104],
              "reserved": False},
             {"title": "Sueño interrumpido",

@@ -13,7 +13,7 @@
     </template>
     <template x-for="(u, i) in items" :key="i">
       <div class="entendido">
-        <div class="entendido__meta" x-text="u.when + ' · ' + (labels[u.domain] || 'Otro')"></div>
+        <div class="entendido__meta" x-text="u.when + ' · ' + (u.domain_label || labels[u.domain] || 'Otro')"></div>
         <div class="entendido__texto" x-text="u.plain"></div>
       </div>
     </template>
