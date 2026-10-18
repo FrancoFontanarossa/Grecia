@@ -73,13 +73,13 @@
   {# ---------- botones de abajo ---------- #}
   <div class="dock" style="margin-top: 0">
     <template x-if="phase === 'grabando' || phase === 'pidiendo'">
-      <button type="button" class="toque-redondo" @click="terminar()" :disabled="phase !== 'grabando'" aria-label="Terminar y enviar">
+      <button type="button" class="toque-redondo" @pointerdown="tocar('terminar', $event)" @click="tocar('terminar', $event)" :disabled="phase !== 'grabando'" aria-label="Terminar y enviar">
         <span class="toque-redondo__circ"><span style="width: 32px; height: 32px; border-radius: 8px; background: var(--rojo)"></span></span>
         <span class="toque-redondo__texto">Tocá para terminar</span>
       </button>
     </template>
     <template x-if="phase === 'listo'">
-      <button type="button" class="toque-redondo" @click="empezar()" aria-label="Tocá para empezar">
+      <button type="button" class="toque-redondo" @pointerdown="tocar('empezar', $event)" @click="tocar('empezar', $event)" aria-label="Tocá para empezar">
         <span class="toque-redondo__circ"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0F1D33" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
         <span class="toque-redondo__texto">Tocá para empezar</span>
       </button>
