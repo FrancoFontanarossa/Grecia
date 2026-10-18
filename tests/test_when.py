@@ -80,3 +80,10 @@ def test_clock_invalido_no_valida():
 ])
 def test_describe(occurred, vague, text):
     assert describe(occurred, vague, CREATED) == text
+
+
+
+def test_anoche_a_las_cuatro_es_esta_madrugada():
+    assert resolve(TimeSaid(day="ayer", part="noche", clock="04:00"), None, CREATED) == (at(17, 4), False)
+    assert resolve(TimeSaid(day="no_dice", clock="04:00"), "anoche", CREATED) == (at(17, 4), False)
+    assert resolve(TimeSaid(day="ayer", clock="23:30"), None, CREATED) == (at(16, 23, 30), False)

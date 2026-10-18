@@ -61,6 +61,8 @@ def resolve(ts: TimeSaid, hint: str | None, created_at: dt.datetime) -> tuple[dt
     elif back is None:                                     # dice la franja o la hora pero no el día
         back = HINTS[hint][0] if hint else 0
 
+    if clock and back == 1 and clock.hour < 6 and ts.day in ("ayer", "no_dice"):
+        back = 0                                           # "anoche… a las cuatro" es la madrugada de hoy
     when_time = clock or (PART_TIME[part] if part else DAY_ONLY)
     occurred = dt.datetime.combine(today - dt.timedelta(days=back), when_time, tzinfo=created_at.tzinfo)
     if clock and ts.day == "no_dice" and hint is None and occurred > created_at:
