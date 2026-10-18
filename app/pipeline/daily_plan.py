@@ -130,7 +130,8 @@ def check(plan: DailyPlan) -> None:
 
 def user_message(digest: dict) -> str:
     return ("<resumen>\n" + json.dumps(digest, ensure_ascii=False, indent=1) + "\n</resumen>\n"
-            "Escribí la nota de hoy y planificá mañana con la herramienta planificar_manana.")
+            "Escribí la nota de hoy y planificá mañana con la herramienta planificar_manana."
+            + (" Proponé también los aprendizajes para el perfil (`learnings`)." if config.PROFILE_ENABLED else ""))
 
 
 async def daily_plan(digest: dict) -> DailyPlan:
