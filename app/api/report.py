@@ -1,6 +1,7 @@
 """GET /api/patients/{id}/report y /technical: el informe (Report de pipeline.report, ya verificado) y los
 metadatos que calcula el código (cifras, medicación, fuentes, pasos, golpeteo, avisos, evidencia)."""
 import datetime as dt
+import json
 import statistics
 
 from fastapi import APIRouter, HTTPException
@@ -95,10 +96,17 @@ def build_report(patient_id: int) -> dict:
                         "quote": r["quote"], "reserved": bool(r["reserved"])}
                     for i, r in store.evidence(ids).items()}
         report_simulated = False
+        report_status = "listo"
+    elif real:
+        # Base real sin informe todavía (pipeline.report lo genera en segundo plano): vacío, nunca el de ejemplo.
+        report, evidence = Report(summary="", topics=[], removed_count=0), {}
+        report_simulated = False
+        report_status = "pendiente"
     else:
-        # TODO(contrato): sin un informe en la tabla reports todavía (pipeline.report de Guada), ejemplo rotulado.
+        # Sin base (desarrollo): el informe del lienzo de diseño, rotulado como ejemplo.
         report, evidence = _fake_report()
         report_simulated = True
+        report_status = "ejemplo"
 
     # ---------------------------------------------------------- cifras del código
     days = store.daily_steps(patient_id, end, PERIOD_DAYS, until=now)
@@ -149,8 +157,271 @@ def build_report(patient_id: int) -> dict:
             "generated_at": generated_at,
             "now": now.isoformat(),
         },
+        # Informe v2 (docs/PULIDO.md §3): todo calculado por código, sin IA.
+        "cobertura": coverage(patient_id, start, end, now) if real else None,
+        "desde_el_cambio": since_change(patient_id, now) if real else None,
+        "lo_que_no_sabemos": unknowns(patient_id, start, end, now) if real else None,
         "simulated": report_simulated or not real,
         "report_simulated": report_simulated,
+        "report_status": report_status,     # listo | pendiente (base real, sin informe aún) | ejemplo (sin base)
+    }
+
+
+# ================================================================ informe v2: cifras del código
+# Cobertura, "Desde el cambio" y "Lo que no sabemos". Leen la base directo (app.db) y no llaman a la IA.
+
+AFTERNOON_DOSE = "16:00"     # la toma que mira el escenario (CLAUDE.md §3)
+MIN_DAYS = 5                 # menos días de un lado: la comparación no es "suficiente"
+MIN_TESTS = 3
+_ROLE_ORDER = {"paciente": 0, "cuidador": 1, "familiar": 2}
+_WAKE_SYMPTOMS = ("despertares_nocturnos", "insomnio")
+
+
+def _db():
+    from app import db
+
+    return db
+
+
+def _day_bounds(d: dt.date, tz) -> tuple[str, str]:
+    db = _db()
+    start = dt.datetime.combine(d, dt.time(0), tz)
+    return db.to_db(start), db.to_db(start + dt.timedelta(days=1))
+
+
+def _days(start: dt.date, end: dt.date) -> list[dt.date]:
+    return [start + dt.timedelta(days=i) for i in range((end - start).days + 1)]
+
+
+def _miles(n) -> str:
+    return f"{int(round(n)):,}".replace(",", ".")
+
+
+def _ddmm(d) -> str:
+    d = dt.date.fromisoformat(str(d)[:10])
+    return f"{d.day:02d}/{d.month:02d}"
+
+
+# Las claves de taxonomy.py van sin tildes; para leer, en castellano.
+_SYMPTOM_TEXT = {"apatia": "apatía", "sudoracion": "sudoración", "deglucion": "problemas para tragar",
+                 "actua_suenos": "que actúa los sueños", "despertares_nocturnos": "despertares de noche",
+                 "somnolencia_diurna": "somnolencia de día", "confusion": "confusión", "cansancio": "cansancio",
+                 "estrenimiento": "estreñimiento", "caida": "caída", "mareo_al_pararse": "mareo al pararse"}
+
+
+def _symptom_text(symptom: str) -> str:
+    return _SYMPTOM_TEXT.get(symptom, symptom.replace("_", " "))
+
+
+def _days_with_steps(conn, patient_id: int, days: list[dt.date], now: dt.datetime) -> set[dt.date]:
+    """Días con pasos: los cubre una ventana de biometric_syncs (hasta ahora si es hoy) o tienen muestras."""
+    db = _db()
+    syncs = [(db.from_db(r["window_start"]), db.from_db(r["window_end"])) for r in conn.execute(
+        "SELECT window_start, window_end FROM biometric_syncs WHERE patient_id = ?", (patient_id,))]
+    with_samples = {dt.date.fromisoformat(r[0]) for r in conn.execute(
+        "SELECT DISTINCT substr(start, 1, 10) FROM biometrics WHERE patient_id = ? AND kind = 'steps'", (patient_id,))}
+    out = set()
+    for d in days:
+        lo = dt.datetime.combine(d, dt.time(0), now.tzinfo)
+        hi = min(lo + dt.timedelta(days=1), now)
+        if d in with_samples or any(ws <= lo and we >= hi for ws, we in syncs):
+            out.add(d)
+    return out
+
+
+def coverage(patient_id: int, start: dt.date, end: dt.date, now: dt.datetime) -> dict:
+    """Cobertura del período: días con pasos sincronizados, mediciones por fuente, relatos por voz y golpeteo."""
+    db = _db()
+    days = _days(start, end)
+    lo, _ = _day_bounds(start, now.tzinfo)
+    _, hi = _day_bounds(end, now.tzinfo)
+    with db.connect() as conn:
+        covered = _days_with_steps(conn, patient_id, days, now)
+        sources = {r["source"]: r["n"] for r in conn.execute(
+            "SELECT source, COUNT(*) AS n FROM biometrics WHERE patient_id = ? AND kind = 'steps' AND start >= ? AND start < ? "
+            "GROUP BY source ORDER BY source", (patient_id, lo, hi))}
+        voices = [dict(r) for r in conn.execute(
+            "SELECT p.id AS person_id, p.name AS nombre, p.role AS rol, COUNT(e.id) AS n FROM entries e "
+            "JOIN people p ON p.id = e.speaker_id WHERE e.patient_id = ? AND e.created_at >= ? AND e.created_at < ? "
+            "GROUP BY p.id", (patient_id, lo, hi))]
+        tests = conn.execute("SELECT COUNT(*) FROM tests WHERE patient_id = ? AND taken_at >= ? AND taken_at < ?",
+                             (patient_id, lo, hi)).fetchone()[0]
+    voices.sort(key=lambda v: (_ROLE_ORDER.get(v["rol"], 9), -v["n"]))
+    parts = [f"Pasos: {len(covered)} de {len(days)} días sincronizados"]
+    parts.append("relatos: " + (", ".join(f"{v['nombre']} {v['n']}" for v in voices) if voices else "ninguno"))
+    parts.append(f"golpeteo: {tests} {'sesión' if tests == 1 else 'sesiones'}")
+    return {
+        "periodo": {"desde": start.isoformat(), "hasta": end.isoformat(), "dias": len(days)},
+        "pasos": {"dias_con_datos": len(covered), "dias_total": len(days), "mediciones_por_fuente": sources},
+        "relatos": {"total": sum(v["n"] for v in voices), "por_voz": voices},
+        "golpeteo": {"sesiones": tests},
+        "texto": " · ".join(parts),
+    }
+
+
+def _median_row(clave, etiqueta, unidad, before: list[float], after: list[float], min_n: int, decimals=0) -> dict:
+    def med(xs):
+        if not xs:
+            return None
+        m = statistics.median(xs)
+        return round(m, decimals) if decimals else round(m)
+
+    a, b = med(before), med(after)
+    pct = round((b - a) / a * 100, 1) if a not in (None, 0) and b is not None else None
+    return {"clave": clave, "etiqueta": etiqueta, "unidad": unidad, "antes": a, "despues": b, "cambio_pct": pct,
+            "n_antes": len(before), "n_despues": len(after),
+            "suficiente": len(before) >= min_n and len(after) >= min_n}
+
+
+def _rate_row(clave, etiqueta, unidad, n_before: int, n_after: int, days_before: int, days_after: int) -> dict:
+    def per_week(n, days):
+        return round(n / days * 7, 1) if days > 0 else None
+
+    return {"clave": clave, "etiqueta": etiqueta, "unidad": unidad,
+            "antes": per_week(n_before, days_before), "despues": per_week(n_after, days_after), "cambio_pct": None,
+            "n_antes": n_before, "n_despues": n_after,
+            "suficiente": days_before >= MIN_DAYS and days_after >= MIN_DAYS}
+
+
+def since_change(patient_id: int, now: dt.datetime) -> dict | None:
+    """Antes contra después del último cambio de medicación (med_schedule.changed_at). None si no hubo cambio."""
+    db = _db()
+    today = now.date()
+    with db.connect() as conn:
+        med = conn.execute("SELECT drug, changed_at, change_note FROM med_schedule WHERE patient_id = ? AND changed_at IS NOT NULL "
+                           "AND changed_at <= ? ORDER BY changed_at DESC LIMIT 1", (patient_id, db.to_db(now))).fetchone()
+        if not med:
+            return None
+        change = db.from_db(med["changed_at"]).date()
+        first = conn.execute("SELECT MIN(substr(start, 1, 10)) FROM biometrics WHERE patient_id = ? AND kind = 'steps'",
+                             (patient_id,)).fetchone()[0]
+        first_day = min(dt.date.fromisoformat(first), change) if first else change
+        before_days = [d for d in _days(first_day, change - dt.timedelta(days=1))]
+        after_days = _days(change, today)
+        covered = _days_with_steps(conn, patient_id, before_days + after_days, now)
+
+        # Pasos por día completo (hoy no cuenta: está a medias).
+        daily = {dt.date.fromisoformat(r["d"]): r["v"] for r in conn.execute(
+            "SELECT substr(start, 1, 10) AS d, SUM(value) AS v FROM biometrics WHERE patient_id = ? AND kind = 'steps' "
+            "GROUP BY d", (patient_id,))}
+        def steps(days):
+            return [daily.get(d, 0.0) for d in days if d in covered and d < today]
+
+        # Pasos en la ventana de 2 h después de la toma de la tarde, por día (si la ventana ya terminó).
+        h0 = int(AFTERNOON_DOSE[:2])
+        window = {dt.date.fromisoformat(r["d"]): r["v"] for r in conn.execute(
+            "SELECT substr(start, 1, 10) AS d, SUM(value) AS v FROM biometrics WHERE patient_id = ? AND kind = 'steps' "
+            "AND substr(start, 12, 2) >= ? AND substr(start, 12, 2) < ? GROUP BY d", (patient_id, f"{h0:02d}", f"{h0 + 2:02d}"))}
+        window_closed = lambda d: d < today or now.hour >= h0 + 2  # noqa: E731
+        def window_steps(days):
+            return [window.get(d, 0.0) for d in days if d in covered and window_closed(d)]
+
+        taps = [(db.from_db(r["taken_at"]).date(), json.loads(r["metrics"]).get("taps_per_s")) for r in conn.execute(
+            "SELECT taken_at, metrics FROM tests WHERE patient_id = ? AND taken_at <= ?", (patient_id, db.to_db(now)))]
+
+        def event_dates(where: str, args: tuple) -> list[dt.date]:
+            rows = conn.execute(
+                "SELECT DISTINCT substr(COALESCE(ev.occurred_at, en.created_at), 1, 10) AS d, ev.entry_id FROM events ev "
+                "JOIN entries en ON en.id = ev.entry_id WHERE ev.patient_id = ? AND ev.negated = 0 AND " + where,
+                (patient_id, *args)).fetchall()
+            return [dt.date.fromisoformat(r["d"]) for r in rows]
+
+        marks = ",".join("?" * len(_WAKE_SYMPTOMS))
+        nights = set(event_dates(f"ev.domain = 'sueno' AND ev.symptom IN ({marks})", _WAKE_SYMPTOMS))
+        neuro = event_dates("ev.domain = 'neuropsiquiatrico'", ())
+
+    split = lambda xs: ([d for d in xs if first_day <= d < change], [d for d in xs if change <= d <= today])  # noqa: E731
+    nights_b, nights_a = split(sorted(nights))
+    neuro_b, neuro_a = split(neuro)
+    taps_b = [v for d, v in taps if v is not None and first_day <= d < change]
+    taps_a = [v for d, v in taps if v is not None and change <= d <= today]
+    h_label = f"{h0} a {h0 + 2} h"
+    return {
+        "medicamento": med["drug"],
+        "fecha": change.isoformat(),
+        "hace_dias": (today - change).days,
+        "nota": med["change_note"],
+        "antes": {"desde": first_day.isoformat(), "hasta": (change - dt.timedelta(days=1)).isoformat(), "dias": len(before_days)},
+        "despues": {"desde": change.isoformat(), "hasta": today.isoformat(), "dias": len(after_days)},
+        "filas": [
+            _median_row("pasos_dia", "Pasos por día (mediana)", "pasos", steps(before_days), steps(after_days), MIN_DAYS),
+            _median_row("pasos_16_18", f"Pasos de {h_label} (mediana)", "pasos",
+                        window_steps(before_days), window_steps(after_days), MIN_DAYS),
+            _median_row("golpeteo", "Golpeteo (toques por segundo, mediana)", "toques/s", taps_b, taps_a, MIN_TESTS, decimals=1),
+            _rate_row("noches_despertares", "Noches con despertares contadas (por semana)", "noches/semana",
+                      len(nights_b), len(nights_a), len(before_days), len(after_days)),
+            _rate_row("relatos_neuropsiquiatricos", "Relatos de alucinaciones o confusión (por semana)", "relatos/semana",
+                      len(neuro_b), len(neuro_a), len(before_days), len(after_days)),
+        ],
+        "metodo": (f"Antes: días previos al cambio dentro de la historia disponible; después: desde el cambio hasta hoy. "
+                   f"Pasos y golpeteo en mediana por día; relatos y noches por semana. 'suficiente' es falso con menos de "
+                   f"{MIN_DAYS} días (o {MIN_TESTS} sesiones) de un lado."),
+    }
+
+
+def unknowns(patient_id: int, start: dt.date, end: dt.date, now: dt.datetime) -> dict:
+    """Lo que no sabemos: días sin pasos, preguntas sin respuesta y lo que contó solo la familia."""
+    from app import taxonomy
+
+    db = _db()
+    days = _days(start, end)
+    lo, _ = _day_bounds(start, now.tzinfo)
+    _, hi = _day_bounds(end, now.tzinfo)
+    with db.connect() as conn:
+        covered = _days_with_steps(conn, patient_id, days, now)
+        questions = [dict(r) for r in conn.execute(
+            "SELECT id, sent_at, rule_id, question, status FROM questions WHERE patient_id = ? "
+            "AND status IN ('pendiente', 'enviada') AND (sent_at IS NULL OR (sent_at >= ? AND sent_at < ?)) ORDER BY sent_at",
+            (patient_id, lo, hi))]
+        rows = [dict(r) for r in conn.execute(
+            "SELECT ev.id, ev.domain, ev.symptom, ev.speaker_role, ev.reserved, p.name, "
+            "COALESCE(ev.occurred_at, en.created_at) AS at FROM events ev JOIN entries en ON en.id = ev.entry_id "
+            "JOIN people p ON p.id = en.speaker_id WHERE ev.patient_id = ? AND ev.negated = 0 "
+            "AND en.created_at >= ? AND en.created_at < ? ORDER BY at", (patient_id, lo, hi))]
+    missing = [d for d in days if d not in covered]
+    patient_symptoms = {r["symptom"] for r in rows if r["speaker_role"] == "paciente"}
+    family: dict[str, dict] = {}
+    for r in rows:
+        if r["speaker_role"] == "paciente" or r["symptom"] in patient_symptoms:
+            continue
+        f = family.setdefault(r["symptom"], {"dominio": r["domain"], "dominio_label": taxonomy.label(r["domain"]),
+                                             "sintoma": r["symptom"], "veces": 0, "quien": [], "ultima": None,
+                                             "evidence_ids": [], "reservado": False})
+        f["veces"] += 1
+        if r["name"] not in f["quien"]:
+            f["quien"].append(r["name"])
+        f["ultima"] = max(f["ultima"] or "", r["at"][:10])
+        f["evidence_ids"].append(r["id"])
+        f["reservado"] = f["reservado"] or bool(r["reserved"])
+    solo_familia = sorted(family.values(), key=lambda f: (not f["reservado"], -f["veces"], f["sintoma"]))
+
+    textos = []
+    if missing:
+        listado = ", ".join(_ddmm(d) for d in missing[:6]) + ("…" if len(missing) > 6 else "")
+        textos.append(f"Sin pasos sincronizados {len(missing)} {'día' if len(missing) == 1 else 'días'}: {listado}.")
+    if questions:
+        fechas = ", ".join(_ddmm(q["sent_at"]) for q in questions if q["sent_at"])
+        n = len(questions)
+        textos.append(f"{n} {'pregunta' if n == 1 else 'preguntas'} del sistema {'quedó' if n == 1 else 'quedaron'} "
+                      f"sin respuesta" + (f" ({fechas})." if fechas else "."))
+    patient_name = next((r["name"] for r in rows if r["speaker_role"] == "paciente"), None) or \
+        (store.patient_person(patient_id) or {}).get("name", "el paciente")
+    # En los textos, solo lo que pesa: repetido (2 o más) o reservado. El resto se cuenta en una línea;
+    # la lista completa queda en `solo_la_familia`.
+    shown = [f for f in solo_familia if f["veces"] >= 2 or f["reservado"]]
+    for f in shown:
+        quien = " y ".join(f["quien"])
+        veces = f"{f['veces']} {'vez' if f['veces'] == 1 else 'veces'}"
+        textos.append(f"{quien} contó {_symptom_text(f['sintoma'])} {veces}; {patient_name} no lo mencionó.")
+    rest = len(solo_familia) - len(shown)
+    if rest:
+        textos.append(f"Y {rest} {'tema más' if rest == 1 else 'temas más'} que contó la familia una sola vez.")
+    return {
+        "dias_sin_pasos": [d.isoformat() for d in missing],
+        "preguntas_sin_respuesta": [{"id": q["id"], "fecha": q["sent_at"], "regla": q["rule_id"], "pregunta": q["question"],
+                                     "estado": q["status"]} for q in questions],
+        "solo_la_familia": solo_familia,
+        "textos": textos,
     }
 
 
