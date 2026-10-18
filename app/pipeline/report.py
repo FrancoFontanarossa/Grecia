@@ -149,6 +149,10 @@ def check(out: _Output, facts: dict) -> None:
         unknown = set(t.evidence_ids) - events.keys()
         if unknown:
             raise ValueError(f"«{t.title}» cita ids que no existen: {sorted(unknown)}")
+        kinds = {bool(events[i].get("reserved")) for i in t.evidence_ids}
+        if kinds == {True, False}:
+            raise ValueError(f"«{t.title}» mezcla eventos reservados y no reservados: un tema reservado junta solo "
+                             "eventos reservados")
         if len(t.narrative.split()) > NARRATIVE_WORDS:
             raise ValueError(f"el párrafo de «{t.title}» es demasiado largo")
         evidence_text = " ".join(_fold(events[i]["quote"] + " " + (events[i].get("time") or "")) for i in t.evidence_ids)

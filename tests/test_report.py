@@ -175,3 +175,11 @@ def test_episodios_con_y_sin_relato():
     s = FACTS["deviations_summary"]
     assert (s["count"], s["with_story"], s["without_story"], s["pct_change_range"]) == ("3", "1", "2", "69–71%")
     assert [d["story"] for d in FACTS["deviations"]] == ["sin relato", "con relato de Juan", "sin relato"]
+
+
+def test_tema_reservado_no_mezcla_eventos_no_reservados(monkeypatch):
+    mezcla = _with(evidence_ids=[205, 204])            # 205 reservado (Marta), 204 no (Juan)
+    fake = FakeSonnet(mezcla, GOOD)
+    monkeypatch.setattr(llm, "_create", fake)
+    asyncio.run(report.generate(FACTS))
+    assert len(fake.calls) == 2
