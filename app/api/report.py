@@ -2,11 +2,13 @@
 metadatos que calcula el código (cifras, medicación, fuentes, pasos, golpeteo, avisos, evidencia)."""
 import datetime as dt
 import json
+import re
 import statistics
 
 from fastapi import APIRouter, HTTPException
 
 from app.api import _store as store
+from app.config import TZ
 from app.models import Report
 
 router = APIRouter(prefix="/api", tags=["neuro"])
@@ -165,6 +167,9 @@ def build_report(patient_id: int) -> dict:
             "now": now.isoformat(),
         },
         # Informe v2 (docs/PULIDO.md §3): todo calculado por código, sin IA.
+        "avisos": notices(alerts, meds),
+        "lo_que_notamos": noticed(patient_id, start, end, now) if real else [],
+        "pulsera": wearable_week(patient_id, end) if real else None,
         "cobertura": coverage(patient_id, start, end, now) if real else None,
         "desde_el_cambio": since_change(patient_id, now) if real else None,
         "lo_que_no_sabemos": unknowns(patient_id, start, end, now) if real else None,
@@ -437,6 +442,158 @@ def unknowns(patient_id: int, start: dt.date, end: dt.date, now: dt.datetime) ->
         "solo_la_familia": solo_familia,
         "textos": textos,
     }
+
+
+# ================================================================ avisos con etiqueta (sin "Ámbar"/"Rojo")
+# Un punto de color y una etiqueta que dice por qué importa. Los textos de los avisos los guarda rules.lanes; acá solo
+# se presentan: A2 en una fila, A1 con la fecha del relato y los días desde el cambio en días de calendario.
+
+NOTICE_LABELS = {"rojo": "Puede ser urgente", "A1": "Primera vez", "A2": "Nuevo desde el cambio", "A3": "Se repite"}
+_A1 = re.compile(r"^Primera mención de (.+) \(contado por (.+) el \d\d/\d\d\)\.?$")
+_A2 = re.compile(r"^Síntoma nuevo a -?\d+ días? del cambio de (.+?): (.+?)\.?$")
+
+
+def _local_date(value: str) -> dt.date:
+    return dt.datetime.fromisoformat(value).astimezone(TZ).date()
+
+
+def _plain_symptom(label: str) -> str:
+    return label[4:] if label.startswith("que ") else label
+
+
+def notices(alerts: list[dict], meds: list[dict]) -> list[dict]:
+    """Avisos del período para el informe, en orden: urgentes, primera vez, nuevos desde el cambio (una fila), se repite."""
+    changes = {m["drug"]: dt.date.fromisoformat(m["changed"]["date"]) for m in meds if m.get("changed")}
+    urgent, first, repeats, a2 = [], [], [], []
+    for a in alerts:
+        date = _local_date(a["created_at"])
+        item = {"kind": "rojo" if a["lane"] == "rojo" else a["rule_id"], "fecha": date.isoformat(),
+                "texto": a["text"], "reserved": bool(a.get("reserved"))}
+        if a["lane"] == "rojo":
+            item["texto"] = a["text"].split(":")[0]
+            urgent.append(item)
+        elif a["rule_id"] == "A1":
+            m = _A1.match(a["text"])
+            if m:   # la fecha del relato (created_at), no la de la noche a la que se refiere
+                item["texto"] = f"Primera mención de {m.group(1)} (contado por {m.group(2)} el {_ddmm(date)})."
+            first.append(item)
+        elif a["rule_id"] == "A2":
+            m = _A2.match(a["text"])
+            drug, label = (m.group(1), _plain_symptom(m.group(2))) if m else (None, a["text"])
+            change = changes.get(drug) or (max(changes.values()) if changes else None)
+            a2.append({"fecha": date.isoformat(), "sintoma": label, "reserved": item["reserved"], "change": change,
+                       "dias": (date - change).days if change else None})
+        elif a["rule_id"] == "A3":
+            repeats.append(item)
+    out = urgent + first
+    if a2:
+        labels = list(dict.fromkeys(x["sintoma"] for x in a2))      # sin repetir, en orden de aparición
+        change = a2[0]["change"]
+        head = f"Síntomas nuevos desde el cambio del {_ddmm(change)}" if change else "Síntomas nuevos desde el cambio"
+        out.append({"kind": "A2", "fecha": a2[0]["fecha"], "texto": f"{head}: {', '.join(labels)}.",
+                    "reserved": any(x["reserved"] for x in a2),
+                    "detalle": [{k: x[k] for k in ("fecha", "sintoma", "dias", "reserved")} for x in a2]})
+    out += repeats
+    for item in out:
+        item["etiqueta"] = NOTICE_LABELS.get(item["kind"], "Para mirar")
+    return out
+
+
+# ================================================================ lo que notamos y lo que nos contaron
+# Una fila por episodio (desvío después de una toma) o pregunta proactiva del período. Todo por código: qué detectó
+# (con sus cifras), a quién se le preguntó, la respuesta literal y si quedó explicado.
+
+_RULE_WHAT = {"P-NOCHES": "Noches malas contadas", "P-SILENCIO": "Días sin relatos", "P-JUEGO": "Golpeteo más lento",
+              "P-REPITE": "Algo que se repite", "P-SUENO": "Noche distinta", "P-PATRON": "Patrón de la revisión diaria"}
+_EXPLAINED = {"explicado", "respondido"}
+
+
+def noticed(patient_id: int, start: dt.date, end: dt.date, now: dt.datetime) -> list[dict]:
+    db = _db()
+    lo, _ = _day_bounds(start, now.tzinfo)
+    _, hi = _day_bounds(end, now.tzinfo)
+    with db.connect() as conn:
+        people = {r["id"]: dict(r) for r in conn.execute("SELECT id, name, role FROM people WHERE patient_id = ?",
+                                                          (patient_id,))}
+        episodes = [dict(r) for r in conn.execute(
+            "SELECT * FROM episodes WHERE patient_id = ? AND dose_time >= ? AND dose_time < ? ORDER BY dose_time",
+            (patient_id, lo, hi))]
+        questions = {r["id"]: dict(r) for r in conn.execute(
+            "SELECT * FROM questions WHERE patient_id = ? AND sent_at >= ? AND sent_at < ? ORDER BY sent_at",
+            (patient_id, lo, hi))}
+
+        def entry(entry_id):
+            if not entry_id:
+                return None
+            e = conn.execute("SELECT id, speaker_id, raw_text, created_at FROM entries WHERE id = ?", (entry_id,)).fetchone()
+            if not e:
+                return None
+            ev = conn.execute("SELECT id, reserved FROM events WHERE entry_id = ? ORDER BY id LIMIT 1", (entry_id,)).fetchone()
+            return {**dict(e), "event_id": ev["id"] if ev else None, "reserved": bool(ev and ev["reserved"])}
+
+        rows = []
+        seen_questions = set()
+        for ep in episodes:
+            dev = json.loads(ep["deviation"]) if ep["deviation"] else {}
+            exp = json.loads(ep["explanation"]) if ep["explanation"] else {}
+            dose = db.from_db(ep["dose_time"])
+            q = questions.get(ep["question_id"]) if ep["question_id"] else None
+            if q:
+                seen_questions.add(q["id"])
+            what = f"Después de la toma de las {dose.hour}"
+            if dev.get("observed") is not None:
+                what += f": {_miles(dev['observed'])} pasos"
+                if dev.get("median") is not None:
+                    what += f"; lo habitual ≈ {_miles(dev['median'])}"
+            answer = entry(q["answered_entry_id"]) if q and q.get("answered_entry_id") else None
+            if answer is None:
+                answer = next((x for x in (entry(i) for i in json.loads(ep["entry_ids"] or "[]")) if x), None)
+            by = exp.get("by") or []
+            rows.append(_noticed_row(dose, "P-DESVIO", what, "pasos del teléfono", people.get(q["to_person_id"]) if q else None,
+                                     q, answer, by if exp.get("explained") else [],
+                                     explained=ep["status"] in _EXPLAINED or bool(exp.get("explained")), people=people))
+        for q in questions.values():
+            if q["id"] in seen_questions or q["rule_id"] == "P-DESVIO":
+                continue
+            if not q["question"]:     # explicado por lo que ya contaron: no se preguntó
+                continue
+            answer = entry(q.get("answered_entry_id"))
+            source = "pulsera · simulado" if q["rule_id"] == "P-SUENO" and _wearable_simulated(conn, patient_id) else (
+                "pulsera" if q["rule_id"] == "P-SUENO" else None)
+            what = _RULE_WHAT.get(q["rule_id"], q["rule_id"]) + (f": {q['why']}" if q["why"] else "")
+            rows.append(_noticed_row(db.from_db(q["sent_at"]), q["rule_id"], what, source, people.get(q["to_person_id"]),
+                                     q, answer, [], explained=answer is not None, people=people))
+    rows.sort(key=lambda r: r["at"])
+    return rows
+
+
+def _wearable_simulated(conn, patient_id: int) -> bool:
+    return conn.execute("SELECT 1 FROM biometrics WHERE patient_id = ? AND source = 'simulado' LIMIT 1",
+                        (patient_id,)).fetchone() is not None
+
+
+def _noticed_row(at: dt.datetime, rule_id: str, what: str, source: str | None, to: dict | None, q: dict | None,
+                 answer: dict | None, explained_by: list[str], *, explained: bool, people: dict) -> dict:
+    asked = to["name"] if to else None
+    if answer:
+        who = people.get(answer["speaker_id"], {}).get("name", "")
+        reply = {"cita": answer["raw_text"], "quien": who, "event_id": answer["event_id"], "reserved": answer["reserved"],
+                 "label": _evidence_label({"name": who, "at": answer["created_at"]})}
+    elif explained_by:
+        reply = {"cita": explained_by[0], "quien": None, "event_id": None, "reserved": False, "label": "Lo que ya habían contado"}
+    else:
+        reply = None
+    return {"at": at.isoformat(), "fecha": at.date().isoformat(), "regla": rule_id, "detecto": what, "fuente": source,
+            "pregunta_a": asked if q and q.get("question") else None,
+            "pregunta": q["question"] if q and q.get("question") else None,
+            "respuesta": reply, "resultado": "explicado" if explained else "sin explicar"}
+
+
+def wearable_week(patient_id: int, end: dt.date) -> dict | None:
+    """La semana de la pulsera para la sección de datos (mismo cálculo que los facts de pipeline.report)."""
+    from app.pipeline import report_facts
+
+    return report_facts.present_wearable(report_facts.wearable_week(patient_id, end))
 
 
 @router.get("/patients/{patient_id}/report")
