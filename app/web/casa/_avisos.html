@@ -1,37 +1,7 @@
-{# Tarjeta para activar avisos o para instalar la app en iPhone. Estado en JS (EC.push.state()).
-   compact=True: una fila (los Inicios): una línea de texto, el botón y "Ahora no" (se recuerda en el teléfono).
-   compact=False: tarjeta completa (¿Quién sos?). Con la app instalada y el permiso dado no aparece. #}
-{% from "_icons.html" import icon %}
-{% if compact %}
+{# Fila chica de los inicios para activar avisos: aparece solo si el permiso no está dado. En iPhone fuera de la app
+   pide agregarla a la pantalla de inicio. Estado en JS (EC.push.state()); "Ahora no" se recuerda en el teléfono. #}
 <div x-data="avisosCard({{ 'true' if dismissible else 'false' }})" x-show="visible" x-cloak class="tarjeta-aviso tarjeta-aviso--fila" role="region" aria-label="Avisos">
   <span class="tarjeta-aviso__tx" x-text="error || shortText"></span>
   <button type="button" class="btn p" x-show="state === 'pendiente'" @click="activar()" :disabled="busy" x-text="busy ? 'Activando…' : 'Activar'"></button>
   <button type="button" class="enlace-suave" x-show="dismissible && state !== 'activo'" @click="cerrar()">Ahora no</button>
 </div>
-{% else %}
-<div x-data="avisosCard({{ 'true' if dismissible else 'false' }})" x-show="visible" x-cloak class="tarjeta-aviso">
-  <template x-if="state === 'instalar'">
-    <div style="display: flex; gap: 12px; align-items: flex-start">
-      <span style="color: var(--azul-osc); flex-shrink: 0; margin-top: 2px">{{ icon("compartir", 24) }}</span>
-      <div>Para recibir avisos, agregá Neuro a tu pantalla de inicio: tocá Compartir y después "Agregar a inicio".{% if not compact %} Después abrila desde el ícono.{% endif %}</div>
-    </div>
-  </template>
-  <template x-if="state === 'pendiente'">
-    <div style="display: flex; flex-direction: column; gap: 10px">
-      {% if not compact %}<div>Activá los avisos para que te podamos preguntar.</div>{% endif %}
-      <button type="button" class="btn p" @click="activar()" :disabled="busy">
-        {{ icon("campana", 22, "#FFFFFF") }}
-        <span x-text="busy ? 'Activando…' : 'Activar avisos'"></span>
-      </button>
-    </div>
-  </template>
-  <template x-if="state === 'bloqueado'">
-    <div>Los avisos están bloqueados. Abrí Ajustes › Notificaciones › Neuro y activalos.</div>
-  </template>
-  <template x-if="state === 'activo' && justEnabled">
-    <div style="display: flex; gap: 10px; align-items: center">{{ icon("check", 24, "var(--ok)") }}<span>Listo, los avisos están activados.</span></div>
-  </template>
-  <div x-show="error" x-text="error" style="font-size: 16px; color: var(--color-rojo)"></div>
-  <button type="button" class="enlace-suave" x-show="dismissible && state !== 'activo'" @click="cerrar()" style="align-self: flex-start; padding: 0">Ahora no</button>
-</div>
-{% endif %}

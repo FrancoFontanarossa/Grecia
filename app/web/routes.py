@@ -52,14 +52,22 @@ def render(request: Request, name: str, **ctx):
 # ---------------------------------------------------------------- ¿Quién sos?
 
 @router.get("/")
-def selector(request: Request, ec_patient: str | None = Cookie(default=None)):
+def selector(request: Request, cambiar: int = 0, next: str = "", ec_patient: str | None = Cookie(default=None),
+             ec_person: str | None = Cookie(default=None)):
+    next = next if next.startswith("/casa") else ""
+    # El selector se ve una sola vez: con la persona guardada, "/" abre su inicio (o la pregunta del aviso).
+    if not cambiar and current_person(ec_person):
+        return RedirectResponse(next or "/casa", status_code=303)
     try:
         patient_id = int(ec_patient) if ec_patient else store.JUAN_PATIENT_ID
     except ValueError:
         patient_id = store.JUAN_PATIENT_ID
     people = store.people(patient_id) or store.people(store.JUAN_PATIENT_ID)
-    return render(request, "casa/selector.html", people=people, patient_id=patient_id,
+    resp = render(request, "casa/selector.html", people=people, patient_id=patient_id, next=next,
                   is_test=patient_id == store.TEST_PATIENT_ID)
+    if cambiar:
+        resp.delete_cookie("ec_person")
+    return resp
 
 
 @router.get("/prueba")

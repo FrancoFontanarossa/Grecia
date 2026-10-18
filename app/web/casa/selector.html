@@ -1,49 +1,29 @@
-﻿{% extends "base.html" %}
-{% from "_icons.html" import icon %}
-{% block title %}¿Quién sos? · Neuro{% endblock %}
+{% extends "base.html" %}
+{% block title %}¿Quién usa Neuro? · Neuro{% endblock %}
 {% block content %}
-{# v3.1 · 1 ¿Quién sos? (design/v3/pantallas-v31.html): cielo arriba, hoja blanca con una fila por persona. #}
-<main class="app cielo" x-data="selector()">
-  <template x-if="!elegida">
-    <div style="flex: 1; display: flex; flex-direction: column">
-      <div class="cont">
-        <div class="top"><span class="marca"><img src="/static/icons/icon-192.png" alt="" class="marca__logo">Neuro</span>{% if is_test %}<span class="chip chip--chico">Paciente de prueba</span>{% endif %}</div>
-        <h1 class="lt" style="margin-top: 26px">¿Quién sos?<span class="tenue">Elegilo una vez.</span></h1>
-        <p class="cuerpo" style="color: var(--tinta2); margin-top: 10px">Este teléfono se va a acordar.</p>
-      </div>
-      <div class="hoja" style="margin-top: 30px">
-        <div class="asa"></div>
-        {% for p in people if p.role != "neurologo" %}
-        <button type="button" class="fila fila--alta" @click="elegir({{ p.id }}, {{ p.patient_id }}, '{{ p.role }}', '{{ p.name }}')">
-          <span class="avatar-v3{% if p.role == 'paciente' %} avatar-v3--paciente{% endif %}" aria-hidden="true">{{ p.name[0] }}</span>
-          <span class="tx"><span class="a" style="display: block; font-size: 21px; font-weight: 600">{{ p.name }}</span><span class="b" style="display: block">{{ p.relation_label }}</span></span>
-          <span class="pil">Entrar</span>
-        </button>
-        {% endfor %}
-        {% set neuro = people | selectattr("role", "equalto", "neurologo") | first %}
-        <a href="/neuro/informe/{{ patient_id }}" hx-boost="false" class="fila"
-           @click="{% if neuro %}EC.person.set({{ neuro.id }}, {{ patient_id }}, 'neurologo'){% endif %}">
-          <span class="tx"><span class="a" style="font-size: 17px; color: var(--tinta2)">Soy del equipo médico</span></span>
-          <svg width="9" height="15" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.5L7.5 7.5L1.5 13.5" stroke="#8C96A5" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-        </a>
-        <div class="dock"><p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3)">Versión de demostración: sin contraseña.<br>Neuro no es un servicio de emergencias.</p></div>
-      </div>
-    </div>
-  </template>
-
-  <template x-if="elegida">
-    <div style="flex: 1; display: flex; flex-direction: column">
-      <div class="cont">
-        <div class="top"><span class="marca"><img src="/static/icons/icon-192.png" alt="" class="marca__logo">Neuro</span></div>
-        <h1 class="lt" style="margin-top: 26px"><span x-text="'Hola, ' + nombre + '.'"></span><span class="tenue">Este teléfono ya sabe quién sos.</span></h1>
-        <div style="margin-top: 18px">{% with dismissible=False, compact=False %}{% include "casa/_avisos.html" %}{% endwith %}</div>
-      </div>
-      <div class="dock">
-        <a href="/casa" class="btn p j">Seguir</a>
-        <button type="button" class="txtbtn" @click="elegida = false">No soy yo</button>
-        <p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3)">Neuro no es un servicio de emergencias.</p>
-      </div>
-    </div>
-  </template>
+{# v3.1 · 1 ¿Quién sos? (design/v3/pantallas-v31.html): cielo arriba, hoja blanca con una fila por persona.
+   Tocar la fila guarda la persona, pide los avisos en el mismo toque y entra al inicio (selector() en components.js). #}
+<main class="app cielo" x-data='selector({{ next | tojson }})'>
+  <div class="cont">
+    <div class="top"><span class="marca"><img src="/static/icons/icon-192.png" alt="" class="marca__logo">Neuro</span>{% if is_test %}<span class="chip chip--chico">Paciente de prueba</span>{% endif %}</div>
+    <h1 class="lt" style="margin-top: 26px">¿Quién usa Neuro en este teléfono?</h1>
+  </div>
+  <div class="hoja" style="margin-top: 30px">
+    <div class="asa"></div>
+    {% for p in people if p.role != "neurologo" %}
+    <button type="button" class="fila fila--alta" :disabled="entrando" @click="elegir({{ p.id }}, {{ p.patient_id }}, '{{ p.role }}')">
+      <span class="avatar-v3{% if p.role == 'paciente' %} avatar-v3--paciente{% endif %}" aria-hidden="true">{{ p.name[0] }}</span>
+      <span class="tx"><span class="a" style="display: block; font-size: 21px; font-weight: 600">{{ p.name }}</span><span class="b" style="display: block">{{ p.relation_label }}</span></span>
+      <span class="pil">Entrar</span>
+    </button>
+    {% endfor %}
+    {% set neuro = people | selectattr("role", "equalto", "neurologo") | first %}
+    <a href="/neuro/informe/{{ patient_id }}" hx-boost="false" class="fila"
+       @click="{% if neuro %}EC.person.set({{ neuro.id }}, {{ patient_id }}, 'neurologo'){% endif %}">
+      <span class="tx"><span class="a" style="font-size: 17px; color: var(--tinta2)">Soy del equipo médico</span></span>
+      <svg width="9" height="15" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.5L7.5 7.5L1.5 13.5" stroke="#8C96A5" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+    </a>
+    <div class="dock">{% if DEMO_MODE %}<p class="pie-demo" style="margin: 0 auto">Demo · personas ficticias · pasos reales con fechas corridas · pulsera simulada</p>{% endif %}</div>
+  </div>
 </main>
 {% endblock %}

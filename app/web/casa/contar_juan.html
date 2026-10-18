@@ -98,6 +98,7 @@
     <template x-if="phase === 'escribir' || (phase === 'procesando' && writing)">
       <button type="button" class="btn p j" @click="enviarTexto()" :disabled="phase === 'procesando' || !text.trim()">Listo</button>
     </template>
+    <p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3); margin-top: 10px">Neuro no es un servicio de emergencias.</p>
   </div>
 </main>
 {% endblock %}

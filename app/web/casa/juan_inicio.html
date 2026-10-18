@@ -34,7 +34,7 @@
     </div>
 
     {# Solo aparece mientras los avisos no están activos: sin eso a Juan no le llega la pregunta. #}
-    <div style="margin-top: 18px">{% with dismissible=True, compact=True %}{% include "casa/_avisos.html" %}{% endwith %}</div>
+    <div style="margin-top: 18px">{% with dismissible=True %}{% include "casa/_avisos.html" %}{% endwith %}</div>
   </div>
 
   <div class="hoja">
@@ -62,7 +62,7 @@
       {# En una fila, para que el dock no tape el juego en un iPhone de 390×844. #}
       <div class="dock__enlaces">
         <a href="/casa/contar?modo=escribir" class="txtbtn">Prefiero escribir</a>
-        <a href="/" class="pie-rol">Cambiar de persona</a>
+        {% if DEMO_MODE %}<a href="/?cambiar=1" hx-boost="false" class="pie-rol">Cambiar de persona</a>{% endif %}
       </div>
     </div>
   </div>
