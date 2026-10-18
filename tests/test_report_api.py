@@ -113,6 +113,30 @@ def test_series_de_la_pulsera_en_la_vista_tecnica(base):
     assert s["fuentes"] == ["seed"] and s["simulado"] is False
 
 
+def test_la_vista_tecnica_muestra_la_pulsera_rotulada(base, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import clock
+    from app.main import app
+
+    monkeypatch.setattr(clock, "now", lambda: NOW)
+    store._has_db_cache["checked"] = -1e9
+    client = TestClient(app)
+    assert 'id="g-sueno"' not in client.get("/neuro/tecnica/1").text          # sin pulsera, sin tarjeta
+    with db.connect() as conn:
+        d = day(27)
+        for kind, v in (("sleep_minutes", 210), ("sleep_awakenings", 7), ("heart_rate_rest", 66)):
+            conn.execute('INSERT INTO biometrics (patient_id, kind, value, start, "end", source) VALUES (1, ?, ?, ?, ?, ?)',
+                         (kind, v, at(d - dt.timedelta(days=1), 23), at(d, 7), "simulado"))
+        conn.execute('INSERT INTO biometrics (patient_id, kind, value, start, "end", source) VALUES (1, ?, ?, ?, ?, ?)',
+                     ("active_minutes", 35, at(d, 0), at(d, 23, 59), "simulado"))
+    html = client.get("/neuro/tecnica/1").text
+    assert "pulsera · simulado" in html and 'id="g-sueno"' in html and 'id="g-pulso"' in html
+    assert "despertares (1 mediciones)" in html
+    # Debajo de los pasos reales
+    assert html.index('id="g-tomas"') < html.index('id="g-sueno"')
+
+
 def test_sin_pulsera_las_series_quedan_vacias(base):
     s = rep.wearable_series(1, START, END, NOW)
     assert s["noches"] == [] and s["por_hora"] == [] and s["perfil_hora"] == [] and s["mediciones"] == {}

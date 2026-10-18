@@ -41,6 +41,28 @@
       </div>
     </div>
 
+    {% set pu = t.pulsera %}
+    {% if pu and (pu.noches or pu.dias) %}
+    {% set rotulo = "pulsera · simulado" if pu.simulado else "pulsera · " ~ (pu.fuentes | join(", ")) %}
+    <div class="card-neuro" style="padding: 20px 22px; gap: 12px; opacity: .92">
+      <div class="fila-entre" style="flex-wrap: wrap; gap: 8px; align-items: baseline">
+        <div style="font-size: 18px; font-weight: 700; color: var(--color-tinta-suave)">Sueño, frecuencia cardíaca en reposo y minutos activos</div>
+        <span class="pildora-neuro pildora-neuro--ambar">{{ rotulo }}</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 24px">
+        <div style="flex: 1 1 420px; min-width: 0">
+          <div style="font-size: 14px; color: var(--color-tinta-suave)">Sueño por noche (minutos) y despertares</div>
+          <div class="grafico" style="height: 200px"><canvas id="g-sueno" aria-label="Sueño y despertares por noche, {{ rotulo }}" role="img"></canvas></div>
+        </div>
+        <div style="flex: 1 1 420px; min-width: 0">
+          <div style="font-size: 14px; color: var(--color-tinta-suave)">Frecuencia cardíaca en reposo (lpm) y minutos activos</div>
+          <div class="grafico" style="height: 200px"><canvas id="g-pulso" aria-label="Frecuencia cardíaca en reposo y minutos activos, {{ rotulo }}" role="img"></canvas></div>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: var(--color-tinta-suave)">Fuente: {{ rotulo }}{% for k in ["sleep_minutes", "sleep_awakenings", "heart_rate_rest", "active_minutes"] if pu.mediciones.get(k) %}{% if loop.first %} · {% else %}, {% endif %}{{ pu.etiquetas[k].texto | lower }} ({{ pu.mediciones[k] }} mediciones){% endfor %}. Cada noche es la del día en que se despierta. Va aparte de los pasos, que son reales.</div>
+    </div>
+    {% endif %}
+
     <div class="card-neuro" style="padding: 20px 22px; gap: 12px">
       <div style="font-size: 18px; font-weight: 700">Juego de golpeteo · toques por segundo</div>
       {% if t.tests %}
@@ -93,6 +115,41 @@
           backgroundColor: hours.map(function (h) { return doseHours.indexOf(h) >= 0 ? c("--color-bio") : c("--color-bio-medio"); }), borderRadius: 3 }] },
       options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
+
+    // 2 bis) pulsera (simulada y rotulada): tonos tenues, aparte de los pasos reales
+    var pu = t.pulsera;
+    var dm = function (d) { return d.slice(8, 10) + "/" + d.slice(5, 7); };
+    var dual = function (yTitle, y1Title) {
+      return { maintainAspectRatio: false, plugins: { legend: { position: "bottom" } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: yTitle } },
+                  y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: y1Title } } } };
+    };
+    var gs = document.getElementById("g-sueno");
+    if (gs && pu) new Chart(gs, {
+      data: { labels: pu.noches.map(function (n) { return dm(n.date); }), datasets: [
+        { type: "bar", label: "Sueño (min)", data: pu.noches.map(function (n) { return n.sleep_minutes ?? null; }),
+          backgroundColor: c("--color-bio-suave"), borderRadius: 3, yAxisID: "y" },
+        { type: "line", label: "Despertares", data: pu.noches.map(function (n) { return n.sleep_awakenings ?? null; }),
+          borderColor: c("--tinta3"), backgroundColor: c("--tinta3"), borderDash: [4, 3], tension: 0.2, yAxisID: "y1" }] },
+      options: dual("min", "veces")
+    });
+    var gp = document.getElementById("g-pulso");
+    if (gp && pu) {
+      var pdates = [];
+      pu.noches.concat(pu.dias).forEach(function (x) { if (pdates.indexOf(x.date) < 0) pdates.push(x.date); });
+      pdates.sort();
+      var nBy = {}, dBy = {};
+      pu.noches.forEach(function (n) { nBy[n.date] = n; });
+      pu.dias.forEach(function (d) { dBy[d.date] = d; });
+      new Chart(gp, {
+        data: { labels: pdates.map(dm), datasets: [
+          { type: "line", label: "FC en reposo (lpm)", data: pdates.map(function (d) { return nBy[d] && nBy[d].heart_rate_rest != null ? nBy[d].heart_rate_rest : null; }),
+            borderColor: c("--tinta3"), backgroundColor: c("--tinta3"), tension: 0.2, spanGaps: true, yAxisID: "y" },
+          { type: "bar", label: "Minutos activos", data: pdates.map(function (d) { return dBy[d] && dBy[d].active_minutes != null ? dBy[d].active_minutes : null; }),
+            backgroundColor: c("--color-bio-suave"), borderRadius: 3, yAxisID: "y1" }] },
+        options: dual("lpm", "min")
+      });
+    }
 
     // 3) golpeteo
     var g = document.getElementById("g-juego");
