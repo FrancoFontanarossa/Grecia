@@ -45,7 +45,7 @@
   --degrade-hero-pino: linear-gradient(180deg, #1F4D45 0%, #3E7A6E 50%, #C8DDD7 82%, #F2F3F6 100%);
 
   /* Tipografía: SF Pro en el iPhone (la del sistema), Inter de respaldo fuera de Apple */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
 
   --text-juan-titulo: 28px;
   --text-juan-titulo--line-height: 1.2;
