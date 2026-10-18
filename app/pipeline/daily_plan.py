@@ -1,5 +1,6 @@
-# pipeline.daily_plan(digest) -> DailyPlan · modo 2. Sonnet con tool use + JSON schema + Pydantic, 1 reintento.
-# La IA propone hipótesis (vocabulario cerrado) y hasta 2 acciones para mañana; rules.plan las prueba y decide.
+# pipeline.daily_plan(digest) -> DailyPlan · revisión diaria (modo 2). Sonnet con tool use + JSON schema + Pydantic,
+# 1 reintento. La IA escribe la nota del día (bitácora, solo para el equipo médico; la limpia rules.note), propone
+# hipótesis (vocabulario cerrado) y hasta 2 acciones para mañana; rules.plan las prueba y decide.
 # Si la IA falla o no valida: plan vacío y el error al log. Nunca rompe el scheduler.
 import json
 import logging
@@ -41,14 +42,31 @@ _ACTION = {
     "required": ["kind", "at", "to_role", "reason", "basis", "evidence_ids"],
     "additionalProperties": False,
 }
+_NOTE = {
+    "type": "object",
+    "properties": {
+        "text": {"type": "string"},
+        "points": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"text": {"type": "string"}, "evidence_ids": {"type": "array", "items": {"type": "string"}}},
+            "required": ["text", "evidence_ids"],
+            "additionalProperties": False,
+        }},
+        "follow_up": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["text", "points", "follow_up"],
+    "additionalProperties": False,
+}
 TOOL = {
     "name": "planificar_manana",
-    "description": "Hipótesis para que el código las pruebe y hasta dos acciones para mañana.",
+    "description": "La nota del día para el equipo médico, hipótesis para que el código las pruebe y hasta dos "
+                   "acciones para mañana.",
     "strict": True,
     "input_schema": {
         "type": "object",
-        "properties": {"hypotheses": {"type": "array", "items": _HYP}, "actions": {"type": "array", "items": _ACTION}},
-        "required": ["hypotheses", "actions"],
+        "properties": {"note": _NOTE, "hypotheses": {"type": "array", "items": _HYP},
+                       "actions": {"type": "array", "items": _ACTION}},
+        "required": ["note", "hypotheses", "actions"],
         "additionalProperties": False,
     },
 }
@@ -66,11 +84,15 @@ def check(plan: DailyPlan) -> None:
             raise ValueError(f"un motivo tiene cifras (las pone el código): {text!r}")
         if FORBIDDEN.search(_fold(text)):
             raise ValueError(f"un motivo diagnostica, habla de medicación o de causa: {text!r}")
+    if plan.note is not None:       # las cifras de la nota las limpia rules.note; lo prohibido se corrige reintentando
+        for text in [plan.note.text] + [p.text for p in plan.note.points] + plan.note.follow_up:
+            if FORBIDDEN.search(_fold(text)):
+                raise ValueError(f"la nota diagnostica, habla de medicación o de causa: {text!r}")
 
 
 def user_message(digest: dict) -> str:
     return ("<resumen>\n" + json.dumps(digest, ensure_ascii=False, indent=1) + "\n</resumen>\n"
-            "Planificá mañana con la herramienta planificar_manana.")
+            "Escribí la nota de hoy y planificá mañana con la herramienta planificar_manana.")
 
 
 async def daily_plan(digest: dict) -> DailyPlan:

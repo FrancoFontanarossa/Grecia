@@ -2,6 +2,7 @@
 # cruda. Cada cosa lleva su `ref` ("relato:<id>", "episodio:<id>", "juego:<id>", "alerta:<id>", "dia:<fecha>"), que es
 # lo único que la IA puede citar como evidencia (rules.plan.validate lo vuelve a chequear contra la base).
 # Lo reservado NO entra: el plan puede tener acciones para el paciente. Solo se dice cuántos relatos se omitieron.
+# Memoria: las notas de la bitácora de los 7 días previos (texto, puntos y "seguir mirando"), ref "nota:<fecha>".
 import json
 from datetime import date, datetime, timedelta
 from statistics import median
@@ -17,6 +18,15 @@ QUOTE_CHARS = 140
 def _short(text: str) -> str:
     text = " ".join((text or "").split())
     return text if len(text) <= QUOTE_CHARS else text[:QUOTE_CHARS - 1] + "…"
+
+
+def _note_view(n: dict) -> dict:
+    from app.rules.note import REF
+    points = json.loads(n["points"] or "[]")
+    cited = {r for r in REF.findall(n["text"])} | {e for p in points for e in p.get("evidence_ids", [])}
+    return {"ref": f"nota:{n['date']}", "fecha": n["date"], "texto": n["text"],
+            "puntos": [p["text"] for p in points], "seguir_mirando": json.loads(n["follow_up"] or "[]"),
+            "refs_citados": sorted(cited)}
 
 
 def build_digest(patient_id: int, now: datetime) -> dict:
@@ -53,6 +63,10 @@ def build_digest(patient_id: int, now: datetime) -> dict:
         pending = [dict(r) for r in conn.execute(
             "SELECT sent_at, rule_id, question FROM questions WHERE patient_id = ? AND status IN ('pendiente', 'enviada') "
             "AND question != '' AND sent_at >= ?", (patient_id, db.to_db(datetime.combine(first14, datetime.min.time(), TZ))))]
+        notes = [dict(r) for r in conn.execute(
+            "SELECT date, text, points, follow_up FROM daily_notes WHERE patient_id = ? AND date < ? AND date >= ? "
+            "ORDER BY date", (patient_id, today.isoformat(),
+                              (today - timedelta(days=config.BITACORA_MEMORY_DAYS)).isoformat()))]
         used = {r["kind"]: r["n"] for r in conn.execute(
             "SELECT kind, count(*) AS n FROM planned_actions WHERE patient_id = ? AND plan_date = ? "
             "AND status != 'descartada' GROUP BY kind", (patient_id, plan_date.isoformat()))}
@@ -117,6 +131,7 @@ def build_digest(patient_id: int, now: datetime) -> dict:
         "limite_de_manana": {"preguntas_usadas": used.get("pregunta", 0) + used.get("seguimiento", 0),
                              "preguntas_max": config.DAILY_MAX_QUESTIONS,
                              "juegos_usados": used.get("golpeteo", 0), "juegos_max": config.DAILY_MAX_GAME_INVITES},
+        "notas_previas": [_note_view(n) for n in notes],
         "relatos_reservados_omitidos": reservados,
         "fuentes": "pasos del iPhone; sueño y pulso de la pulsera (simulado)",
     }
