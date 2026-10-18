@@ -318,3 +318,6 @@ a.fila:active, button.fila:active { background: var(--suave); }
   box-shadow: 0 0 0 12px rgba(255,255,255,.45), 0 10px 26px rgba(20,40,80,.12); }
 .toque-redondo__texto { font-size: 19px; font-weight: 600; margin-top: 16px; }
 .caja-texto.vidrio { min-height: 180px; padding: 16px 18px; font: 400 20px/27px var(--font); color: var(--tinta); }
+/* anoté esto */
+.check-v3 { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(140deg, #4F8BE4, #1E4FA3); display: grid; place-items: center;
+  box-shadow: 0 10px 24px rgba(30,79,163,.28); }
