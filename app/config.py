@@ -43,5 +43,15 @@ SYMPTOMS_NIGHT_WAKINGS = {"despertares_nocturnos", "insomnio"}   # P-NOCHES
 SYMPTOMS_A1 = {"alucinaciones", "delirios"}                      # A1: alucinación o delirio nuevo
 
 # Modelos (CLAUDE.md §7.4)
+# Modo 2: plan diario (pipeline.daily_plan + rules.plan). Apagado salvo DAILY_PLAN_ENABLED=1.
+DAILY_PLAN_ENABLED = os.environ.get("DAILY_PLAN_ENABLED", "0") == "1"
+DAILY_PLAN_HOUR = 21                             # a las 21 de clock.now() se planifica el día siguiente
+DAILY_PLAN_WINDOW_DAYS = 28                      # ventana de las hipótesis
+DAILY_MAX_QUESTIONS = 1                          # Juan: como mucho 1 pregunta (o seguimiento) planificada por día
+DAILY_MAX_GAME_INVITES = 1                       # …y 1 invitación al golpeteo
+PLAN_HOURS = ("08:00", "22:00")                  # las acciones van entre estas horas de mañana
+HYPOTHESIS_MIN_DAYS = 4                          # días con y sin la condición, como mínimo
+HYPOTHESIS_MIN_DIFF = 0.20                       # diferencia entre medianas, en la dirección declarada
+
 MODEL_EXTRACT = "claude-haiku-5-5"
 MODEL_REASON = "claude-sonnet-5-5"   # explain, ask, report

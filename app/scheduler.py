@@ -7,7 +7,7 @@ import logging
 import sys
 
 from app import _tmp_db as db  # TEMPORAL: app.db de Franco
-from app import clock, notify
+from app import clock, config, notify, plan_jobs
 from app.models import Explanation, Trigger
 from app.pipeline import ask as ask_pipeline
 from app.pipeline import context as context_builder
@@ -130,6 +130,13 @@ async def tick() -> list[int]:
                     continue
                 if qid:
                     sent.append(qid)
+            # Modo 2 (apagado salvo DAILY_PLAN_ENABLED=1): plan de mañana a las 21 y acciones agendadas que llegaron.
+            if config.DAILY_PLAN_ENABLED:
+                try:
+                    await plan_jobs.plan_if_due(patient["id"], now)
+                    await plan_jobs.execute_due(patient["id"], now)
+                except Exception:
+                    log.error("falló el plan diario del paciente %s (%s)", patient["id"], type(sys.exc_info()[1]).__name__)
     return sent
 
 
