@@ -3,11 +3,12 @@
 {% block title %}Rojo · Entrecasa{% endblock %}
 {% block content %}
 <main class="pantalla pantalla--roja" style="gap: 20px" x-data='emergencia({{ alert | tojson }}, {{ entry_id or "null" }}, {{ person.id }})'>
-  <div class="pildora" style="align-self: flex-start; background: #FFFFFF; color: var(--color-rojo)">
-    {{ icon("triangulo", 18, width=2.2) }} Rojo · actuar ahora
-  </div>
-
-  <h1 style="font-size: 24px; line-height: 1.3; font-weight: 600; color: var(--color-tinta)" x-text="text"></h1>
+  {# El título dice la acción, no el estado (REFERENCIAS.md, care card de emergencia del NHS). #}
+  <h1 style="font-size: 24px; line-height: 1.3; font-weight: 600; color: var(--color-tinta)">
+    <span class="sr-only">Acción inmediata: </span>
+    <span x-text="(text || '').includes('Línea Vida') ? 'Llamá ya a la Línea Vida.' : 'Llamá ahora a la emergencia móvil.'"></span>
+  </h1>
+  <div class="lane lane--rojo" style="font-size: 14px">{{ icon("triangulo", 16) }} Rojo · actuar ahora</div>
 
   {# Si falta un criterio, se pregunta solo ese (CLAUDE.md §5.3). #}
   <template x-if="missing && !answered">
@@ -21,21 +22,22 @@
     </div>
   </template>
 
-  <ol style="margin: 0; padding-left: 26px; display: flex; flex-direction: column; gap: 12px; font-size: 21px; line-height: 1.35">
-    {% for step in steps %}<li>{{ step }}</li>{% endfor %}
-  </ol>
+  {# Un bloque en tinta junto al rojo: esta pantalla no se confunde con ninguna otra. #}
+  <div class="card" style="background: var(--color-tinta); border-color: var(--color-tinta); color: #FFFFFF; gap: 14px">
+    <div style="font-size: 19px; line-height: 1.4; font-weight: 600" x-text="text"></div>
+    <ol style="margin: 0; padding-left: 24px; display: flex; flex-direction: column; gap: 10px; font-size: 19px; line-height: 1.35">
+      {% for step in steps %}<li>{{ step }}</li>{% endfor %}
+    </ol>
+  </div>
 
   <div class="espaciador"></div>
 
+  {# Un solo botón: llamar. Sin otros enlaces. #}
   <button type="button" class="btn btn--rojo btn--grande" @click="llamar()">
-    {{ icon("telefono", 28) }} Llamar a emergencias
+    {{ icon("telefono", 28) }}
+    <span x-text="(text || '').includes('Línea Vida') ? 'Llamar a la Línea Vida' : 'Llamar a la emergencia móvil'">Llamar a la emergencia móvil</span>
   </button>
   <div x-show="demoNote" x-cloak class="card" role="status" style="font-size: 17px">Demo: nadie llama. En el piloto, este botón llama a tu emergencia móvil.</div>
-  {% if alert.id %}
-  <button type="button" class="btn btn--secundario" style="min-height: 64px; font-size: 19px" @click="ack({{ alert.id }})" :disabled="acking">Estoy bien</button>
-  {% else %}
-  <a href="/casa" class="btn btn--secundario" style="min-height: 64px; font-size: 19px">Volver al inicio</a>
-  {% endif %}
   <p class="rotulo-demo" style="color: var(--color-tinta)">Entrecasa no es un servicio de emergencias.</p>
 </main>
 {% endblock %}
