@@ -36,15 +36,13 @@ def test_the_script_does_not_touch_the_db_or_the_rules():
     assert not re.search(r"^\s*(from|import) app\b", source, re.M)
 
 
-def test_one_request_per_day_with_every_metric():
+def test_one_request_per_day_with_only_the_core_metrics():
     bodies = sim.payloads()
     assert len(bodies) == 28
     assert all(b["device"]["vendor"] == "simulador" and b["source"] == "simulado" for b in bodies)
     counts = Counter(s["type"] for b in bodies for s in b["samples"])
-    assert {k: counts[k] for k in ("sleep_minutes", "sleep_awakenings", "heart_rate_rest", "hrv_ms", "spo2_pct",
-                                   "resp_rate", "active_minutes")} == dict.fromkeys(
-        ("sleep_minutes", "sleep_awakenings", "heart_rate_rest", "hrv_ms", "spo2_pct", "resp_rate", "active_minutes"), 28)
-    assert counts["tremor_minutes"] == counts["dyskinesia_minutes"] == 28 * 24
+    assert counts == dict.fromkeys(config.WEARABLE_CORE, 28)
+    assert not set(counts) & set(config.WEARABLE_OPTIONAL)                # el simulador no manda opcionales
     assert sim.payloads() == bodies                                       # determinístico
 
 
@@ -71,9 +69,7 @@ def test_end_to_end_the_simulator_sends_and_the_expected_anomalies_come_out(app_
     for d in range(4, 11):
         assert kinds(d) == SLEEP, d
     assert kinds(14) == {"sleep_minutes"}                                # la noche que cuenta Marta
-    for d in (13, 15, 16):
-        assert kinds(d) == {"tremor_minutes"}, d                         # noches 12→13, 15→16 normales
-    for d in (1, 2, 3, 11, 12, 17):
+    for d in (1, 2, 3, 11, 12, 13, 15, 16, 17):                          # 12→13, 15→16 y 16→17 normales
         assert kinds(d) == set(), d
 
 

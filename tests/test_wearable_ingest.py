@@ -126,3 +126,15 @@ def test_wearable_window_is_not_a_steps_sync(client):
     from app.rules import episodes
     client.post("/api/biometrics/wearable", json=payload(), headers=OK)
     assert episodes.observed(1, dt.datetime(2026, 10, 13, 23, tzinfo=TZ)) is None
+
+
+def test_real_payload_with_optionals_is_ingested(client):
+    from app import config
+    units = {"hrv_ms": ("ms", 32), "spo2_pct": ("%", 96), "resp_rate": ("count/min", 15), "tremor_minutes": ("min", 12),
+             "dyskinesia_minutes": ("min", 3), "walking_speed": ("m/s", 1.1), "walking_asymmetry": ("%", 4),
+             "double_support": ("%", 28), "steadiness": ("%", 90)}
+    assert set(units) == set(config.WEARABLE_OPTIONAL)
+    body = payload(*[sample(t, v, u) for t, (u, v) in units.items()], sample("heart_rate_rest", 60, "bpm"))
+    r = client.post("/api/biometrics/wearable", json=body, headers=OK)
+    assert r.status_code == 200 and r.json()["stored"] == 10
+    assert {r["kind"] for r in rows("SELECT kind FROM biometrics")} == set(units) | {"heart_rate_rest"}

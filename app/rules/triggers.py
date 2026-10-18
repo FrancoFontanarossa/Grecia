@@ -155,7 +155,7 @@ def p_repite(patient_id: int, now: datetime) -> list[Trigger]:
 
 
 def p_sueno(patient_id: int, now: datetime) -> list[Trigger]:
-    """La noche que pasó, según la pulsera (simulada): despertares o sueño fuera de lo normal (rules.biometrics).
+    """La noche que pasó, según la pulsera: despertares o sueño fuera de lo normal (rules.biometrics).
     A la mañana y para el paciente. No lleva relatos: nada reservado puede entrar."""
     local = now.astimezone(TZ)
     start, end = config.SLEEP_TRIGGER_HOURS
@@ -169,8 +169,9 @@ def p_sueno(patient_id: int, now: datetime) -> list[Trigger]:
     if patient is None:
         return []
     found.sort(key=lambda a: config.SLEEP_TRIGGER_KINDS.index(a["kind"]))   # primero los despertares
-    facts = {"night_of": local.date().isoformat(), "source": "simulado",
-             "anomalies": [{k: a[k] for k in ("kind", "value", "baseline_median", "baseline_n", "z")} for a in found]}
+    facts = {"night_of": local.date().isoformat(), "source": ", ".join(sorted({a["source"] for a in found})),
+             "anomalies": [{k: a[k] for k in ("kind", "value", "source", "baseline_median", "baseline_n", "z")}
+                           for a in found]}
     return [Trigger(rule_id="P-SUENO", patient_id=patient_id, to_person_id=patient, facts=facts,
                     why=" ".join(a["why"] for a in found))]
 

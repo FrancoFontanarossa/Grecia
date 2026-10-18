@@ -2,6 +2,7 @@ import datetime as dt
 
 import pytest
 
+from app import config
 from app.config import TZ
 from app.rules import biometrics
 from scripts import simular_pulsera as sim
@@ -20,7 +21,8 @@ def kinds(patient_id, d):
 def test_summary_has_every_metric_with_value_base_and_z(wearable):
     s = biometrics.daily_summary(1, day(14))
     assert s["day"] == "2026-10-14" and s["sources"] == ["simulado"]
-    assert set(s["metrics"]) == set(biometrics.METRICS)
+    assert set(s["metrics"]) == set(config.WEARABLE_CORE)
+    assert all(m["source"] == "simulado" for m in s["metrics"].values())
     m = s["metrics"]["sleep_awakenings"]
     assert m["value"] == sim.nightly(day(14))["sleep_awakenings"]
     assert m["baseline_n"] == 24                                # 20/09 a 13/10
@@ -38,12 +40,8 @@ def test_bad_nights_are_sleep_anomalies(wearable):
         assert kinds(1, d) == SLEEP, d
 
 
-def test_tremor_days_are_tremor_anomalies(wearable):
-    for d in (13, 15, 16):
-        assert kinds(1, d) == {"tremor_minutes"}, d
 
-
-@pytest.mark.parametrize("d", [1, 2, 3, 11, 12, 17])
+@pytest.mark.parametrize("d", [1, 2, 3, 11, 12, 13, 15, 16, 17])
 def test_normal_days_have_no_anomalies(wearable, d):
     assert kinds(1, d) == set()
 
@@ -57,8 +55,6 @@ def test_why_in_numbers(wearable):
     v = sim.nightly(day(5))["sleep_awakenings"]
     assert a["sleep_awakenings"]["why"] == f"Anoche te despertaste {v} veces; lo habitual son 2."
     assert a["sleep_minutes"]["why"].startswith("Anoche dormiste ") and "lo habitual son 6 h" in a["sleep_minutes"]["why"]
-    t = {x["kind"]: x for x in biometrics.anomalies(1, day(13))}["tremor_minutes"]
-    assert t["why"].startswith("Ese día la pulsera midió ") and t["direction"] == "high"
 
 
 def test_direction_matters(wearable):
@@ -76,3 +72,44 @@ def test_direction_matters(wearable):
 def test_no_data_is_empty(seeded):
     assert biometrics.daily_summary(1, day(14))["metrics"] == {}
     assert biometrics.anomalies(1, day(14)) == []
+
+
+def ingest(*samples, source="pulsera", end=dt.datetime(2026, 10, 14, 7, tzinfo=TZ)):
+    from app.api.biometrics import ingest_wearable
+    start = end - dt.timedelta(hours=8)
+    ingest_wearable({"device": {"vendor": "Acme", "model": "Band", "id": "1"}, "source": source,
+                     "window_start": start.isoformat(), "window_end": (end + dt.timedelta(hours=17)).isoformat(),
+                     "samples": [{"type": t, "value": v, "unit": u, "start": start.isoformat(), "end": end.isoformat()}
+                                 for t, v, u in samples]})
+
+
+def test_only_steps_does_not_fail(seeded):
+    from tests.rules import steps
+    steps.load()
+    s = biometrics.daily_summary(1, day(14))
+    assert s["metrics"] == {} and s["sources"] == []
+    assert biometrics.anomalies(1, day(14)) == [] and biometrics.describe(s) == ""
+
+
+def test_core_without_optionals_does_not_fail(wearable):
+    s = biometrics.daily_summary(1, day(12))
+    assert set(s["metrics"]) == set(config.WEARABLE_CORE)
+    text = biometrics.describe(s)
+    assert text.startswith("Pulsera, 2026-10-12:") and len(text.splitlines()) == 5
+    for word in ("None", "Variabilidad", "Oxigenación", "Respiración", "temblor"):
+        assert word not in text
+    assert all(line.endswith("· simulado") for line in text.splitlines()[1:])
+
+
+def test_describe_shows_only_what_arrived_with_its_source(seeded):
+    ingest(("sleep_minutes", 6.5, "h"), ("hrv_ms", 31, "ms"), ("tremor_minutes", 40, "min"))
+    s = biometrics.daily_summary(1, day(14))
+    assert set(s["metrics"]) == {"sleep_minutes", "hrv_ms"}               # el temblor se guarda pero no se muestra
+    assert biometrics.describe(s) == ("Pulsera, 2026-10-14:\n- Sueño: 6 h 30 min · pulsera\n"
+                                      "- Variabilidad cardíaca: 31 ms · pulsera")
+
+
+def test_describe_marks_out_of_the_ordinary(wearable):
+    text = biometrics.describe(biometrics.daily_summary(1, day(14)))
+    assert "- Sueño: 3 h" in text and "(lo habitual: 6 h" in text and ", fuera de lo habitual · simulado" in text
+    assert biometrics.describe(None) == ""
