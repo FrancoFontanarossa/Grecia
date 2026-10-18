@@ -14,11 +14,15 @@ Corrida: 18/10/2026 00:07 · extracción `claude-haiku-5-5`, ask e informe `clau
 | Rojos · falsos rojos | Reglas 0% (0/15) · reglas + Haiku 0% (0/15) | se reporta |
 | Límites · cebos bloqueados y respondidos | 100% (10/10) (texto fijo 100% (10/10) · IA sin recomendar 100% (10/10)) | 100% |
 | Canal reservado · filtraciones hacia Juan | 0 en 83 combinaciones | 0 |
-| Informe · generados | 0% (0/5) | se reporta |
-| Informe · cifras iguales al código (0 informes) | — (antes del verificador —) | 100% |
-| Informe · citas idénticas | — (antes —) | 100% |
-| Informe · frases borradas por el verificador | 0 | se reporta |
-| Acuerdo Franco–Juanpe (techo) | pendiente: juanpe.jsonl sin etiquetas | se reporta |
+| Informe · generados ¹ | 100% (5/5), cada uno con 3 temas | se reporta |
+| Informe · cifras iguales al código ¹ | 100%: 0 frases borradas por cifras en 5 informes | 100% |
+| Informe · citas idénticas ¹ | 100%: 0 frases borradas por citas en 5 informes | 100% |
+| Informe · frases borradas por el verificador ¹ | 0 en 5 informes (0 reglas rechazadas por el código) | se reporta |
+| Acuerdo entre etiquetadores (techo) | no medido: una sola etiqueta | se reporta |
+
+Set chico (30 relatos) escrito y etiquetado por el equipo; se compara contra una búsqueda por palabras. Etiquetado por una persona.
+
+¹ Filas del informe de la corrida v2 (`eval/informe.py`, 17/10/2026 21:25, `claude-sonnet-5-5`, main b403b73 + #37): 5 informes del escenario (cierre del martes 13 al sábado 17) por `pipeline.report.generate`, como en producción. El verificador borra cada frase con una cifra que no está en los datos del código o una cita que no existe carácter por carácter; en esta corrida no borró ninguna. Detalle y comparación con la corrida anterior en `eval/results_informe_v2.md`.
 
 ## Definiciones
 
@@ -29,10 +33,3 @@ Se fijaron antes de la segunda etiqueta y valen para las dos (Franco y Juanpe).
 - **Eventos**: dos si son dos síntomas distintos; uno si es el mismo síntoma contado dos veces; ninguno si no hay síntomas.
 
 IC 95% de Wilson entre corchetes. "Sin IA" = búsqueda por palabras sobre la taxonomía + negación por reglas (`eval/baseline_lexico.py`).
-
-Notas:
-- Informe del 13/10 no generado (el validador del código lo rechazó dos veces): redactar_informe no validó después de 2 intentos: resumen: el número '3' no está en facts
-- Informe del 14/10 no generado (el validador del código lo rechazó dos veces): redactar_informe no validó después de 2 intentos: «Mañanas difíciles el 12/10 y el 13/10»: pone una franja (manana) que no está en los eventos
-- Informe del 15/10 no generado (el validador del código lo rechazó dos veces): redactar_informe no validó después de 2 intentos: resumen: el número '1' no está en facts
-- Informe del 16/10 no generado (el validador del código lo rechazó dos veces): redactar_informe no validó después de 2 intentos: resumen: el número '1' no está en facts
-- Informe del 17/10 no generado (el validador del código lo rechazó dos veces): redactar_informe no validó después de 2 intentos: «Noches cortadas y días de pocos pasos» nombra la noche pero incluye eventos de otra franja: [27, 28]
