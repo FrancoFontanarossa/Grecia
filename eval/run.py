@@ -5,8 +5,9 @@
 Usa la IA real (Haiku para extraer y respaldo de rojos, Sonnet para ask e informe): si falta ANTHROPIC_API_KEY
 lo dice y corta. Trabaja sobre una base temporal: nunca toca DATA_DIR.
 
-Hora de cada relato (labels "time"): anoche · hoy · ayer · vago (dice cuándo pero impreciso: "el otro día",
-"últimamente", "el domingo", algo habitual) · ninguna (no dice nada de cuándo).
+Hora de cada relato (labels "time"): anoche · hoy · ayer · vago (palabra de tiempo imprecisa: "el otro día",
+"últimamente", "el domingo", "a la tarde" en general) · ninguna (no dice cuándo, aunque sea habitual).
+La extracción no distingue esos dos casos de lo habitual (occurred_at None): run.py lo cuenta como "vago".
 """
 import asyncio
 import datetime as dt
