@@ -34,8 +34,8 @@ class NotHeard(TranscriptionError):
 
 
 # Lo que Whisper suele "inventar" sobre silencio o ruido. Con ruido fuerte, además, repite o parafrasea el prompt
-# ("la vida de alguien que vive con Parkinson"): eso también es "no te escuché". Nunca solo nombres de fármacos:
-# "tomo levodopa, carbidopa, pramipexol y apixabán" es un relato real (y puede ser parte de un rojo).
+# ("la vida de alguien que vive con Parkinson"): eso también es "no te escuché". La lista de fármacos sola la
+# cubre only_drug_names(); acá no van, porque "tomo levodopa, carbidopa, pramipexol…" es un relato real.
 _SILENCE_HALLUCINATIONS = ("subtitulos realizados", "amara.org", "gracias por ver", "suscribete", "subtitulado por",
                            "relato en espanol", "vida diaria de una persona", "vive con parkinson",
                            "persona con parkinson")
@@ -70,6 +70,13 @@ def echoes_prompt(folded: str) -> bool:
             and len(shared) / len(words) >= ECHO_MIN_SHARE)
 
 
+def only_drug_names(folded: str) -> bool:
+    """True si las palabras con contenido son todas nombres de fármacos del PROMPT ("medicamentos" es la única
+    extra permitida): "Levodopa, pramipexol, apixabán." es eco. Con cualquier otra palabra ("tomé levodopa") no."""
+    words = _content_words(folded)
+    return any(w in PROMPT_DRUGS for w in words) and all(w in PROMPT_DRUGS or w == "medicamentos" for w in words)
+
+
 def is_red(text: str) -> bool:
     """True si el texto dispara (o repregunta) una regla roja. Se evalúa con todos los fármacos del PROMPT, más que
     los de cualquier paciente: acá solo decide no descartar; el rojo de verdad lo evalúa después el pipeline con
@@ -86,7 +93,7 @@ def unintelligible(text: str) -> bool:
     if is_red(text):
         return False
     return (sum(ch.isalnum() for ch in folded) < 3 or bool(_FILLERS.match(folded))
-            or any(h in folded for h in _SILENCE_HALLUCINATIONS) or echoes_prompt(folded))
+            or any(h in folded for h in _SILENCE_HALLUCINATIONS) or echoes_prompt(folded) or only_drug_names(folded))
 
 
 class UnsupportedAudio(ValueError):

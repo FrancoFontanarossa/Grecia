@@ -133,10 +133,21 @@ def test_nombrar_farmacos_no_es_no_te_escuche(real):
 
 
 @pytest.mark.parametrize("solo_farmacos", ["Levodopa, pramipexol, apixabán.",
-                                           "Medicamentos: levodopa, carbidopa, pramipexol, apixabán."])
-def test_solo_nombres_de_farmacos_ya_no_es_eco(solo_farmacos):
-    # Antes eran eco; ahora hacen falta 2 palabras del prompt que no sean fármacos: mejor guardarlo que perder un rojo.
-    assert not t.unintelligible(solo_farmacos)
+                                           "Medicamentos: levodopa, carbidopa, pramipexol, apixabán.",
+                                           "Levodopa carbidopa pramipexol apixabán"])
+def test_solo_nombres_de_farmacos_es_eco(solo_farmacos):
+    # Todas las palabras con contenido son fármacos del prompt ("medicamentos" es la única extra): es eco.
+    assert t.only_drug_names(t_fold(solo_farmacos)) and t.unintelligible(solo_farmacos)
+
+
+@pytest.mark.parametrize("con_otra_palabra", ["Tomé levodopa", "Me caí, tomo apixabán", "Medicamentos de hoy: levodopa"])
+def test_farmacos_con_otra_palabra_no_es_eco(con_otra_palabra):
+    assert not t.unintelligible(con_otra_palabra)
+
+
+def t_fold(text):
+    from app.taxonomy import _fold
+    return _fold(text)
 
 
 @pytest.mark.parametrize("rojo", ["Me golpeé la cabeza, tomo levodopa, carbidopa, pramipexol y apixabán",
