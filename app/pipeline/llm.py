@@ -39,7 +39,11 @@ async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseMode
     `check(parsed)` puede lanzar ValueError para rechazar una salida válida pero que no cumple una regla del código."""
     system = knowledge.system_blocks(prompt)
     last: Exception | None = None
+    message = content
     for attempt in range(1, MAX_ATTEMPTS + 1):
+        if last is not None:   # el reintento sabe por qué se rechazó la respuesta anterior
+            message = (f"{content}\n<correccion>Tu respuesta anterior fue rechazada por el código: {last}. "
+                       f"Respondé de nuevo con la herramienta {tool['name']}, corrigiendo eso.</correccion>")
         try:
             response = await _create(
                 model=MODEL_REASON,
@@ -50,7 +54,7 @@ async def call_tool(prompt: str, tool: dict, content: str, output: type[BaseMode
                 output_config={"effort": effort},
                 betas=[FALLBACK_BETA],
                 fallbacks="default",
-                messages=[{"role": "user", "content": content}],
+                messages=[{"role": "user", "content": message}],
             )
         except anthropic.AnthropicError as exc:   # el SDK ya reintentó 429/5xx/conexión
             raise LLMError(f"Falló la llamada a Claude: {exc}") from exc
