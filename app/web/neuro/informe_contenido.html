@@ -8,7 +8,7 @@
 <div class="chips" style="gap: 10px">
   {% for med in m.medications %}
   {% if med.changed %}
-  <div class="chip-neuro chip-neuro--ambar">{{ med.drug | capitalize }} {{ med.note or "cambiado" }} el {{ med.changed.date | ddmm }} · hace {{ med.changed.days_ago }} días</div>
+  <div class="chip-neuro chip-neuro--ambar" title="{{ med.note or '' }}">{{ med.drug | capitalize }}: cambio del {{ med.changed.date | ddmm }} · hace {{ med.changed.days_ago }} días</div>
   {% else %}
   <div class="chip-neuro">{{ med.label }}</div>
   {% endif %}
@@ -96,7 +96,7 @@
         {% set is_patient = key == "paciente" or key == m.patient.name or key.startswith(m.patient.name ~ ",") %}
         <div style="background: var(--color-fondo); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
           <div style="font-size: 13px; font-weight: 700; color: var(--color-tinta-suave)">{{ (m.sources.names.get(key) or key) | upper }}{% if t.reserved and not is_patient %} · solo equipo médico{% endif %}</div>
-          <div style="font-size: 16px; line-height: 1.45">"{{ quote }}"</div>
+          <div style="font-size: 16px; line-height: 1.45">{{ quote if quote.startswith("«") or quote.startswith('"') else "«" ~ quote ~ "»" }}</div>
         </div>
         {% endfor %}
       </div>
