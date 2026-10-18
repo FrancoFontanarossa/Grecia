@@ -47,7 +47,21 @@ def get_question(question_id: int) -> dict:
     if not q:
         raise HTTPException(404, "No encontramos esa pregunta.")
     q["chart"] = why_chart(q.get("deviation"))
+    q["past"] = is_past(q)
     return q
+
+
+def is_past(q: dict) -> bool:
+    """Una pregunta de un día anterior ya pasó: no se responde como si fuera de hoy (la respuesta tardía se guardaría
+    como relato común). La fecha sale de sent_at, en hora local, contra clock.now()."""
+    from app import clock
+    from app.config import TZ
+
+    sent = q.get("sent_at")
+    if not sent:
+        return False
+    sent_day = dt.datetime.fromisoformat(str(sent)).astimezone(TZ).date()
+    return sent_day < clock.now().astimezone(TZ).date()
 
 
 @router.get("/questions/{question_id}")

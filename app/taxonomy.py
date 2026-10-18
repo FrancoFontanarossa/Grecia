@@ -135,3 +135,22 @@ def domain_of(symptom: str) -> Domain:
 def label(domain: str) -> str:
     """Etiqueta para la pantalla ("Movimiento", "Sueño y descanso"…)."""
     return DOMAINS.get(domain, DOMAINS["otro"])
+
+
+# Las claves van sin tildes; para leer (avisos, informe, "por qué te pregunto"), en castellano.
+SYMPTOM_LABELS = {
+    "movimientos_involuntarios": "movimientos involuntarios", "dificultad_caminar": "dificultad para caminar",
+    "voz_baja": "voz baja", "despertares_nocturnos": "despertares de noche", "actua_suenos": "que actúa los sueños",
+    "somnolencia_diurna": "somnolencia de día", "piernas_inquietas": "piernas inquietas", "confusion": "confusión",
+    "apatia": "apatía", "dificultad_concentracion": "dificultad para concentrarse", "desorientacion": "desorientación",
+    "constipacion": "constipación", "urinario": "problemas para orinar", "mareo_al_pararse": "mareo al pararse",
+    "sudoracion": "sudoración", "dificultad_tragar": "dificultad para tragar", "caida": "caída",
+    "casi_caida": "casi caída", "juego_apuestas": "juego y apuestas", "compras_compulsivas": "compras compulsivas",
+    "comer_compulsivo": "comer compulsivo", "otros_impulsos": "otros impulsos",
+    "cambio_deseo_sexual": "cambio en el deseo sexual",
+}
+
+
+def symptom_label(symptom: str) -> str:
+    """"actua_suenos" → "que actúa los sueños"; sin etiqueta propia, la clave con espacios."""
+    return SYMPTOM_LABELS.get(symptom, (symptom or "").replace("_", " "))

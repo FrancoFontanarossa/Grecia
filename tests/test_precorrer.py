@@ -52,10 +52,10 @@ def rows(sql, *args):
         return [dict(r) for r in conn.execute(sql, args)]
 
 
-def juan_questions(day: str):
-    """Preguntas que se le hicieron a Juan ese día (las de días anteriores vencen: quedan 'descartada')."""
-    return rows("SELECT * FROM questions WHERE to_person_id = 1 AND question != '' "
-                "AND substr(sent_at, 1, 10) = ?", day)
+def questions_to(person_id: int, day: str):
+    """Preguntas que se le hicieron a esa persona ese día (las de días anteriores vencen: quedan 'descartada')."""
+    return rows("SELECT * FROM questions WHERE to_person_id = ? AND question != '' "
+                "AND substr(sent_at, 1, 10) = ?", person_id, day)
 
 
 def test_el_escenario_cumple_lo_que_necesita_la_demo():
@@ -97,10 +97,11 @@ def test_precorrer_arma_la_semana_de_la_demo(semana):
     assert result["cargados"] == n
     assert len(rows("SELECT * FROM entries WHERE source = 'precorrer'")) == n
     assert clock.now().isoformat().startswith("2026-10-16T23:00")
-    # §3: martes 13 sin relato → pregunta; jueves 15 Juan cuenta antes de las 18 → no; viernes 16 → pregunta
-    assert len(juan_questions("2026-10-13")) == 1
-    assert juan_questions("2026-10-15") == []
-    assert len(juan_questions("2026-10-16")) == 1
+    # §3: martes 13 sin relato → pregunta; jueves 15 Juan cuenta antes de las 18 → no; viernes 16 → pregunta.
+    # Alcance de las 04:15: los desvíos se le preguntan a Marta (2), no a Juan (1).
+    assert len(questions_to(2, "2026-10-13")) == 1 and questions_to(1, "2026-10-13") == []
+    assert questions_to(2, "2026-10-15") == []
+    assert len(questions_to(2, "2026-10-16")) == 1
     episodes = {r["dose_time"][:10]: r["status"] for r in rows("SELECT dose_time, status FROM episodes")}
     assert episodes == {"2026-10-13": "preguntado", "2026-10-15": "explicado", "2026-10-16": "preguntado"}
     assert any(a["rule_id"] == "A3" for a in rows("SELECT rule_id FROM alerts"))
@@ -119,12 +120,13 @@ def test_precorrer_es_idempotente(semana):
 
 
 def test_el_presupuesto_del_sabado_queda_libre_para_la_caida_en_vivo(semana):
-    """Después de precorrer, el sábado 17 hasta las 15:55 Juan no recibe ninguna pregunta."""
+    """Después de precorrer, el sábado 17 hasta las 15:55 ni Juan ni Marta reciben una pregunta: la de la caída en
+    vivo (a Marta) tiene presupuesto."""
     asyncio.run(pre.run())
     for hhmm in ("08:05", "10:05", "12:05", "14:05", "15:55"):
         clock.set(f"2026-10-17T{hhmm}:00")
         asyncio.run(scheduler.tick())
-    assert juan_questions("2026-10-17") == []
+    assert questions_to(1, "2026-10-17") == [] and questions_to(2, "2026-10-17") == []
     assert rows("SELECT * FROM notifications WHERE person_id = 1 AND kind = 'pregunta' "
                 "AND substr(created_at, 1, 10) = '2026-10-17'") == []
 

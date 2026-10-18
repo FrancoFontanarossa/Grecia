@@ -70,7 +70,7 @@ Lo que la consigna exige y nos cambia cosas:
 
 ## 3. Personajes y calendario de la demo (ficticios)
 
-- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el sábado 03/10/2026**. **iPhone, sin reloj.** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
+- **Juan**, 74, Parkinson hace 9 años. Levodopa/carbidopa a las 8, 12, 16 y 20. Pramipexol, que la neuróloga le **subió el sábado 03/10/2026**. **Juan: iPhone y una pulsera común que le regaló Laura (datos de la pulsera simulados y rotulados).** Su "para qué" de caminar: llegar a la plaza a ver a sus nietos. Meta de la neuróloga: 4.000 pasos por día.
 - **Marta**, su esposa, vive con él. Segunda voz, principal para lo nocturno.
 - **Laura**, su hija, vive en Salto. Recibe logros, rojos y un resumen tranquilo. También puede contar algo.
 - **Dra. Pereira**, la neuróloga: lee el informe en la computadora. Consulta del miércoles 28/10.
@@ -88,22 +88,24 @@ Lo que la consigna exige y nos cambia cosas:
 ## 4. Alcance
 
 ### P0 — sin esto no hay demo
+> **Alcance desde las 04:15:** Entrecasa **no es un botón de pánico ni un canal con la neuróloga**; es seguimiento entre consultas. El único contacto con la neuróloga es el informe. Los rojos solo muestran un mensaje fijo a quien escribe; el ámbar no notifica a nadie y es prioridad en el informe; las push solo sirven para recabar información cuando algo en los datos no cierra (las biométricas, a Marta).
+
 1. **Reloj de demo** (`app/clock.py`): `clock.now()` único, `POST /admin/clock/advance` y `set`, y un tick que dispara las tareas programadas (disparadores proactivos, chequeo de desvío, progreso de meta). Se construye primero.
 2. **PWA instalable en iPhone** (sección 9): "¿Quién sos?", pantallas de Juan, Marta y Laura, notificaciones push que abren la pantalla correcta.
 3. **Contar algo** (las tres voces): audio o texto, con "¿cuándo pasó?" (chips o en el relato) → transcripción → rojos → extracción → **"Anoté esto"** con lo que entendimos, corregible.
-4. **Rojos:** reglas sobre el texto **antes** del LLM, más un respaldo con Haiku que **solo puede subir** a rojo. Texto fijo. Si falta un criterio, se repregunta solo ese.
+4. **Rojos:** reglas sobre el texto **antes** del LLM, más un respaldo con Haiku que **solo puede subir** a rojo. El único efecto es un **mensaje fijo en la pantalla de quien escribió** (sección 5.3) y una marca en el informe. Sin push, sin pantalla de emergencia, sin "Estoy bien". Si falta un criterio, se muestra la repregunta de solo ese.
 5. **Biometría:** endpoint para el Atajo de iOS, importación de la historia y seed; `rules.episodes.deviation` con la estadística de la sección 7.3.
-6. **Proactividad:** disparadores en código (sección 6.2) → `pipeline.explain` intenta explicar → si no explica, `pipeline.ask` redacta la pregunta → push con pregunta, motivo (cifras del código) y respuestas rápidas → la respuesta se guarda como relato y cierra el episodio. Con presupuesto anti-fatiga.
+6. **Proactividad:** disparadores en código (sección 6.2) → `pipeline.explain` intenta explicar (con los relatos posteriores a la toma, si es un desvío) → si no explica, `pipeline.ask` redacta la pregunta → push con pregunta, motivo (cifras del código) y respuestas rápidas → la respuesta se guarda como relato y cierra el episodio. Los datos raros (pasos, pulsera, juego) se le preguntan a **Marta**. Con presupuesto anti-fatiga.
 7. **Juego de golpeteo** de 20 s: puntaje en el backend (toques por segundo, regularidad), comparado contra el historial propio; se ofrece desde el inicio y después de un desvío.
-8. **Avisos ámbar** A1 a A3 (sección 6.3) con destinatarios por consentimiento.
-9. **Consentimiento mínimo y canal reservado:** un interruptor por destinatario y tipo (avisos, logros) y el interruptor "Solo para el equipo médico" al contar algo. El canal reservado es una regla de una línea con tests (sección 6.4).
+8. **Avisos ámbar** A1 a A3 (sección 6.3): no notifican a nadie; son la prioridad del informe ("Para conversar en la consulta").
+9. **Consentimiento mínimo y canal reservado:** un interruptor por destinatario para los logros y el interruptor "Solo para el equipo médico" al contar algo. El canal reservado es una regla de una línea con tests (sección 6.4).
 10. **Meta de pasos y logro:** anillo de progreso para Juan; cuando llega, aviso de logro a Marta y Laura (texto fijo con cifras del código, si Juan lo habilitó). Día con episodio o rojo: no cuenta como fallado.
 11. **Informe para la neuróloga** (web): resumen redactado, tres temas, dos voces, evidencia clickeable, verificador. Se regenera en segundo plano como máximo una vez cada 30 s (gana la última). **Vista técnica mínima:** pasos por franja alineados a las tomas con los desvíos marcados, y el historial del juego.
-12. **Resumen de la familia:** "Hoy" de Marta (ámbar con qué hacer, semana de Juan, logros) y resumen de Laura.
+12. **Resumen de la familia:** "Hoy" de Marta (semana de Juan, logros) y resumen de Laura (resumen y logros). Sin rojos ni ámbar.
 13. **Paciente de prueba y restauración de la base** (sección 3).
 14. **Eval** de la sección 13 y la tabla en `eval/results.md`.
 
-**Si el checkpoint de las 20:30 falla**, se recorta en este orden: (1) vista técnica a un solo gráfico; (2) resumen de Laura queda solo con el logro; (3) meta de pasos sin aviso a la familia. **Nunca se recortan:** contar algo con "Anoté esto", rojos, proactividad con push, juego, informe con verificador y eval.
+**Si el checkpoint de las 20:30 falla**, se recorta en este orden: (1) vista técnica a un solo gráfico; (2) resumen de Laura queda solo con el logro; (3) meta de pasos sin aviso a la familia. **Nunca se recortan:** contar algo con "Anoté esto", rojos (mensaje fijo), proactividad con push, juego, informe con verificador y eval.
 
 ### P1 — si a las 20:30 el P0 anda
 - **Encargo de la consulta:** la neuróloga escribe una línea → Claude propone metas y preguntas con su frase de origen → ella confirma ítem por ítem. Medicación nunca se vuelve meta.
@@ -122,7 +124,7 @@ Lo que la consigna exige y nos cambia cosas:
 WhatsApp para la familia que vive lejos (en la hackatón solo sería viable el sandbox de Twilio; la API oficial tarda días por la verificación de Meta) · botonera para etapa avanzada · integración con relojes que detectan caídas o con teleasistencia · app nativa con lectura automática de Salud (HealthKit) y Health Connect para Android (camino: envolver esta misma PWA con Capacitor) · informe intermedio · FHIR · prueba de voz.
 
 ### Fuera de alcance
-Diagnóstico, estadio, probabilidad de Parkinson, estado on/off inferido, opciones de tratamiento, cualquier recomendación de medicación o dosis, llamadas reales a emergencias.
+Diagnóstico, estadio, probabilidad de Parkinson, estado on/off inferido, opciones de tratamiento, cualquier recomendación de medicación o dosis, llamadas reales a emergencias, **botón de pánico, avisos de rojo o ámbar a la familia y cualquier canal con la neuróloga fuera del informe** (desde las 04:15).
 
 ---
 
@@ -131,21 +133,23 @@ Diagnóstico, estadio, probabilidad de Parkinson, estado on/off inferido, opcion
 ### 5.1 Proactividad: episodio explicado (martes 13, y en vivo en la demo)
 1. Llegan los pasos (Atajo o seed).
 2. El tick del reloj corre `rules.triggers.evaluate`. `deviation` compara los pasos de las 2 h después de la toma de las 16 contra la línea de base: bajó 70% (caída inyectada, rotulada).
-3. `pipeline.explain` recibe el desvío, los relatos de los últimos 3 días y responde `{explained, by, reasoning}`. Si lo explica, se guarda y no se molesta.
-4. Si no: `rules.budget.allow` → `pipeline.ask` redacta la pregunta y las respuestas rápidas → push a Juan: "Juan, una pregunta de hoy" / "A la tarde caminaste menos que otros martes. ¿Pasó algo?".
-5. Juan toca la notificación → pantalla de la pregunta con **"Por qué te pregunto"** (otros martes ≈ 1.300 pasos de 16 a 18 h; hoy 420; cifras del código) → toca una respuesta rápida o "Contalo con tu voz".
-6. "Anoté esto" → se guarda el episodio: desvío, explicaciones probadas, relato, juego si lo hizo, estado.
+3. `pipeline.explain` recibe el desvío y **solo los relatos posteriores a la toma** (de los últimos 3 días) y responde `{explained, by, reasoning}`. Si lo explica, se guarda y no se molesta.
+4. Si no: `rules.budget.allow` → `pipeline.ask` redacta la pregunta y las respuestas rápidas → push a **Marta**: "Una pregunta de hoy" / "Notamos que Juan caminó mucho menos hoy a la tarde que otras tardes. ¿Pasó algo?".
+5. Marta toca la notificación → pantalla de la pregunta con **"Por qué te pregunto"** (otras tardes ≈ 1.300 pasos de 16 a 18 h; hoy 420; cifras del código) → toca una respuesta rápida o "Contalo con tu voz". Una pregunta de un día anterior muestra "Esta pregunta ya pasó".
+6. "Anoté esto" → su respuesta entra como relato y se guarda el episodio: desvío, explicaciones probadas, relato, estado. A Juan lo que sigue siendo para él es la invitación al juego del plan diario.
 
 ### 5.2 Contar algo y segunda voz (miércoles 14, y en vivo con el jurado)
 1. Marta, desde su iPhone: toca "Contar algo", elige "Anoche" y graba: "anoche hablaba con alguien que no estaba; debe ser el cansancio".
 2. Progreso visible: "Escuchando… → Pasando a texto… → Entendiendo lo que contaste…".
 3. Extracción: alucinación · cuidadora · atribución ajena "cansancio" · primera mención · anoche.
 4. "Lo que entendimos" en la pantalla de Marta, con el interruptor "Solo para el equipo médico" activado.
-5. Código: alucinación nueva + 11 días del cambio de pramipexol → **ámbar** al equipo (informe y bandeja de la neuróloga) y a Marta con qué hacer.
-6. Canal reservado: **Juan no ve nada de esto** (ni notificación ni detalle).
+5. Código: alucinación nueva + 11 días del cambio de pramipexol → **ámbar**: no notifica a nadie; aparece primero en "Para conversar en la consulta" del informe.
+6. Canal reservado: **Juan no recibe nada de lo reservado: ni notificación ni detalle; lo acepta como consentimiento al configurar la app.**
 
 ### 5.3 Rojo
-"Se cayó, se golpeó la cabeza y toma apixabán" → regla → pantalla roja fija con qué hacer y el número de la emergencia móvil, push a Marta y Laura. Si falta un criterio, se pregunta solo ese. La meta de pasos queda en pausa.
+"Se cayó, se golpeó la cabeza y toma apixabán" → regla → **en la pantalla de quien lo escribió**, junto a "Anoté esto", el mensaje fijo: "Esto puede ser urgente. Entrecasa no es un servicio de emergencias: si es urgente, llamá a tu emergencia móvil." (R4: "Si estás pensando en hacerte daño, llamá a la Línea Vida: 0800 0767 o *0767, las 24 horas."). El relato se extrae igual y el rojo queda marcado en el informe con sus signos. Nada más: sin push a la familia, sin pantalla de emergencia, sin "Estoy bien". Si falta un criterio, se muestra la repregunta de solo ese. La meta de pasos queda en pausa ese día.
+
+Pedidos de medicación, dosis, estadio o diagnóstico (`rules.limits`): el mismo lugar muestra el texto fijo "Eso lo decide tu neuróloga. Lo anoto para que lo lleves a la consulta." y el relato se anota igual.
 
 ### 5.4 Juego
 1. Juan toca "Juego de 20 segundos" (o lo ofrece la pregunta proactiva).
@@ -159,6 +163,7 @@ Diagnóstico, estadio, probabilidad de Parkinson, estado on/off inferido, opcion
 2. Claude escribe un **resumen de 4 a 6 líneas en prosa** y elige tres temas con una regla escrita (seguridad primero, después lo que cambió desde el cambio de medicación, después lo que se repite). Cada tema tiene **un párrafo redactado**, lo observado (fechas, conteos), las dos voces lado a lado sin veredicto y una pregunta sugerida para la consulta.
 3. El verificador borra cada cifra que no coincide con el código y cada cita que no existe carácter por carácter, y cuenta lo borrado. El conteo se muestra.
 4. Lo del canal reservado sale marcado "para hablar en privado".
+4 bis. "Para conversar en la consulta" empieza por la prioridad que calcula el código: los rojos marcados y los ámbar (A1–A3) del período, con fecha. Es el único lugar donde la neuróloga recibe algo.
 5. Vista técnica en una pestaña aparte, con fuente y cantidad de mediciones de cada serie.
 
 ### 5.6 Meta y logro
@@ -171,42 +176,43 @@ Progreso en el anillo de Juan. Al llegar a 4.000: Marta y Laura reciben "Juan ll
 ### 6.1 Carriles
 | Carril | Comportamiento |
 |---|---|
-| **Rojo** | Inmediato, texto fijo, sin presupuesto ni silencio nocturno, nunca agrupado. La IA no puede bajarlo. |
-| **Ámbar** | Para el equipo en el informe y la bandeja; para la familia, agrupado en "Hoy". Un push de ámbar por día por persona como máximo. |
+| **Rojo** | Mensaje fijo en la pantalla de quien escribió, en el momento; marcado en el informe con sus signos. No notifica a nadie. La IA no puede bajarlo. |
+| **Ámbar** | No notifica a nadie. Es la prioridad del informe ("Para conversar en la consulta"). |
 | **Verde** | No notifica; va al informe. |
 
 ### 6.2 Disparadores proactivos (código, `rules/triggers.py`)
 | ID | Disparador | Regla | A quién se pregunta |
 |---|---|---|---|
-| P-DESVIO | Menos actividad después de una toma | `deviation` ≠ None (sección 7.3) y `explain` no lo explica | Juan |
+| P-DESVIO | Menos actividad después de una toma | `deviation` ≠ None (sección 7.3) y `explain` no lo explica con relatos posteriores a la toma | Marta (sobre Juan, en tercera persona) |
 | P-NOCHES | Noches malas | 3 noches con despertares contados en 7 días | Marta (lo nocturno lo ve ella) |
 | P-SILENCIO | Días sin contar nada | 2 días sin relatos de ninguna voz | Juan, con pregunta abierta |
-| P-JUEGO | Juego peor que su historial | toques/s < 85% de la mediana de sus últimas 7 sesiones (mínimo 3) | Juan |
+| P-JUEGO | Juego peor que su historial | toques/s < 85% de la mediana de sus últimas 7 sesiones (mínimo 3) | Marta |
 | P-REPITE | Algo que se repite | mismo síntoma contado 2 veces en 7 días por la familia y nunca por Juan; ignora los eventos reservados | Juan, con pregunta suave |
-| P-SUENO | Noche mala según la pulsera (simulada) | a la mañana (8 a 12), `rules.biometrics.anomalies` de ese día con `sleep_awakenings` o `sleep_minutes` fuera de lo normal; why en cifras ("Anoche te despertaste 6 veces; lo habitual son 2.") | Juan |
+| P-SUENO | Noche mala según la pulsera (simulada) | a la mañana (8 a 12), `rules.biometrics.anomalies` de ese día con `sleep_awakenings` o `sleep_minutes` fuera de lo normal; why en cifras ("Anoche Juan se despertó 6 veces; lo habitual son 2.") | Marta |
 | P-PATRON (P1) | Patrón de la revisión diaria | `PatternCandidate` que pasó el verificador, con `suggested_action = preguntar` | El rol que propone, si el presupuesto lo permite |
 
-Cada disparador genera como máximo una `Question`. El texto lo redacta `pipeline.ask`; el "por qué te pregunto" lo arma el código con las cifras. Lo reservado nunca entra al contexto de `explain` ni de `ask` si el destinatario es el paciente.
+Cada disparador genera como máximo una `Question`. El texto lo redacta `pipeline.ask`; el "por qué te pregunto" lo arma el código con las cifras. Lo reservado nunca entra al contexto de `explain` ni de `ask` si el destinatario es el paciente. Las push son solo para recabar información: los disparadores biométricos (P-DESVIO, P-SUENO, P-JUEGO) le preguntan a Marta y su respuesta entra como relato; P-SILENCIO y P-REPITE siguen siendo para Juan, y a Juan le llega la invitación al juego del plan diario.
 
 ### 6.3 Avisos
 | ID | Aviso | Carril | Regla (código) | A quién |
 |---|---|---|---|---|
-| R1 | Caída con golpe en la cabeza | Rojo | golpe en la cabeza + (anticoagulante, pérdida de conocimiento, vómito o cefalea). Basado en NICE NG232. Si falta el criterio, se repregunta | Juan, Marta, Laura |
-| R2 | Fiebre con signos de alarma | Rojo | fiebre ≥38 °C + (rigidez, confusión o alucinación de inicio rápido) | Marta, Laura |
-| R3 | Medicación que no entra | Rojo | vómitos o no poder tragar + levodopa en el esquema | Juan, Marta |
-| R4 | Ideas de muerte o suicidio | Protocolo fijo | Mensaje fijo + Línea Vida 0800 0767 / *0767 (**verificar antes de la demo**). Sin texto libre del modelo | La persona |
-| A1 | Alucinación o delirio nuevo | Ámbar | primera mención en el historial | Equipo; Marta si lo habilitó; **nunca Juan si vino por el canal reservado** |
-| A2 | Síntoma nuevo tras cambio de medicación | Ámbar | primera mención dentro de las 8 semanas de `med_schedule.changed_at` | Equipo |
-| A3 | Episodios después de la toma | Ámbar | 3 episodios en 7 días en el mismo tramo | Equipo + sugerencia a Juan: "¿Querés que le avisemos a tu neuróloga para adelantar la consulta?" |
+| R1 | Caída con golpe en la cabeza | Rojo | golpe en la cabeza + (anticoagulante, pérdida de conocimiento, vómito o cefalea). Basado en NICE NG232. Si falta el criterio, se repregunta | Mensaje fijo a quien escribió; marcado en el informe |
+| R2 | Fiebre con signos de alarma | Rojo | fiebre ≥38 °C + (rigidez, confusión o alucinación de inicio rápido) | Mensaje fijo a quien escribió; marcado en el informe |
+| R3 | Medicación que no entra | Rojo | vómitos o no poder tragar + levodopa en el esquema | Mensaje fijo a quien escribió; marcado en el informe |
+| R4 | Ideas de muerte o suicidio | Protocolo fijo | Mensaje fijo con la Línea Vida 0800 0767 / *0767 (**verificar antes de la demo**). Sin texto libre del modelo | Mensaje fijo a quien escribió; marcado en el informe |
+| A1 | Alucinación o delirio nuevo | Ámbar | primera mención en el historial | Prioridad en el informe; no notifica a nadie (nunca a Juan) |
+| A2 | Síntoma nuevo tras cambio de medicación | Ámbar | primera mención dentro de las 8 semanas de `med_schedule.changed_at` | Prioridad en el informe |
+| A3 | Episodios después de la toma | Ámbar | 3 episodios en 7 días en el mismo tramo | Prioridad en el informe (sin sugerencia a Juan) |
 | V1 | Todo lo demás | Verde | — | Informe |
 
 ### 6.4 Canal reservado (código)
-`event.reserved = speaker_role in {"cuidador", "familiar"} and (entry.reserved_requested or domain in {"neuropsiquiatrico", "impulsos", "sexual"}) and consent(canal_reservado) activo`. Lo reservado va solo al equipo y a quien lo contó. Si un evento reservado dispara un rojo, el aviso nombra **los signos**, no el tema. Test obligatorio: ningún disparador × destinatario filtra hacia Juan.
+`event.reserved = speaker_role in {"cuidador", "familiar"} and (entry.reserved_requested or domain in {"neuropsiquiatrico", "impulsos", "sexual"}) and consent(canal_reservado) activo`. Lo reservado va solo al equipo (en el informe) y se le muestra a quien lo contó. Si un evento reservado dispara un rojo, el informe nombra **los signos**, no el tema. Test obligatorio: ningún disparador × destinatario filtra hacia Juan.
 
 ### 6.5 Contra la fatiga (`rules/budget.py`)
-- Juan, por día y sin contar rojos: **1 pregunta proactiva** y 1 repregunta.
-- Familia: 1 push de ámbar agrupado por día.
-- Silencio de 22 a 8 para todo lo que no sea rojo.
+- Marta: **1 pregunta por día** (los datos raros).
+- Juan: 1 pregunta proactiva (P-SILENCIO, P-REPITE) y 1 repregunta por día, y **1 invitación al juego por día** (plan diario, `config.DAILY_MAX_GAME_INVITES`).
+- Los avisos no mandan push.
+- Silencio de 22 a 8 para todas las push.
 - Inicio y "¿Quién sos?" dicen que **Entrecasa no es un servicio de emergencias**.
 
 ---
@@ -316,9 +322,10 @@ Temblor y discinesia: la ingesta los acepta, pero no se simulan ni se muestran; 
 El lienzo original ("Entrecasa — Diseño de app", claude.ai) es para que lo miren las personas; Claude Code trabaja con `design/`. Lo que sigue es el resumen.
 
 ### 9.1 Sistema visual
-- **Tipografía:** Atkinson Hyperlegible (Google Fonts), una sola familia. Juan: título 32–34, cuerpo 21–22. Familia: 18–19. Neuróloga: 15–16.
-- **Colores:** fondo `#F2F4F1` · superficie `#FFFFFF` · tinta `#17201B` · tinta suave `#4A5650` · pino (primario) `#1E5B4F` · pino claro `#DCEBE6` · pino oscuro (grabando) `#123A32` · biometría `#2F5FA8` / claro `#E1EAF7` · ámbar `#B45309` / fondo `#FCEFD9` / texto `#8A3F06` · rojo `#B42318` / fondo `#FDE4E1`.
-- **Radios:** tarjetas 20, botones 18–22, chips 10–14. Sin degradados ni sombras salvo la notificación.
+Los valores salen de `app/web/static/css/tokens.css` (tokens v3.1: cielo, vidrio y marino); si cambian ahí, se cambian acá.
+- **Tipografía:** pila del sistema, SF Pro en iPhone: `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif`. Una sola familia, cifras tabulares. Juan: título 32–34, cuerpo 21–22. Familia: 18–19. Neuróloga: 15–16.
+- **Colores:** fondo `#F3F6FA` · cielo `#9FBFEE` / `#C7DAF5` / `#E6EEF9` · vidrio `rgba(255,255,255,.62)` · superficie `#FFFFFF` · separador `#E7EBF1` · tinta `#0E1A2B` · tinta suave `#46536A` · tinta tenue `#56657E` / `#5F6D84` · **marino (acción principal)** `#0F1D33` · azul (biometría) `#2F6FD6` / oscuro `#1E4FA3` / claro `#E3EDFB` · ámbar `#B45309` / fondo `#FFF4E5` / texto `#8A3F06` · rojo `#C4291C` / fondo `#FDECEA` · ok `#1E7A45`. Ámbar y rojo, solo para avisos.
+- **Radios:** tarjetas 24; botones y chips en píldora (999). Degradado de cielo arriba de las pantallas del teléfono (rosado en la emergencia) y una sombra suave en las tarjetas (`--sombra`); nada más.
 - Iconos de trazo (lucide o equivalente), nunca emoji.
 
 ### 9.2 Principios
@@ -337,7 +344,6 @@ El lienzo original ("Entrecasa — Diseño de app", claude.ai) es para que lo mi
 | `/casa/anote/{entry_id}` | `Juan-Anote.html` (la familia ve "Lo que entendimos" en la misma pantalla de contar) |
 | `/casa/pregunta/{question_id}` | `Juan-Pregunta.html` |
 | `/casa/golpeteo` | `Juan-Juego.html` |
-| `/casa/emergencia/{alert_id}` | pantalla roja (DESIGN.md §4) |
 | `/casa/permisos` | interruptores de consentimiento (lista simple) |
 | `/neuro/informe/{patient_id}` | `Medico-Informe.html` (incluye la bandeja de avisos en la columna lateral) |
 | `/neuro/tecnica/{patient_id}` | vista técnica |
@@ -482,7 +488,7 @@ API (JSON; el contrato entre la app y el backend):
 |---|---|---|
 | `GET /api/people?patient_id=` | — | personas del paciente (para "¿Quién sos?") |
 | `GET /api/hoy/{person_id}` | — | `{now, role, greeting, steps_today, goal, next_dose, pending_question, last_understood, notifications_unread}` (familia: además `alerts`, `week_steps`, `logros`) |
-| `POST /api/entries` | multipart: `person_id`, `text` o `audio`, `occurred_hint?`, `question_id?`, `quick_reply?`, `reserved_requested?` | `{entry_id, transcript, understood: [{plain, when, domain}], red: RedResult?, alerts: [...]}`. **Un solo paso:** transcribe, rojos, extracción, reglas y avisos dentro del pedido |
+| `POST /api/entries` | multipart: `person_id`, `text` o `audio`, `occurred_hint?`, `question_id?`, `quick_reply?`, `reserved_requested?` | `{entry_id, transcript, understood: [{plain, when, domain}], red: RedResult?, alerts: [...], limit: str?}` (`red.text` es el mensaje fijo para quien escribió; `limit`, el texto fijo de `rules.limits` o `null`). **Un solo paso:** transcribe, rojos, extracción, reglas y avisos dentro del pedido; un rojo no corta la extracción |
 | `POST /api/entries/{id}/confirm` | — | `{ok}` (marca "Sí, está bien"; no vuelve a procesar) |
 | `POST /api/entries/{id}/correct` | `text` | igual que `POST /api/entries`; reemplaza los eventos de esa entrada |
 | `GET /api/questions/{id}` | — | `Question` + datos del gráfico del "por qué" |
@@ -492,7 +498,6 @@ API (JSON; el contrato entre la app y el backend):
 | `POST /api/tests` | `{person_id, type: "golpeteo", taps: [{t_ms, side}]}` | `GameResult` + últimas 6 sesiones |
 | `GET/POST /api/consents/{patient_id}` | interruptores | estado |
 | `POST /api/notifications/{id}/read` | — | `{ok}` |
-| `POST /api/alerts/{id}/ack` | — | `{ok, acked_at, goal_paused}`: botón "Estoy bien" de la emergencia; `acked_at = clock.now()` y la meta sale de pausa si no queda ningún rojo sin atender |
 | `GET /api/patients/{id}/report` | — | `Report` + metadatos |
 | `GET /api/patients/{id}/technical` | — | series de pasos por franja, tomas, desvíos, juego |
 | `GET /admin/clock/state` | — | `{now, offset_seconds}` (`/admin/clock` es el panel HTML) |
@@ -558,7 +563,7 @@ Mide la promesa: entender relatos de varias voces en rioplatense. **Franco escri
 En pantalla: el iPhone de Juan y el de Marta espejados, y la web de la neuróloga. Antes de subir, `scripts/precorrer_semana.py` pasa por el pipeline real, con el reloj, los relatos de lunes a viernes; en pantalla dice "procesado hoy a las HH:MM por el sistema".
 
 1. **0:00–0:20 · Problema.** "La neuróloga ve a Juan cada seis a doce meses. El 65% de quienes tienen delirios no se lo cuenta a su médico, y los cuidadores los reportan cuatro veces más que los pacientes."
-2. **0:20–0:55 · Proactividad, en vivo.** Inyectamos una caída de pasos (rotulada) → el iPhone de Juan vibra: "A la tarde caminaste menos que otros sábados. ¿Pasó algo?" → tocamos → "Por qué te pregunto" → Juan responde con la voz → "Anoté esto".
+2. **0:20–0:55 · Proactividad, en vivo.** Inyectamos una caída de pasos (rotulada) → el iPhone de Juan vibra: "A la tarde caminaste menos que otras tardes. ¿Pasó algo?" → tocamos → "Por qué te pregunto" → Juan responde con la voz → "Anoté esto".
 3. **0:55–1:35 · Segunda voz, con el jurado.** Un jurado graba como Marta desde el teléfono de Marta (le damos una tarjeta con una frase sugerida, "o algo parecido") → "Lo que entendimos" → ámbar en la web de la neuróloga. **El teléfono de Juan no muestra nada.** Recuadro: la búsqueda por palabras no la encuentra. **Regla:** si no responde en 20 s, se pasa a la pantalla ya procesada y se sigue hablando.
 4. **1:35–1:55 · Juego y familia.** El resultado del juego de Juan contra sus últimas veces, y el teléfono de Laura con el logro del jueves.
 5. **1:55–2:30 · Informe.** Resumen redactado, tres temas con las dos voces y lo que cargó el jurado ya adentro. Un clic lleva a la cita; la pestaña técnica muestra pasos contra tomas con los desvíos.
@@ -667,3 +672,11 @@ El plan por hora y las carpetas de cada uno están en `docs/ROADMAP.md`. Reparto
 | 01:15 | Pulsera: centrales (sueño, despertares, FC en reposo, minutos activos; las manda el simulador) y opcionales (se aceptan y guardan si llegan); temblor y discinesia no se simulan ni se muestran (requieren algoritmos validados); `describe` muestra solo lo presente con su source | Juanpe y Franco |
 | 01:15 | El cambio de pramipexol pasa al sábado 03/10 (el miércoles 14 queda a 11 días): la base del escenario queda antes del cambio y A2 marca solo lo nuevo; volver a correr el seed mueve la fecha si ya estaba | Juanpe y Franco |
 | 01:30 | `POST /admin/precorrer` y `GET /admin/precorrer/status`: el precorrido corre en el servidor de Railway (mismo `run` del script, sin cambios), con el scheduler en vivo en pausa mientras dura | Franco |
+| dom | §9.1 con la tipografía (pila del sistema, SF Pro) y la paleta marino reales de `app/web/static/css/tokens.css` | Juanpe |
+| dom | §14: la pregunta de la demo dice "otras tardes" en lugar de "otros sábados" | Juanpe |
+| dom | §5.2: Juan no recibe nada de lo reservado (ni notificación ni detalle) y lo acepta como consentimiento al configurar la app; el interruptor dice "Solo lo ve el equipo médico. Juan no recibe nada de esto." (app y `design/`) | Juanpe |
+| dom | §3: Juan tiene iPhone y una pulsera común que le regaló Laura (datos simulados y rotulados) | Juanpe |
+| dom | `eval/results.md`: filas del informe con la corrida v2 (5 de 5, 0 frases borradas) y nota del set chico etiquetado por una persona | Juanpe |
+| dom | `/neuro/tecnica`: series de la pulsera (sueño, despertares, FC en reposo, minutos activos) rotuladas "pulsera · simulado", debajo de los pasos | Juanpe |
+| 04:15 | Sin botón de pánico ni avisos a la neuróloga: los rojos solo muestran un mensaje fijo a quien escribe; el ámbar es prioridad en el informe; las push le preguntan a Marta ante datos raros. | Equipo |
+| 04:15 | Contrato: `POST /api/entries` suma `limit` (texto fijo de `rules.limits`); sale `POST /api/alerts/{id}/ack` y `/casa/emergencia`; un rojo no corta la extracción | Juanpe |

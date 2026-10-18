@@ -30,6 +30,10 @@ Disparador P-DESVIO, a Juan (paciente), sábado. Sin relatos que lo expliquen.
 Comparación: "otras tardes".
 → `{"question": "Juan, hoy caminaste menos que otras tardes. ¿Pasó algo?", "options": ["Estaba duro", "Me sentí bien, solo no salí", "No me acuerdo"]}`
 
+Disparador P-DESVIO, a Marta (cuidador): los datos raros del teléfono o la pulsera se le preguntan a ella.
+Comparación: "otras tardes".
+→ `{"question": "Marta, notamos que Juan caminó mucho menos hoy a la tarde que otras tardes. ¿Pasó algo?", "options": ["Estaba duro", "Se quedó en casa", "No sé"]}`
+
 Disparador P-NOCHES, a Marta (cuidador).
 → `{"question": "Marta, ¿cómo vienen las noches de Juan estos días?", "options": ["Se despierta mucho", "Duerme bastante bien", "No sabría decir"]}`
 

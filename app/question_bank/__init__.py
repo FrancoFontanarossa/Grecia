@@ -13,11 +13,20 @@ _PROACTIVE = {
     "P-REPITE": ("{name}, ¿cómo te sentiste estos días?", ["Bien", "Más o menos", "No me acuerdo"]),
 }
 _GENERIC = ("{name}, ¿cómo estás hoy?", ["Bien", "Más o menos", "No muy bien"])
+# Desde las 04:15 los datos raros (pasos, pulsera, juego) se le preguntan a Marta: sobre Juan, en tercera persona.
+_FAMILY = {
+    "P-DESVIO": ("Notamos que {patient} caminó menos que {baseline}. ¿Pasó algo?",
+                 ["Estaba duro", "Se quedó en casa", "No sé"]),
+    "P-SUENO": ("¿Cómo pasó {patient} la noche?", ["Se despertó mucho", "Durmió bien", "No sabría decir"]),
+    "P-JUEGO": ("Hoy el juego le salió más lento a {patient}. ¿Cómo lo ves?",
+                ["Igual que siempre", "Algo cansado", "Estaba duro"]),
+}
 
 
 def proactive(rule_id: str, patient_name: str, recipient_role: str, *,
               baseline_label: str = "otras tardes") -> QuestionText:
-    template, options = _PROACTIVE.get(rule_id, _GENERIC)
+    family = recipient_role != "paciente" and rule_id in _FAMILY
+    template, options = _FAMILY[rule_id] if family else _PROACTIVE.get(rule_id, _GENERIC)
     name = patient_name if recipient_role == "paciente" else ""
     question = template.format(name=name, patient=patient_name, baseline=baseline_label).lstrip(", ").strip()
     i = 1 if question.startswith("¿") else 0

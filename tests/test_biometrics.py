@@ -98,3 +98,18 @@ def test_without_demo_mode_dates_are_not_shifted(client):
     clock.set("2026-10-13T19:00:00-03:00")
     client.post("/api/biometrics/atajo", json=PAYLOAD, headers=OK)
     assert rows("SELECT window_start FROM biometric_syncs") == [{"window_start": "2026-10-17T16:00:00-03:00"}]
+
+
+def test_atajo_replaces_imported_hours_instead_of_adding(client):
+    """Las horas importadas que se pisan con la ventana del Atajo se reemplazan (antes se sumaban dos veces).
+    Lo inyectado (la caída rotulada) y lo de fuera de la ventana no se tocan."""
+    with db.connect() as conn:
+        conn.executemany('INSERT INTO biometrics (patient_id, kind, value, start, "end", source) VALUES (1, \'steps\', ?, ?, ?, ?)', [
+            (500, "2026-10-17T16:00:00-03:00", "2026-10-17T17:00:00-03:00", "importacion"),
+            (400, "2026-10-17T17:00:00-03:00", "2026-10-17T18:00:00-03:00", "inyectado"),
+            (900, "2026-10-17T12:00:00-03:00", "2026-10-17T13:00:00-03:00", "importacion"),
+        ])
+    client.post("/api/biometrics/atajo", json=PAYLOAD, headers=OK)
+    got = rows("SELECT value, source FROM biometrics ORDER BY start, source")
+    assert got == [{"value": 900.0, "source": "importacion"}, {"value": 312.0, "source": "atajo"},
+                   {"value": 400.0, "source": "inyectado"}, {"value": 48.0, "source": "atajo"}]

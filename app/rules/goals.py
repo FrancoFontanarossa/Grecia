@@ -1,6 +1,6 @@
 # Meta de pasos del día (CLAUDE.md §4.10 y §5.6). Un día con episodio o rojo es "día difícil": no cuenta
-# como fallado. Después de un rojo la meta queda en pausa (goals.paused_reason = "rojo") hasta que el rojo
-# se marque como atendido (alerts.acked_at); en pausa no se logra la meta, así nada empuja a moverse.
+# como fallado. El día de un rojo la meta queda en pausa (goals.paused_reason = "rojo"): en pausa no se logra la
+# meta, así nada empuja a moverse. Desde las 04:15 no hay "Estoy bien": la pausa dura solo ese día.
 from datetime import date, datetime, time, timedelta
 
 from app import db
@@ -35,8 +35,7 @@ def status(patient_id: int, day: date) -> GoalDay | None:
                                     "AND created_at >= ? AND created_at < ? LIMIT 1", (patient_id, start, end)).fetchone()
         episode_that_day = conn.execute("SELECT 1 FROM episodes WHERE patient_id = ? AND dose_time >= ? AND dose_time < ? "
                                         "LIMIT 1", (patient_id, start, end)).fetchone()
-        paused = conn.execute("SELECT 1 FROM alerts WHERE patient_id = ? AND lane = 'rojo' AND acked_at IS NULL "
-                              "AND created_at < ? LIMIT 1", (patient_id, end)).fetchone() is not None
+        paused = red_that_day is not None
         conn.execute("UPDATE goals SET paused_reason = ? WHERE id = ? AND coalesce(paused_reason, '') IN ('', 'rojo')",
                      ("rojo" if paused else None, goal["id"]))
         hard_day = bool(red_that_day or episode_that_day or paused)

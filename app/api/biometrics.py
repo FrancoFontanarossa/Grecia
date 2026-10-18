@@ -25,7 +25,12 @@ def atajo(payload: AtajoPayload, x_atajo_token: str | None = Header(default=None
     # En DEMO_MODE el iPhone manda horas reales: se corren al reloj de la demo.
     shift = clock.offset() if os.environ.get("DEMO_MODE") == "1" else timedelta(0)
     patient_id = config.ATAJO_PATIENT_ID
+    ws, we = payload.window_start + shift, payload.window_end + shift
     with db.connect() as conn:
+        # El Atajo trae los pasos reales de su ventana: reemplaza las horas importadas o del seed que se pisan con
+        # ella (antes se sumaban dos veces). Lo inyectado no se toca: es la caída rotulada de la demo.
+        conn.execute("DELETE FROM biometrics WHERE patient_id = ? AND kind = 'steps' AND source IN ('importacion', 'seed') "
+                     'AND start < ? AND "end" > ?', (patient_id, db.to_db(we), db.to_db(ws)))
         conn.executemany(
             'INSERT OR IGNORE INTO biometrics (patient_id, kind, value, start, "end", source) '
             "VALUES (?, ?, ?, ?, ?, 'atajo')",
@@ -35,8 +40,7 @@ def atajo(payload: AtajoPayload, x_atajo_token: str | None = Header(default=None
         conn.execute(
             "INSERT INTO biometric_syncs (patient_id, window_start, window_end, received_at, n_samples) "
             "VALUES (?, ?, ?, ?, ?)",
-            (patient_id, db.to_db(payload.window_start + shift), db.to_db(payload.window_end + shift),
-             db.to_db(clock.now()), len(payload.samples)),
+            (patient_id, db.to_db(ws), db.to_db(we), db.to_db(clock.now()), len(payload.samples)),
         )
     return {"received": len(payload.samples)}
 

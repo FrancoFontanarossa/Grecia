@@ -1,19 +1,11 @@
-{# v3.1 · contenido del resumen de Laura (se refresca cada 3 s). A Laura le llegan logros y rojos. #}
-{% set rojos = hoy.alerts | selectattr("lane", "equalto", "rojo") | list %}
+{# v3.1 · contenido del resumen de Laura (se refresca cada 3 s). Alcance de las 04:15: a Laura le llegan el resumen
+   y los logros; sin rojos ni ámbar. #}
 {% set f = hoy.week_facts %}
 {% set quien = "Papá" if person.relation in ("hija", "hijo") else hoy.patient.name %}
 {% from "casa/_nav.html" import permisos %}
 <div class="cont">
   <div class="top"><span class="marca">entrecasa<i>.</i></span><span class="top__der"><span class="fecha">{% if hoy.person.name == "Laura" %}Desde Salto{% else %}{{ hoy.now | fecha_larga }}{% endif %}</span>{{ permisos() }}</span></div>
-  <h1 class="lt" style="margin-top: 12px">{{ quien }} esta semana.<span class="tenue">{% if rojos %}Hay algo para atender ahora.{% else %}Todo tranquilo.{% endif %}</span></h1>
-
-  {% for a in rojos %}
-  <div class="vidrio" style="margin-top: 16px; padding: 18px 20px; background: rgba(253,236,234,.9)">
-    <span class="chip chip--chico chip--rojo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>Rojo · actuar ahora</span>
-    <p class="cuerpo" style="margin-top: 10px; color: #3D1A16">{{ a.text }}</p>
-    <a href="/casa/emergencia/{{ a.id }}" class="btn r" style="margin-top: 14px; min-height: 54px; font-size: 17px">Ver qué hacer</a>
-  </div>
-  {% endfor %}
+  <h1 class="lt" style="margin-top: 12px">{{ quien }} esta semana.<span class="tenue">Así viene la semana.</span></h1>
 
   <div class="vidrio" style="margin-top: 16px; padding: 18px 20px">
     <div class="etq" style="font-size: 14px">Hoy</div>
@@ -52,7 +44,7 @@
     <span class="pil">Contar</span>
   </a>
   <div class="dock" style="padding-top: 4px">
-    <p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3)">Próxima consulta: {{ hoy.next_visit | dia_largo }} {{ hoy.next_visit[8:10] | int }} con la {{ hoy.doctor }}.<br>Te avisamos de logros y de cualquier rojo.</p>
+    <p class="cap" style="text-align: center; font-size: 14px; color: var(--tinta3)">Próxima consulta: {{ hoy.next_visit | dia_largo }} {{ hoy.next_visit[8:10] | int }} con la {{ hoy.doctor }}.<br>Te avisamos de los logros.</p>
     <a href="/" class="pie-rol">Cambiar de persona</a>
   </div>
 </div>

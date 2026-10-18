@@ -185,6 +185,7 @@ def present(raw: dict) -> dict:
             "part": part_of(db.from_db(occurred) if occurred else None, vague),
             "night": night_of(e),
             "domain_label": e.get("domain_label") or taxonomy.label(e["domain"]), "symptom": e["symptom"],
+            "symptom_label": taxonomy.symptom_label(e["symptom"]),   # para leer: "que actúa los sueños"
             "negated": e["negated"], "foreign_attribution": e.get("foreign_attribution"), "quote": e["quote"],
             "plain": e.get("plain"),
             "is_new": e["is_new"], "reserved": e["reserved"],
@@ -201,7 +202,8 @@ def present(raw: dict) -> dict:
     for ev in out_events:
         if not ev["negated"]:
             by_symptom.setdefault((ev["symptom"], bool(ev["reserved"])), []).append(ev)
-    event_counts = [{"symptom": sym, "domain_label": evs[0]["domain_label"], "count": str(len(evs)),
+    event_counts = [{"symptom": sym, "symptom_label": taxonomy.symptom_label(sym), "domain_label": evs[0]["domain_label"],
+                     "count": str(len(evs)),
                      "dates": _join(sorted({ev["date"] or ev["told_date"] for ev in evs}, key=lambda d: (d[3:], d[:2]))),
                      "reserved": reserved}
                     for (sym, reserved), evs in sorted(by_symptom.items())]

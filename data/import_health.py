@@ -135,9 +135,12 @@ def prepare(samples: list[Sample], *, end: date, days: int, partial_last_day: bo
         for hour, part in split_by_hour(start, stop, value):
             if first <= hour.date() <= last:
                 hourly[hour + shift] += part
+    # La sincronización llega hasta la última hora con datos, no hasta la medianoche del último día: después de
+    # esa hora no sabemos (marcarla sincronizada contaba 0 pasos y daba desvíos fantasma, §7.3).
+    midnight = datetime.combine(end + timedelta(days=1), datetime.min.time(), config.TZ)
+    window_end = min(midnight, max(hourly) + timedelta(hours=1)) if hourly else midnight
     return Prepared(first, last, end, dict(hourly),
-                    datetime.combine(first + shift, datetime.min.time(), config.TZ),
-                    datetime.combine(end + timedelta(days=1), datetime.min.time(), config.TZ))
+                    datetime.combine(first + shift, datetime.min.time(), config.TZ), window_end)
 
 
 def write(p: Prepared, patient_id: int) -> None:

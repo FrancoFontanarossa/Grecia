@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta
 from statistics import median
 
-from app import config, db
+from app import config, db, taxonomy
 from app.config import TZ
 from app.models import Trigger
 from app.rules import biometrics, episodes, games
@@ -41,18 +41,29 @@ def deviation_why(d, *, weekend: bool) -> str:
 
 
 # ── Personas ────────────────────────────────────────────────────────────────────────────────────────────
+# Alcance de las 04:15: los disparadores biométricos (P-DESVIO, P-SUENO, P-JUEGO) le preguntan a la cuidadora
+# (Marta), con el motivo en cifras y en tercera persona; su respuesta entra como relato. P-SILENCIO y P-REPITE
+# siguen siendo para el paciente y P-NOCHES ya iba a Marta.
+BIOMETRIC_ASKS = "cuidador"
+
+
 def _person(conn, patient_id: int, role: str) -> int | None:
     row = conn.execute("SELECT id FROM people WHERE patient_id = ? AND role = ? ORDER BY id LIMIT 1",
                        (patient_id, role)).fetchone()
     return row["id"] if row else None
 
 
+def _patient_name(conn, patient_id: int) -> str:
+    row = conn.execute("SELECT name FROM people WHERE id = ? AND role = 'paciente'", (patient_id,)).fetchone()
+    return row["name"] if row else "el paciente"
+
+
 # ── Disparadores ────────────────────────────────────────────────────────────────────────────────────────
 def p_desvio(patient_id: int, now: datetime) -> list[Trigger]:
-    """Tomas de hoy cuya ventana ya terminó, que todavía no son episodio y tienen desvío."""
+    """Tomas de hoy cuya ventana ya terminó, que todavía no son episodio y tienen desvío. Se le pregunta a Marta."""
     day_start = now.astimezone(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
     with db.connect() as conn:
-        patient = _person(conn, patient_id, "paciente")
+        caregiver = _person(conn, patient_id, BIOMETRIC_ASKS)
         doses = [db.from_db(r["scheduled_at"]) for r in conn.execute(
             "SELECT scheduled_at FROM doses WHERE patient_id = ? AND scheduled_at >= ? AND scheduled_at < ? "
             "ORDER BY scheduled_at", (patient_id, db.to_db(day_start), db.to_db(day_start + timedelta(days=1))))]
@@ -60,12 +71,12 @@ def p_desvio(patient_id: int, now: datetime) -> list[Trigger]:
             "SELECT substr(dose_time, 1, 16) AS t FROM episodes WHERE patient_id = ?", (patient_id,))}
     out = []
     for dose in doses:
-        if patient is None or episodes.window(dose)[1] > now or db.to_db(dose)[:16] in done:
+        if caregiver is None or episodes.window(dose)[1] > now or db.to_db(dose)[:16] in done:
             continue
         d = episodes.deviation(patient_id, dose)
         if d is None:
             continue
-        out.append(Trigger(rule_id="P-DESVIO", patient_id=patient_id, to_person_id=patient,
+        out.append(Trigger(rule_id="P-DESVIO", patient_id=patient_id, to_person_id=caregiver,
                            facts=d.model_dump(mode="json"),
                            why=deviation_why(d, weekend=dose.weekday() in episodes.WEEKEND)))
     return out
@@ -115,20 +126,22 @@ def p_silencio(patient_id: int, now: datetime) -> list[Trigger]:
 def p_juego(patient_id: int, now: datetime) -> list[Trigger]:
     day = now.astimezone(TZ).date().isoformat()
     with db.connect() as conn:
-        patient = _person(conn, patient_id, "paciente")
+        caregiver = _person(conn, patient_id, BIOMETRIC_ASKS)
+        name = _patient_name(conn, patient_id)
         row = conn.execute("SELECT metrics, taken_at FROM tests WHERE patient_id = ? AND type = 'golpeteo' "
                            "AND substr(taken_at, 1, 10) = ? AND taken_at <= ? ORDER BY taken_at DESC LIMIT 1",
                            (patient_id, day, db.to_db(now))).fetchone()
-    if patient is None or row is None:
+    if caregiver is None or row is None:
         return []
     today = json.loads(row["metrics"])["taps_per_s"]
     history = games.history(patient_id, db.from_db(row["taken_at"]))
     if games.vs_history(today, history) != "mas_lento":
         return []
     med = median(history)
-    return [Trigger(rule_id="P-JUEGO", patient_id=patient_id, to_person_id=patient,
+    return [Trigger(rule_id="P-JUEGO", patient_id=patient_id, to_person_id=caregiver,
                     facts={"taps_per_s": today, "history_median": med, "history_n": len(history)},
-                    why=f"Hoy {fmt_dec(today)} toques por segundo; tus últimas {len(history)} veces ≈ {fmt_dec(med)}.")]
+                    why=f"Hoy {name} hizo {fmt_dec(today)} toques por segundo en el juego; sus últimas "
+                        f"{len(history)} veces ≈ {fmt_dec(med)}.")]
 
 
 def p_repite(patient_id: int, now: datetime) -> list[Trigger]:
@@ -150,13 +163,13 @@ def p_repite(patient_id: int, now: datetime) -> list[Trigger]:
     return [Trigger(rule_id="P-REPITE", patient_id=patient_id, to_person_id=patient,
                     facts={"symptom": r["symptom"], "times": r["n"], "window_days": config.REPEAT_WINDOW_DAYS},
                     why=f"En los últimos {config.REPEAT_WINDOW_DAYS} días tu familia contó {r['n']} veces algo de "
-                        f"«{r['symptom'].replace('_', ' ')}»; vos todavía no lo contaste.")
+                        f"«{taxonomy.symptom_label(r['symptom'])}»; vos todavía no lo contaste.")
             for r in family if r["symptom"] not in told_by_patient]
 
 
 def p_sueno(patient_id: int, now: datetime) -> list[Trigger]:
     """La noche que pasó, según la pulsera: despertares o sueño fuera de lo normal (rules.biometrics).
-    A la mañana y para el paciente. No lleva relatos: nada reservado puede entrar."""
+    A la mañana y para Marta. No lleva relatos: nada reservado puede entrar."""
     local = now.astimezone(TZ)
     start, end = config.SLEEP_TRIGGER_HOURS
     if not start <= local.hour < end:
@@ -165,15 +178,26 @@ def p_sueno(patient_id: int, now: datetime) -> list[Trigger]:
     if not found:
         return []
     with db.connect() as conn:
-        patient = _person(conn, patient_id, "paciente")
-    if patient is None:
+        caregiver = _person(conn, patient_id, BIOMETRIC_ASKS)
+        name = _patient_name(conn, patient_id)
+    if caregiver is None:
         return []
     found.sort(key=lambda a: config.SLEEP_TRIGGER_KINDS.index(a["kind"]))   # primero los despertares
     facts = {"night_of": local.date().isoformat(), "source": ", ".join(sorted({a["source"] for a in found})),
              "anomalies": [{k: a[k] for k in ("kind", "value", "source", "baseline_median", "baseline_n", "z")}
                            for a in found]}
-    return [Trigger(rule_id="P-SUENO", patient_id=patient_id, to_person_id=patient, facts=facts,
-                    why=" ".join(a["why"] for a in found))]
+    return [Trigger(rule_id="P-SUENO", patient_id=patient_id, to_person_id=caregiver, facts=facts,
+                    why=" ".join(sleep_why(a, name) for a in found))]
+
+
+def sleep_why(a: dict, name: str) -> str:
+    """El "por qué" de P-SUENO para Marta, en tercera persona (las cifras, de rules.biometrics)."""
+    if a["kind"] == "sleep_awakenings":
+        return f"Anoche {name} se despertó {fmt_int(a['value'])} veces; lo habitual son {fmt_int(a['baseline_median'])}."
+    if a["kind"] == "sleep_minutes":
+        return (f"Anoche {name} durmió {biometrics._hours(a['value'])}; "
+                f"lo habitual son {biometrics._hours(a['baseline_median'])}.")
+    return a["why"]
 
 
 RULES = (p_desvio, p_noches, p_silencio, p_juego, p_repite, p_sueno)

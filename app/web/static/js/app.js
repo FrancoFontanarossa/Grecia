@@ -33,6 +33,18 @@
       document.cookie = "ec_person=; path=/; max-age=0";
     }
   };
+  // QR del jurado (/prueba → /?prueba=1): el teléfono olvida el rol que tenía (por ejemplo, Juan) y queda en el
+  // paciente de prueba que puso el servidor en la cookie. Va antes de syncPerson, que si no lo volvería a poner.
+  (function pruebaReset() {
+    if (!/[?&]prueba=1(&|$)/.test(location.search)) return;
+    try {
+      localStorage.removeItem("ec_person");
+      localStorage.removeItem("ec_role");
+      localStorage.setItem("ec_patient", getCookie("ec_patient") || "");
+    } catch (e) {}
+    document.cookie = "ec_person=; path=/; max-age=0";
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  })();
   // Si iOS borró la cookie pero quedó localStorage (o al revés), se vuelven a alinear.
   (function syncPerson() {
     try {

@@ -64,9 +64,10 @@ def selector(request: Request, ec_patient: str | None = Cookie(default=None)):
 
 @router.get("/prueba")
 def prueba(request: Request):
-    """QR del jurado: crea o reutiliza el paciente de prueba y abre ¿Quién sos?."""
+    """QR del jurado: crea o reutiliza el paciente de prueba y abre ¿Quién sos?. Con ?prueba=1, app.js borra el rol
+    que el teléfono tenía guardado (si no, volvería a entrar como Juan) y deja el paciente de prueba."""
     patient_id = store.test_patient_id()
-    resp = RedirectResponse("/", status_code=303)
+    resp = RedirectResponse("/?prueba=1", status_code=303)
     resp.set_cookie("ec_patient", str(patient_id), max_age=31536000, samesite="lax")
     resp.delete_cookie("ec_person")
     return resp
@@ -148,34 +149,6 @@ def golpeteo(request: Request, desde: str = "", ec_person: str | None = Cookie(d
     return render(request, "casa/golpeteo.html", person=person, desde_pregunta=desde == "pregunta")
 
 
-# Pasos genéricos y seguros mientras rules.red no traiga los suyos (texto fijo, sin IA).
-# TODO(contrato): reemplazar por los pasos fijos de cada regla (R1–R4) cuando existan en app/rules/red.py.
-_RED_STEPS = [
-    "Llamá ahora a tu emergencia móvil y contá lo que pasó.",
-    "Quedate con {name} hasta que llegue la ayuda.",
-    "Tené a mano la lista de remedios que toma.",
-]
-
-
-@router.get("/casa/emergencia/{alert_id}")
-def emergencia(request: Request, alert_id: int, entry: int | None = None, ec_person: str | None = Cookie(default=None)):
-    person = current_person(ec_person)
-    if not person:
-        return RedirectResponse("/", status_code=303)
-    patient = store.patient_person(person["patient_id"]) or person
-    # La alerta de la tabla alerts (texto fijo de la regla). Si no está (alert_id 0), la pantalla usa el
-    # RedResult que devolvió POST /api/entries, guardado en el teléfono.
-    row = store.alert(alert_id) if alert_id else None
-    if row and person["id"] not in row["recipients"] and person["role"] != "neurologo":
-        row = None  # no es para esta persona
-    alert = {"id": alert_id, "text": row["text"] if row else None, "missing_criterion": None}
-    name = "él" if person["role"] == "paciente" else patient["name"]
-    steps = [s.format(name=name) for s in _RED_STEPS]
-    if person["role"] == "paciente":
-        steps[1] = "Quedate quieto y avisale a alguien de tu casa."
-    return render(request, "casa/emergencia.html", person=person, alert=alert, entry_id=entry, steps=steps)
-
-
 @router.get("/casa/permisos")
 def permisos(request: Request, ec_person: str | None = Cookie(default=None)):
     person = current_person(ec_person)
@@ -184,7 +157,7 @@ def permisos(request: Request, ec_person: str | None = Cookie(default=None)):
     consents = store.consents(person["patient_id"])
     by_person: dict[int, list] = {}
     for c in consents:
-        if c["kind"] in ("avisos", "logros"):
+        if c["kind"] == "logros":   # alcance de las 04:15: los avisos ya no le llegan a la familia
             by_person.setdefault(c["recipient_id"], []).append(c)
     kind_labels = {"avisos": ("Avisos para mirar", "Cuando algo cambia y conviene prestarle atención"),
                    "logros": ("Logros", "Cuando llegás a tu meta de pasos")}
