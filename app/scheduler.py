@@ -110,6 +110,9 @@ async def tick() -> list[int]:
     sent: list[int] = []
     async with _lock:
         now = await asyncio.to_thread(clock.now)
+        expired = await asyncio.to_thread(db.expire_questions, now.date())
+        if expired:
+            log.info("%s preguntas de días anteriores vencieron", expired)
         for patient in await asyncio.to_thread(db.patients):
             triggers = await asyncio.to_thread(evaluate, patient["id"], now)
             # Primero los desvíos: si hay pregunta del día, es para lo que midió el teléfono.

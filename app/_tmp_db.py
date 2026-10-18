@@ -201,6 +201,20 @@ def insert_episode(*, patient_id: int, dose_time: dt.datetime, deviation: dict |
         return cur.lastrowid
 
 
+def expire_questions(today: dt.date) -> int:
+    """Las preguntas vencen: las 'enviada' o 'pendiente' de un día anterior pasan a 'descartada'."""
+    with db.connect() as conn:
+        return conn.execute("UPDATE questions SET status = 'descartada' WHERE status IN ('enviada', 'pendiente')"
+                            " AND substr(sent_at, 1, 10) < ?", (today.isoformat(),)).rowcount
+
+
+def answerable_question(question_id: int, person_id: int) -> bool:
+    """¿Esta persona puede responder esta pregunta ahora? (es suya y no venció ni se respondió)."""
+    with db.connect() as conn:
+        q = conn.execute("SELECT to_person_id, status FROM questions WHERE id = ?", (question_id,)).fetchone()
+    return bool(q) and q["to_person_id"] == person_id and q["status"] in ("enviada", "pendiente")
+
+
 def answer_question(question_id: int, person_id: int, entry_id: int) -> bool:
     """Marca la pregunta como respondida y suma la entrada a su episodio. False si no es de esa persona."""
     import json

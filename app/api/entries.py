@@ -77,6 +77,10 @@ async def process_entry(*, person_id: int, text: str | None = None, audio: bytes
     else:
         modality = "toque" if quick_reply and not text else "texto"
 
+    if question_id is not None and not await asyncio.to_thread(db.answerable_question, question_id, person_id):
+        # Respuesta tardía (pregunta vencida, ya respondida o de otra persona): se guarda como relato común.
+        log.info("pregunta %s no está abierta para %s: el relato se guarda sin question_id", question_id, person_id)
+        question_id = None
     entry_id = await asyncio.to_thread(
         db.insert_entry, patient_id=person["patient_id"], speaker_id=person_id, modality=modality,
         raw_text=raw_text, question_id=question_id, occurred_hint=occurred_hint,

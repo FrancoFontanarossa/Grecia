@@ -88,7 +88,7 @@ def test_respuesta_rapida_se_guarda_como_toque(tmp_data_dir, monkeypatch):
                                           "reserved_requested": "true"})
     assert r.status_code == 200 and r.json()["transcript"] == "Me sentí trabado"
     e = _rows("entries")[0]
-    assert (e["modality"], e["question_id"], e["reserved_requested"]) == ("toque", 5, 1)
+    assert (e["modality"], e["question_id"], e["reserved_requested"]) == ("toque", None, 1)   # la 5 no existe
 
 
 def test_understood_sale_de_la_extraccion(tmp_data_dir, monkeypatch):

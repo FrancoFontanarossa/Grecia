@@ -53,7 +53,8 @@ def rows(sql, *args):
 
 
 def juan_questions(day: str):
-    return rows("SELECT * FROM questions WHERE to_person_id = 1 AND status IN ('enviada','pendiente','respondida') "
+    """Preguntas que se le hicieron a Juan ese día (las de días anteriores vencen: quedan 'descartada')."""
+    return rows("SELECT * FROM questions WHERE to_person_id = 1 AND question != '' "
                 "AND substr(sent_at, 1, 10) = ?", day)
 
 

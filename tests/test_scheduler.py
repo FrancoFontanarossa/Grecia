@@ -195,3 +195,38 @@ def test_el_desvio_va_primero_en_el_tick(at_1805, pushes, monkeypatch):
     sent = run_tick(monkeypatch, trigger(rule_id="P-REPITE", facts={}, why="x"), trigger())
     [q] = rows("SELECT rule_id FROM questions WHERE id = %d" % sent[0])
     assert q["rule_id"] == "P-DESVIO" and len(sent) == 1           # la única pregunta del día es la del desvío
+
+
+
+def test_las_preguntas_de_dias_anteriores_vencen(tmp_data_dir, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    clock.set("2026-10-16T18:05:00")
+    viernes = trigger(facts={**trigger().facts, "dose_time": "2026-10-16T16:00:00-03:00"})
+    [qid] = run_tick(monkeypatch, viernes)
+    clock.set("2026-10-17T10:00:00")
+    run_tick(monkeypatch)
+    assert rows(f"SELECT status FROM questions WHERE id = {qid}") == [{"status": "descartada"}]
+
+
+def test_respuesta_tardia_se_guarda_como_relato(tmp_data_dir, pushes, monkeypatch):
+    from app.main import app
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    clock.set("2026-10-16T18:05:00")
+    [qid] = run_tick(monkeypatch, trigger(facts={**trigger().facts, "dose_time": "2026-10-16T16:00:00-03:00"}))
+    clock.set("2026-10-17T10:00:00")
+    run_tick(monkeypatch)
+    r = TestClient(app).post("/api/entries", data={"person_id": 1, "question_id": qid, "quick_reply": "Estaba duro"})
+    assert r.status_code == 200
+    [e] = rows("SELECT question_id, raw_text FROM entries")
+    assert e == {"question_id": None, "raw_text": "Estaba duro"}
+    assert rows(f"SELECT status FROM questions WHERE id = {qid}") == [{"status": "descartada"}]
+
+
+def test_una_vencida_no_bloquea_la_caida_en_vivo_del_sabado(tmp_data_dir, pushes, monkeypatch):
+    monkeypatch.setattr(llm, "_create", FakeSonnet(GOOD))
+    clock.set("2026-10-16T18:05:00")
+    run_tick(monkeypatch, trigger(facts={**trigger().facts, "dose_time": "2026-10-16T16:00:00-03:00"}))
+    clock.set("2026-10-17T18:05:00")
+    [qid] = run_tick(monkeypatch, trigger())                      # la caída del sábado 16:00
+    q = rows(f"SELECT status, sent_at FROM questions WHERE id = {qid}")[0]
+    assert q["status"] == "enviada" and q["sent_at"].startswith("2026-10-17")
