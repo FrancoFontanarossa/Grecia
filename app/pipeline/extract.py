@@ -171,7 +171,12 @@ def _parse(response, raw_text: str, speaker_role: str | None = None) -> Extracti
     output = ExtractionOutput.model_validate(block.input)
     for ev in output.events:
         if ev.quote not in raw_text:
-            raise ValueError(f"La cita no está literal en el relato: {ev.quote!r}")
+            # El modelo a veces cambia solo la mayúscula inicial ("hace unos días…" por "Hace unos días…"): se toma
+            # el fragmento tal cual del relato, así la cita sigue siendo literal.
+            at = raw_text.lower().find(ev.quote.lower())
+            if at < 0:
+                raise ValueError(f"La cita no está literal en el relato: {ev.quote!r}")
+            ev.quote = raw_text[at:at + len(ev.quote)]
         if speaker_role == "paciente" and ev.attribution_by == "paciente":
             ev.attribution_by = "quien_cuenta"     # si cuenta el paciente, su propia minimización es de quien cuenta
         if ev.foreign_attribution and ev.attribution_by in ("paciente", "otra_persona") and "vos pens" in ev.plain.lower():
