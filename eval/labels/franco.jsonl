@@ -1,0 +1,30 @@
+{"id": "rel-01", "events": [{"domain": "motor", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-02", "events": [{"domain": "sueno", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "anoche"}]}
+{"id": "rel-03", "events": [{"domain": "neuropsiquiatrico", "speaker_role": "cuidador", "negated": false, "foreign_attribution": "el cansancio", "time": "ayer"}]}
+{"id": "rel-04", "events": [{"domain": "animo", "speaker_role": "familiar", "negated": false, "foreign_attribution": null, "time": "vago"}]}
+{"id": "rel-05", "events": [{"domain": "motor", "speaker_role": "paciente", "negated": true, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-06", "events": [{"domain": "autonomico", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "vago"}]}
+{"id": "rel-07", "events": [{"domain": "caidas", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-08", "events": [{"domain": "deglucion", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-09", "events": [{"domain": "cognitivo", "speaker_role": "familiar", "negated": false, "foreign_attribution": "la edad", "time": "vago"}]}
+{"id": "rel-10", "events": [{"domain": "dolor", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "vago"}]}
+{"id": "rel-11", "events": [{"domain": "sueno", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "anoche"}]}
+{"id": "rel-12", "events": []}
+{"id": "rel-13", "events": [{"domain": "autonomico", "speaker_role": "paciente", "negated": true, "foreign_attribution": null, "time": "ayer"}, {"domain": "motor", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "ayer"}]}
+{"id": "rel-14", "events": [{"domain": "impulsos", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "ayer"}]}
+{"id": "rel-15", "events": [{"domain": "motor", "speaker_role": "cuidador", "negated": false, "foreign_attribution": "el calor", "time": "vago"}]}
+{"id": "rel-16", "events": [{"domain": "sueno", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "anoche"}, {"domain": "sueno", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-17", "events": [{"domain": "animo", "speaker_role": "familiar", "negated": false, "foreign_attribution": "la medicación", "time": "vago"}]}
+{"id": "rel-18", "events": [{"domain": "neuropsiquiatrico", "speaker_role": "cuidador", "negated": true, "foreign_attribution": null, "time": "anoche"}]}
+{"id": "rel-19", "events": [{"domain": "autonomico", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "ninguna"}]}
+{"id": "rel-20", "events": [{"domain": "motor", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-21", "events": [{"domain": "motor", "speaker_role": "familiar", "negated": true, "foreign_attribution": null, "time": "vago"}]}
+{"id": "rel-22", "events": [{"domain": "animo", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "ninguna"}]}
+{"id": "rel-23", "events": [{"domain": "cognitivo", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "vago"}]}
+{"id": "rel-24", "events": [{"domain": "dolor", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "anoche"}]}
+{"id": "rel-25", "events": [{"domain": "neuropsiquiatrico", "speaker_role": "cuidador", "negated": false, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-26", "events": []}
+{"id": "rel-27", "events": [{"domain": "caidas", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "hoy"}]}
+{"id": "rel-28", "events": [{"domain": "autonomico", "speaker_role": "cuidador", "negated": false, "foreign_attribution": "las pastillas de la presión", "time": "ninguna"}]}
+{"id": "rel-29", "events": [{"domain": "sueno", "speaker_role": "paciente", "negated": false, "foreign_attribution": null, "time": "anoche"}]}
+{"id": "rel-30", "events": [{"domain": "motor", "speaker_role": "familiar", "negated": false, "foreign_attribution": "los nervios por la mudanza", "time": "vago"}]}
